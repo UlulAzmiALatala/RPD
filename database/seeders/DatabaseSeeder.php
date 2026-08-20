@@ -13,6 +13,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+
+        $this->call([
+            SatkerSeeder::class,
+        ]);
         // 1. Akun Admin (Tim Keuangan)
         User::create([
             'name' => 'Admin Keuangan',
