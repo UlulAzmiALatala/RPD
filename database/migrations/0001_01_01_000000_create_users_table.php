@@ -17,6 +17,11 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+
+            // Tambahan untuk role dan relasi satker
+            $table->enum('role', ['admin', 'satker'])->default('satker');
+            $table->string('kode_satker')->nullable(); // Boleh null untuk Admin
+
             $table->rememberToken();
             $table->timestamps();
         });

@@ -3,18 +3,24 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\Api\DashboardController;
 
-// 1. Halaman Utama / Landing Page
+
 Route::get('/', function () {
     return view('welcome');
 });
 
-// 2. Halaman Dashboard (Hanya bisa diakses jika sudah login)
-Route::get('/dashboard', function () {
-    return "<h1>Selamat Datang di Dashboard!</h1><p>Anda berhasil login.</p><form action='" . route('logout') . "' method='POST'>" . csrf_field() . "<button type='submit'>Logout</button></form>";
-})->middleware(['auth'])->name('dashboard');
+Route::middleware(['auth'])->group(function () {
 
-// 3. Fallback Route untuk mengalihkan rute /home bawaan Fortify ke /dashboard
+    // 1. Route untuk memuat halaman HTML + React
+    Route::get('/dashboard', function () {
+        return view('dashboard');
+    })->name('dashboard');
+
+    // 2. Route API untuk menyuplai data ke React
+    Route::get('/api/dashboard-data', [DashboardController::class, 'index'])->name('api.dashboard');
+});
+
 Route::get('/home', function () {
     return redirect('/dashboard');
 });
