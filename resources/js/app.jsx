@@ -5,8 +5,10 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // Import Pages
 import Dashboard from "./Pages/Dashboard";
-import InputTransaksi from "./Pages/InputTransaksi";
-import LaporanRealisasi from "./Pages/LaporanRealisasi"; // Tambahkan Import Ini
+import IndexTransaksi from "./Pages/Admin/Transaksi/Index";
+import LaporanRealisasi from "./Pages/LaporanRealisasi";
+import InputAnggaran from "./Pages/InputAnggaran";
+import LaporanBulanan from "./Pages/Admin/Laporan/LaporanBulanan"; // <-- Import Halaman Baru
 
 const rootElement = document.getElementById("app");
 if (rootElement) {
@@ -16,11 +18,16 @@ if (rootElement) {
         <BrowserRouter basename="/dashboard">
             <Routes>
                 <Route path="/" element={<Dashboard />} />
-                <Route path="/input-transaksi" element={<InputTransaksi />} />
+                <Route path="/input-anggaran" element={<InputAnggaran />} />
+                <Route path="/input-transaksi" element={<IndexTransaksi />} />
                 <Route
                     path="/laporan-realisasi"
                     element={<LaporanRealisasi />}
-                />{" "}
+                />
+
+                {/* Route Laporan Bulanan Baru */}
+                <Route path="/laporan-bulanan" element={<LaporanBulanan />} />
+
                 {/* Tambahkan Route Ini */}
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

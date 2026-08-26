@@ -139,81 +139,66 @@ class TransaksiController extends Controller
         $tahun = $request->query('tahun', date('Y'));
         $satkerId = $request->query('satker_id');
 
-        // Validasi agar satker_id wajib diisi untuk laporan ini
         if (!$satkerId) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Silakan pilih Satuan Kerja terlebih dahulu.'
-            ], 400);
+            return response()->json(['status' => 'error', 'message' => 'Silakan pilih Satuan Kerja terlebih dahulu.'], 400);
         }
 
-        // Ambil data detail Satker
         $satker = \App\Models\Satker::find($satkerId);
-
         if (!$satker) {
             return response()->json(['status' => 'error', 'message' => 'Satker tidak ditemukan.'], 404);
         }
 
-        // Ambil semua RPD untuk satker dan tahun terpilih
-        $rpdList = \App\Models\RencanaPenarikan::where('satker_id', $satkerId)
-            ->where('tahun', $tahun)
-            ->get()
-            ->keyBy('bulan'); // Jadikan bulan sebagai key array agar mudah dicari
-
-        // Ambil semua Realisasi untuk satker dan tahun terpilih
-        $realisasiList = \App\Models\Realisasi::where('satker_id', $satkerId)
-            ->where('tahun', $tahun)
-            ->get()
-            ->keyBy('bulan');
+        $rpdList = \App\Models\RencanaPenarikan::where('satker_id', $satkerId)->where('tahun', $tahun)->get()->keyBy('bulan');
+        $realisasiList = \App\Models\Realisasi::where('satker_id', $satkerId)->where('tahun', $tahun)->get()->keyBy('bulan');
 
         $laporan = [];
-        $totalDeviasi = 0;
+        $sumDeviasiSeluruhBulan = 0; // Untuk menghitung kumulatif
 
-        // Looping dari bulan 1 (Januari) sampai 12 (Desember)
         for ($bulan = 1; $bulan <= 12; $bulan++) {
-
-            // Ambil data jika ada, jika tidak set default 0
             $rpd = $rpdList->get($bulan);
             $realisasi = $realisasiList->get($bulan);
 
-            // Hitung total RPD per bulan (Gaji + Barang + Modal)
-            $totalRpdBulan = $rpd ? ($rpd->belanja_gaji + $rpd->belanja_barang + $rpd->belanja_modal) : 0;
+            // Ambil data (51 = Gaji, 52 = Barang, 53 = Modal)
+            $r51 = $rpd ? $rpd->belanja_gaji : 0;
+            $r52 = $rpd ? $rpd->belanja_barang : 0;
+            $r53 = $rpd ? $rpd->belanja_modal : 0;
+            $totRpd = $r51 + $r52 + $r53;
 
-            // Hitung total Realisasi per bulan
-            $totalRealisasiBulan = $realisasi ? ($realisasi->belanja_gaji + $realisasi->belanja_barang + $realisasi->belanja_modal) : 0;
+            $p51 = $realisasi ? $realisasi->belanja_gaji : 0;
+            $p52 = $realisasi ? $realisasi->belanja_barang : 0;
+            $p53 = $realisasi ? $realisasi->belanja_modal : 0;
+            $totReal = $p51 + $p52 + $p53;
 
-            // Hitung Deviasi (Selisih)
-            // Sesuai kaidah keuangan, Deviasi = Nilai absolut selisih antara Rencana dan Realisasi
-            $deviasi = abs($totalRpdBulan - $totalRealisasiBulan);
-            $totalDeviasi += $deviasi;
+            // Deviasi Nominal (Selisih Absolut)
+            $d51 = abs($r51 - $p51);
+            $d52 = abs($r52 - $p52);
+            $d53 = abs($r53 - $p53);
+            $totDeviasi = $d51 + $d52 + $d53;
 
-            // Hitung IKPA (Indikator Kinerja Pelaksanaan Anggaran) sederhana
-            // Jika RPD 0 dan Realisasi 0, IKPA = 100%. Jika RPD 0 tapi ada realisasi, IKPA = 0%
-            $ikpa = 100;
-            if ($totalRpdBulan > 0) {
-                // Rumus sederhana: (Realisasi / RPD) * 100, maksimal 100%
-                $persentase = ($totalRealisasiBulan / $totalRpdBulan) * 100;
-                // Dalam beberapa aturan, jika realisasi melebihi RPD, nilainya bisa berkurang. 
-                // Untuk tahap awal, kita batasi maksimal 100
-                $ikpa = $persentase > 100 ? 100 : round($persentase, 2);
-            } else if ($totalRpdBulan == 0 && $totalRealisasiBulan > 0) {
-                $ikpa = 0;
-            }
+            // % Deviasi per Jenis Belanja (Maksimal 100%)
+            $pd51 = $r51 > 0 ? min(($d51 / $r51) * 100, 100) : ($p51 > 0 ? 100 : 0);
+            $pd52 = $r52 > 0 ? min(($d52 / $r52) * 100, 100) : ($p52 > 0 ? 100 : 0);
+            $pd53 = $r53 > 0 ? min(($d53 / $r53) * 100, 100) : ($p53 > 0 ? 100 : 0);
+
+            // % Deviasi Seluruh Jenis Belanja (Bulan tsb)
+            $pdSeluruh = $totRpd > 0 ? min(($totDeviasi / $totRpd) * 100, 100) : ($totReal > 0 ? 100 : 0);
+
+            // Hitung Kumulatif & Rata-rata sesuai rumus DJPb
+            $sumDeviasiSeluruhBulan += $pdSeluruh;
+            $rataKumulatif = $sumDeviasiSeluruhBulan / $bulan;
+
+            // IKPA
+            $ikpa = 100 - $rataKumulatif;
 
             $laporan[] = [
                 'bulan' => $bulan,
-                'rpd_gaji' => $rpd ? $rpd->belanja_gaji : 0,
-                'rpd_barang' => $rpd ? $rpd->belanja_barang : 0,
-                'rpd_modal' => $rpd ? $rpd->belanja_modal : 0,
-                'rpd_total' => $totalRpdBulan,
-
-                'realisasi_gaji' => $realisasi ? $realisasi->belanja_gaji : 0,
-                'realisasi_barang' => $realisasi ? $realisasi->belanja_barang : 0,
-                'realisasi_modal' => $realisasi ? $realisasi->belanja_modal : 0,
-                'realisasi_total' => $totalRealisasiBulan,
-
-                'deviasi' => $deviasi,
-                'ikpa' => $ikpa
+                'rencana' => ['b51' => $r51, 'b52' => $r52, 'b53' => $r53],
+                'realisasi' => ['b51' => $p51, 'b52' => $p52, 'b53' => $p53],
+                'deviasi' => ['b51' => $d51, 'b52' => $d52, 'b53' => $d53],
+                'persen_deviasi' => ['b51' => round($pd51, 2), 'b52' => round($pd52, 2), 'b53' => round($pd53, 2)],
+                'persen_seluruh' => round($pdSeluruh, 2),
+                'rata_kumulatif' => round($rataKumulatif, 2),
+                'ikpa' => round($ikpa, 2)
             ];
         }
 
@@ -222,10 +207,7 @@ class TransaksiController extends Controller
             'data' => [
                 'satker' => $satker,
                 'tahun' => $tahun,
-                'laporan_bulanan' => $laporan,
-                'summary' => [
-                    'total_deviasi' => $totalDeviasi
-                ]
+                'laporan_bulanan' => $laporan
             ]
         ]);
     }

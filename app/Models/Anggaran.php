@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Anggaran extends Model
 {
@@ -15,11 +14,13 @@ class Anggaran extends Model
         'tahun',
         'belanja_gaji',
         'belanja_barang',
-        'belanja_modal'
+        'belanja_modal',
+        'total_pagu',
+        'pagu_blokir',
+        'pagu_efektif'
     ];
 
-    // Relasi: Anggaran ini milik 1 Satker
-    public function satker(): BelongsTo
+    public function satker()
     {
         return $this->belongsTo(Satker::class);
     }

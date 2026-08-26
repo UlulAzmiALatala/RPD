@@ -16,7 +16,8 @@ export default function LaporanRealisasi() {
         axios
             .get(`/api/dashboard-data?tahun=${tahun}`)
             .then((response) => {
-                setSatkers(response.data.data);
+                // Pastikan merujuk ke tabel_satker agar tidak error map()
+                setSatkers(response.data.data.tabel_satker);
             })
             .catch((error) => console.error("Gagal memuat list satker", error));
     }, [tahun]);
@@ -52,36 +53,17 @@ export default function LaporanRealisasi() {
             });
     };
 
-    const namaBulan = (bulan) => {
-        const nama = [
-            "",
-            "Januari",
-            "Februari",
-            "Maret",
-            "April",
-            "Mei",
-            "Juni",
-            "Juli",
-            "Agustus",
-            "September",
-            "Oktober",
-            "November",
-            "Desember",
-        ];
-        return nama[bulan];
-    };
-
     const formatRp = (angka) => {
         return new Intl.NumberFormat("id-ID").format(angka);
     };
 
     return (
         <MainLayout tahun={tahun}>
-            <div className="space-y-6 max-w-7xl mx-auto">
+            <div className="space-y-6 max-w-full mx-auto">
                 {/* --- FILTER SECTION --- */}
                 <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-400">
                     <h2 className="text-xl font-bold text-[#0A192F] mb-4">
-                        Laporan Realisasi Anggaran per Satuan Kerja
+                        Detail Indikator Halaman 3 DIPA (Realisasi Anggaran)
                     </h2>
 
                     <form
@@ -146,7 +128,7 @@ export default function LaporanRealisasi() {
                         <div className="flex justify-between items-center mb-4">
                             <div>
                                 <h3 className="text-lg font-bold text-[#0A192F]">
-                                    Tabel Rincian RPD vs Realisasi
+                                    Tabel Rincian RPD vs Realisasi (Format DJPb)
                                 </h3>
                                 <p className="text-sm text-gray-600">
                                     Satker:{" "}
@@ -176,71 +158,98 @@ export default function LaporanRealisasi() {
                         </div>
 
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200 text-sm border">
-                                <thead>
-                                    {/* Header Row 1 - Grouping */}
+                            <table className="min-w-full divide-y divide-gray-200 text-xs border border-gray-400">
+                                <thead className="bg-gray-100 text-[#0A192F] text-center font-bold">
                                     <tr>
                                         <th
                                             rowSpan="2"
-                                            className="px-3 py-3 bg-[#0A192F] text-white text-left font-semibold border-r border-gray-600"
+                                            className="px-2 py-3 border border-gray-300 align-middle"
                                         >
-                                            Bulan
+                                            Periode
                                         </th>
                                         <th
-                                            colSpan="4"
-                                            className="px-3 py-2 bg-blue-900 text-white text-center font-semibold border-r border-gray-600"
+                                            colSpan="3"
+                                            className="px-2 py-2 border border-gray-300"
                                         >
-                                            Rencana Penarikan Dana (RPD)
+                                            Rencana Penarikan
                                         </th>
                                         <th
-                                            colSpan="4"
-                                            className="px-3 py-2 bg-green-800 text-white text-center font-semibold border-r border-gray-600"
+                                            colSpan="3"
+                                            className="px-2 py-2 border border-gray-300 bg-green-50"
                                         >
-                                            Realisasi Anggaran
+                                            Penyerapan
                                         </th>
                                         <th
-                                            colSpan="2"
-                                            className="px-3 py-2 bg-yellow-600 text-white text-center font-semibold"
+                                            colSpan="3"
+                                            className="px-2 py-2 border border-gray-300 bg-red-50"
                                         >
-                                            Kinerja & Deviasi
+                                            Deviasi
+                                        </th>
+                                        <th
+                                            colSpan="3"
+                                            className="px-2 py-2 border border-gray-300 bg-yellow-50"
+                                        >
+                                            % Deviasi
+                                        </th>
+                                        <th
+                                            rowSpan="2"
+                                            className="px-2 py-3 border border-gray-300 bg-blue-50 align-middle"
+                                        >
+                                            % Deviasi Seluruh J.Bel
+                                        </th>
+                                        <th
+                                            rowSpan="2"
+                                            className="px-2 py-3 border border-gray-300 bg-blue-50 align-middle"
+                                        >
+                                            % Rata-Rata Deviasi Kumulatif
+                                        </th>
+                                        <th
+                                            rowSpan="2"
+                                            className="px-2 py-3 border border-gray-300 bg-purple-50 align-middle"
+                                        >
+                                            Nilai IKPA
                                         </th>
                                     </tr>
-                                    {/* Header Row 2 - Sub Columns */}
                                     <tr>
-                                        {/* RPD Columns */}
-                                        <th className="px-3 py-2 bg-blue-800 text-white font-medium text-right border-t border-blue-700">
-                                            Gaji
+                                        {/* Rencana 51, 52, 53 */}
+                                        <th className="px-2 py-1 border border-gray-300">
+                                            51
                                         </th>
-                                        <th className="px-3 py-2 bg-blue-800 text-white font-medium text-right border-t border-blue-700">
-                                            Barang
+                                        <th className="px-2 py-1 border border-gray-300">
+                                            52
                                         </th>
-                                        <th className="px-3 py-2 bg-blue-800 text-white font-medium text-right border-t border-blue-700">
-                                            Modal
+                                        <th className="px-2 py-1 border border-gray-300">
+                                            53
                                         </th>
-                                        <th className="px-3 py-2 bg-blue-700 text-white font-bold text-right border-t border-blue-600 border-r border-gray-600">
-                                            Total RPD
+                                        {/* Penyerapan 51, 52, 53 */}
+                                        <th className="px-2 py-1 border border-gray-300 bg-green-50">
+                                            51
                                         </th>
-
-                                        {/* Realisasi Columns */}
-                                        <th className="px-3 py-2 bg-green-700 text-white font-medium text-right border-t border-green-600">
-                                            Gaji
+                                        <th className="px-2 py-1 border border-gray-300 bg-green-50">
+                                            52
                                         </th>
-                                        <th className="px-3 py-2 bg-green-700 text-white font-medium text-right border-t border-green-600">
-                                            Barang
+                                        <th className="px-2 py-1 border border-gray-300 bg-green-50">
+                                            53
                                         </th>
-                                        <th className="px-3 py-2 bg-green-700 text-white font-medium text-right border-t border-green-600">
-                                            Modal
+                                        {/* Deviasi 51, 52, 53 */}
+                                        <th className="px-2 py-1 border border-gray-300 bg-red-50">
+                                            51
                                         </th>
-                                        <th className="px-3 py-2 bg-green-600 text-white font-bold text-right border-t border-green-500 border-r border-gray-600">
-                                            Total Realisasi
+                                        <th className="px-2 py-1 border border-gray-300 bg-red-50">
+                                            52
                                         </th>
-
-                                        {/* Deviasi & IKPA */}
-                                        <th className="px-3 py-2 bg-yellow-500 text-white font-bold text-right border-t border-yellow-400">
-                                            Deviasi (Rp)
+                                        <th className="px-2 py-1 border border-gray-300 bg-red-50">
+                                            53
                                         </th>
-                                        <th className="px-3 py-2 bg-yellow-500 text-white font-bold text-center border-t border-yellow-400">
-                                            IKPA %
+                                        {/* % Deviasi 51, 52, 53 */}
+                                        <th className="px-2 py-1 border border-gray-300 bg-yellow-50">
+                                            51
+                                        </th>
+                                        <th className="px-2 py-1 border border-gray-300 bg-yellow-50">
+                                            52
+                                        </th>
+                                        <th className="px-2 py-1 border border-gray-300 bg-yellow-50">
+                                            53
                                         </th>
                                     </tr>
                                 </thead>
@@ -248,100 +257,79 @@ export default function LaporanRealisasi() {
                                     {laporanData.laporan_bulanan.map((row) => (
                                         <tr
                                             key={row.bulan}
-                                            className="hover:bg-gray-50"
+                                            className="hover:bg-gray-50 text-right"
                                         >
-                                            <td className="px-3 py-3 font-medium text-gray-900 border-r border-gray-200">
-                                                {namaBulan(row.bulan)}
+                                            <td className="px-2 py-2 border border-gray-200 text-center font-medium text-gray-900">
+                                                {row.bulan
+                                                    .toString()
+                                                    .padStart(2, "0")}
                                             </td>
 
-                                            {/* RPD Data */}
-                                            <td className="px-3 py-3 text-right text-gray-700 bg-blue-50/30">
-                                                {formatRp(row.rpd_gaji)}
+                                            {/* Rencana */}
+                                            <td className="px-2 py-2 border border-gray-200">
+                                                {formatRp(row.rencana.b51)}
                                             </td>
-                                            <td className="px-3 py-3 text-right text-gray-700 bg-blue-50/30">
-                                                {formatRp(row.rpd_barang)}
+                                            <td className="px-2 py-2 border border-gray-200">
+                                                {formatRp(row.rencana.b52)}
                                             </td>
-                                            <td className="px-3 py-3 text-right text-gray-700 bg-blue-50/30">
-                                                {formatRp(row.rpd_modal)}
-                                            </td>
-                                            <td className="px-3 py-3 text-right font-bold text-[#0A192F] bg-blue-50 border-r border-gray-200">
-                                                {formatRp(row.rpd_total)}
+                                            <td className="px-2 py-2 border border-gray-200">
+                                                {formatRp(row.rencana.b53)}
                                             </td>
 
-                                            {/* Realisasi Data */}
-                                            <td className="px-3 py-3 text-right text-gray-700 bg-green-50/30">
-                                                {formatRp(row.realisasi_gaji)}
+                                            {/* Penyerapan */}
+                                            <td className="px-2 py-2 border border-gray-200 bg-green-50/20">
+                                                {formatRp(row.realisasi.b51)}
                                             </td>
-                                            <td className="px-3 py-3 text-right text-gray-700 bg-green-50/30">
-                                                {formatRp(row.realisasi_barang)}
+                                            <td className="px-2 py-2 border border-gray-200 bg-green-50/20">
+                                                {formatRp(row.realisasi.b52)}
                                             </td>
-                                            <td className="px-3 py-3 text-right text-gray-700 bg-green-50/30">
-                                                {formatRp(row.realisasi_modal)}
-                                            </td>
-                                            <td className="px-3 py-3 text-right font-bold text-green-700 bg-green-50 border-r border-gray-200">
-                                                {formatRp(row.realisasi_total)}
+                                            <td className="px-2 py-2 border border-gray-200 bg-green-50/20">
+                                                {formatRp(row.realisasi.b53)}
                                             </td>
 
-                                            {/* Deviasi & IKPA */}
-                                            <td className="px-3 py-3 text-right font-semibold text-red-600">
-                                                {formatRp(row.deviasi)}
+                                            {/* Deviasi Nominal */}
+                                            <td className="px-2 py-2 border border-gray-200 bg-red-50/20 text-red-700">
+                                                {formatRp(row.deviasi.b51)}
+                                            </td>
+                                            <td className="px-2 py-2 border border-gray-200 bg-red-50/20 text-red-700">
+                                                {formatRp(row.deviasi.b52)}
+                                            </td>
+                                            <td className="px-2 py-2 border border-gray-200 bg-red-50/20 text-red-700">
+                                                {formatRp(row.deviasi.b53)}
+                                            </td>
+
+                                            {/* % Deviasi */}
+                                            <td className="px-2 py-2 border border-gray-200 bg-yellow-50/30">
+                                                {row.persen_deviasi.b51.toFixed(
+                                                    2,
+                                                )}
+                                            </td>
+                                            <td className="px-2 py-2 border border-gray-200 bg-yellow-50/30">
+                                                {row.persen_deviasi.b52.toFixed(
+                                                    2,
+                                                )}
+                                            </td>
+                                            <td className="px-2 py-2 border border-gray-200 bg-yellow-50/30">
+                                                {row.persen_deviasi.b53.toFixed(
+                                                    2,
+                                                )}
+                                            </td>
+
+                                            {/* Kumulatif & IKPA */}
+                                            <td className="px-2 py-2 border border-gray-200 bg-blue-50/30 font-semibold">
+                                                {row.persen_seluruh.toFixed(2)}
+                                            </td>
+                                            <td className="px-2 py-2 border border-gray-200 bg-blue-50/30 font-semibold">
+                                                {row.rata_kumulatif.toFixed(2)}
                                             </td>
                                             <td
-                                                className={`px-3 py-3 text-center font-bold ${
-                                                    row.ikpa >= 90
-                                                        ? "text-green-600"
-                                                        : row.ikpa >= 75
-                                                          ? "text-yellow-600"
-                                                          : "text-red-600"
-                                                }`}
+                                                className={`px-2 py-2 border border-gray-200 font-bold ${row.ikpa >= 90 ? "text-green-700 bg-purple-50/40" : "text-red-600 bg-purple-50/40"}`}
                                             >
-                                                {row.ikpa}%
+                                                {row.ikpa.toFixed(2)}
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
-                                {/* Optional Footer untuk Total Setahun */}
-                                <tfoot className="bg-gray-100 font-bold border-t-2 border-gray-400">
-                                    <tr>
-                                        <td className="px-3 py-3 text-right border-r border-gray-300">
-                                            TOTAL
-                                        </td>
-                                        <td
-                                            colSpan="3"
-                                            className="bg-blue-50/50"
-                                        ></td>
-                                        <td className="px-3 py-3 text-right text-[#0A192F] bg-blue-100 border-r border-gray-300">
-                                            {formatRp(
-                                                laporanData.laporan_bulanan.reduce(
-                                                    (sum, item) =>
-                                                        sum + item.rpd_total,
-                                                    0,
-                                                ),
-                                            )}
-                                        </td>
-                                        <td
-                                            colSpan="3"
-                                            className="bg-green-50/50"
-                                        ></td>
-                                        <td className="px-3 py-3 text-right text-green-800 bg-green-100 border-r border-gray-300">
-                                            {formatRp(
-                                                laporanData.laporan_bulanan.reduce(
-                                                    (sum, item) =>
-                                                        sum +
-                                                        item.realisasi_total,
-                                                    0,
-                                                ),
-                                            )}
-                                        </td>
-                                        <td className="px-3 py-3 text-right text-red-700 bg-yellow-50">
-                                            {formatRp(
-                                                laporanData.summary
-                                                    .total_deviasi,
-                                            )}
-                                        </td>
-                                        <td></td>
-                                    </tr>
-                                </tfoot>
                             </table>
                         </div>
                     </div>
