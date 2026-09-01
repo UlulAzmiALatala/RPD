@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import MainLayout from "../Layouts/MainLayout";
+import MainLayout from "../../../Layouts/MainLayout";
 
 export default function LaporanRealisasi() {
     const [tahun, setTahun] = useState(new Date().getFullYear().toString());

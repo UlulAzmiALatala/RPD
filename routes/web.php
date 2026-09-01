@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\TransaksiController;
 use App\Http\Controllers\Api\AnggaranController;
-use App\Http\Controllers\Api\LaporanBulananController; // <-- Import Controller Baru
+use App\Http\Controllers\Api\LaporanBulananController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -37,11 +37,13 @@ Route::middleware(['auth'])->group(function () {
 
     // Route API Laporan
     Route::get('/api/laporan/realisasi-satker', [TransaksiController::class, 'getLaporanRealisasi']);
-    Route::get('/api/laporan/bulanan', [LaporanBulananController::class, 'index']); // <-- Route Laporan Bulanan Baru
+    Route::get('/api/laporan/bulanan', [LaporanBulananController::class, 'index']);
 
     // Route API Master Anggaran
     Route::get('/api/anggaran', [AnggaranController::class, 'index']);
     Route::post('/api/anggaran', [AnggaranController::class, 'store']);
+    Route::put('/api/anggaran/{id}', [AnggaranController::class, 'update']); // <-- Tambahan untuk Edit
+    Route::delete('/api/anggaran/{id}', [AnggaranController::class, 'destroy']); // <-- Tambahan untuk Hapus
 });
 
 Route::get('/home', function () {
