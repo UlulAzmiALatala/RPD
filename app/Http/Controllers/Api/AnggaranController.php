@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Anggaran;
+use App\Models\ActivityLog; // <-- IMPORT MODEL CCTV KITA
+use App\Models\Satker;      // <-- Import Satker untuk ambil nama satkernya di Log
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -15,10 +17,8 @@ class AnggaranController extends Controller
         try {
             $search = $request->query('search');
 
-            // Query data anggaran beserta relasi satkernya
             $query = Anggaran::with('satker')->orderBy('created_at', 'desc');
 
-            // Filter Pencarian (Cari berdasarkan Nama Satker, Kode, atau Tahun)
             if ($search) {
                 $query->whereHas('satker', function ($q) use ($search) {
                     $q->where('nama_satker', 'like', "%{$search}%")
@@ -26,7 +26,6 @@ class AnggaranController extends Controller
                 })->orWhere('tahun', 'like', "%{$search}%");
             }
 
-            // Gunakan paginate Laravel (10 data per halaman)
             $anggarans = $query->paginate(10);
 
             return response()->json($anggarans);
@@ -53,7 +52,6 @@ class AnggaranController extends Controller
             return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
         }
 
-        // Cek apakah data satker di tahun tersebut sudah ada
         $exists = Anggaran::where('satker_id', $request->satker_id)->where('tahun', $request->tahun)->exists();
         if ($exists) {
             return response()->json(['status' => 'error', 'message' => 'Pagu Anggaran untuk Satker dan Tahun ini sudah ada! Gunakan fitur edit.'], 422);
@@ -62,9 +60,8 @@ class AnggaranController extends Controller
         $belanjaGaji = $request->belanja_gaji ?: 0;
         $belanjaBarang = $request->belanja_barang ?: 0;
         $belanjaModal = $request->belanja_modal ?: 0;
-        $paguBlokir = 0; // Default 0 saat pertama kali tambah
+        $paguBlokir = 0;
 
-        // --- KALKULASI OTOMATIS ---
         $totalPagu = $belanjaGaji + $belanjaBarang + $belanjaModal;
         $paguEfektif = $totalPagu - $paguBlokir;
 
@@ -78,6 +75,16 @@ class AnggaranController extends Controller
             'pagu_blokir' => $paguBlokir,
             'pagu_efektif' => $paguEfektif,
         ]);
+
+        // ==========================================
+        // 🔴 REKAM CCTV (CREATE)
+        // ==========================================
+        $namaSatker = Satker::find($request->satker_id)->nama_satker ?? 'Unknown Satker';
+        ActivityLog::record(
+            'CREATE',
+            'MASTER ANGGARAN',
+            "Menambahkan Pagu DIPA Awal Tahun {$request->tahun} untuk Satker {$namaSatker} senilai Rp " . number_format($totalPagu, 0, ',', '.')
+        );
 
         return response()->json([
             'status' => 'success',
@@ -110,10 +117,8 @@ class AnggaranController extends Controller
         $belanjaModal = $request->belanja_modal;
         $paguBlokir = $request->pagu_blokir;
 
-        // --- KALKULASI OTOMATIS ---
         $totalPagu = $belanjaGaji + $belanjaBarang + $belanjaModal;
 
-        // Validasi ekstra: Pagu Blokir logikanya tidak mungkin lebih besar dari Total Pagu
         if ($paguBlokir > $totalPagu) {
             return response()->json(['status' => 'error', 'message' => 'Nominal Pagu Blokir tidak boleh melebihi Total Pagu!'], 422);
         }
@@ -128,6 +133,16 @@ class AnggaranController extends Controller
             'pagu_blokir' => $paguBlokir,
             'pagu_efektif' => $paguEfektif,
         ]);
+
+        // ==========================================
+        // 🔴 REKAM CCTV (UPDATE)
+        // ==========================================
+        $namaSatker = Satker::find($anggaran->satker_id)->nama_satker ?? 'Unknown Satker';
+        ActivityLog::record(
+            'UPDATE',
+            'MASTER ANGGARAN',
+            "Mengubah detail Pagu DIPA Tahun {$anggaran->tahun} milik Satker {$namaSatker}. (Total Pagu Baru: Rp " . number_format($totalPagu, 0, ',', '.') . ")"
+        );
 
         return response()->json([
             'status' => 'success',
@@ -144,7 +159,21 @@ class AnggaranController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Data Anggaran tidak ditemukan.'], 404);
         }
 
+        // Ambil data sebelum dihapus buat modal CCTV
+        $tahun = $anggaran->tahun;
+        $namaSatker = Satker::find($anggaran->satker_id)->nama_satker ?? 'Unknown Satker';
+        $totalHapus = $anggaran->total_pagu;
+
         $anggaran->delete();
+
+        // ==========================================
+        // 🔴 REKAM CCTV (DELETE)
+        // ==========================================
+        ActivityLog::record(
+            'DELETE',
+            'MASTER ANGGARAN',
+            "Menghapus seluruh data Pagu DIPA Tahun {$tahun} milik Satker {$namaSatker}. (Nominal yang dihapus: Rp " . number_format($totalHapus, 0, ',', '.') . ")"
+        );
 
         return response()->json([
             'status' => 'success',

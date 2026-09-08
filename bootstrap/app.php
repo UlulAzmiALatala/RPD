@@ -7,15 +7,19 @@ use Illuminate\Foundation\Configuration\Middleware;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__ . '/../routes/web.php',
+        api: __DIR__ . '/../routes/api.php',
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
 
-        // Tambahkan baris ini untuk mematikan CSRF di route API kita
+        // 1. INI KUNCI JAWABANNYA! (Mengizinkan API menerima Cookie Sanctum dari React SPA)
+        $middleware->statefulApi();
+
+        // 2. Mematikan CSRF di route API lama kamu
         $middleware->validateCsrfTokens(except: [
             'api/transaksi/*',
-            'api/anggaran/*', // Sekalian untuk master anggaran
+            'api/anggaran/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

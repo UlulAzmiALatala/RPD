@@ -1,8 +1,20 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 
-export default function Sidebar({ sidebarOpen, sidebarWidth, isLoaded }) {
+// Tangkap props authUser dari MainLayout
+export default function Sidebar({
+    sidebarOpen,
+    sidebarWidth,
+    isLoaded,
+    authUser,
+}) {
     const location = useLocation();
+
+    // ==========================================
+    // LOGIKA ROLE / JABATAN
+    // ==========================================
+    // Kita pastikan defaultnya false jika data belum ke-load
+    const isAdmin = authUser?.role === "admin";
 
     const getLinkClass = (path) => {
         const isActive = location.pathname === path;
@@ -31,7 +43,7 @@ export default function Sidebar({ sidebarOpen, sidebarWidth, isLoaded }) {
                 {/* HEADER LOGO */}
                 <div className="flex items-center justify-center h-20 px-4 border-b border-slate-800/60 relative flex-shrink-0 bg-[#0B1120]/80 backdrop-blur-md z-20">
                     <Link
-                        to="/"
+                        to="/dashboard"
                         className="transition-transform duration-300 hover:scale-105 whitespace-nowrap flex justify-center items-center w-full group relative gap-3"
                     >
                         <div
@@ -51,18 +63,21 @@ export default function Sidebar({ sidebarOpen, sidebarWidth, isLoaded }) {
 
                 {/* NAVIGASI MENU */}
                 <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto custom-scrollbar pb-6 relative z-10">
+                    {/* ============================================== */}
+                    {/* AREA ANALYTICS - DASHBOARD UTAMA */}
+                    {/* ============================================== */}
                     {sidebarOpen && (
                         <div className="px-4 mt-2 mb-3 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em]">
                             Analytics
                         </div>
                     )}
                     <Link
-                        to="/"
-                        className={getLinkClass("/")}
+                        to="/dashboard"
+                        className={getLinkClass("/dashboard")}
                         title="Dashboard"
                     >
                         <i
-                            className={`fa-solid fa-chart-pie ${getIconClass("/")}`}
+                            className={`fa-solid fa-chart-pie ${getIconClass("/dashboard")}`}
                         ></i>
                         {sidebarOpen && (
                             <span className="transition-opacity duration-200 whitespace-nowrap tracking-wide">
@@ -71,32 +86,21 @@ export default function Sidebar({ sidebarOpen, sidebarWidth, isLoaded }) {
                         )}
                     </Link>
 
+                    {/* ============================================== */}
+                    {/* AREA TRANSAKSI - DIAKSES SEMUA (ADMIN & SATKER) */}
+                    {/* ============================================== */}
                     {sidebarOpen && (
                         <div className="px-4 mt-6 mb-3 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em]">
-                            Input & Master
+                            Transaksi
                         </div>
                     )}
                     <Link
-                        to="/input-anggaran"
-                        className={getLinkClass("/input-anggaran")}
-                        title="Master Anggaran"
-                    >
-                        <i
-                            className={`fa-solid fa-wallet ${getIconClass("/input-anggaran")}`}
-                        ></i>
-                        {sidebarOpen && (
-                            <span className="transition-opacity duration-200 whitespace-nowrap tracking-wide">
-                                Master Anggaran
-                            </span>
-                        )}
-                    </Link>
-                    <Link
-                        to="/input-transaksi"
-                        className={getLinkClass("/input-transaksi")}
+                        to="/dashboard/input-transaksi"
+                        className={getLinkClass("/dashboard/input-transaksi")}
                         title="Input Transaksi"
                     >
                         <i
-                            className={`fa-solid fa-receipt ${getIconClass("/input-transaksi")}`}
+                            className={`fa-solid fa-receipt ${getIconClass("/dashboard/input-transaksi")}`}
                         ></i>
                         {sidebarOpen && (
                             <span className="transition-opacity duration-200 whitespace-nowrap tracking-wide">
@@ -105,39 +109,117 @@ export default function Sidebar({ sidebarOpen, sidebarWidth, isLoaded }) {
                         )}
                     </Link>
 
-                    {sidebarOpen && (
-                        <div className="px-4 mt-6 mb-3 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em]">
-                            Reports
-                        </div>
+                    {/* ============================================== */}
+                    {/* AREA Laporan - HANYA TAMPIL UNTUK ADMIN KANWIL */}
+                    {/* ============================================== */}
+                    {isAdmin && (
+                        <>
+                            {sidebarOpen && (
+                                <div className="px-4 mt-6 mb-3 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em]">
+                                    Laporan
+                                </div>
+                            )}
+
+                            <Link
+                                to="/dashboard/laporan-bulanan"
+                                className={getLinkClass(
+                                    "/dashboard/laporan-bulanan",
+                                )}
+                                title="Laporan Bulanan"
+                            >
+                                <i
+                                    className={`fa-solid fa-calendar-check ${getIconClass("/dashboard/laporan-bulanan")}`}
+                                ></i>
+                                {sidebarOpen && (
+                                    <span className="transition-opacity duration-200 whitespace-nowrap tracking-wide">
+                                        Laporan Bulanan
+                                    </span>
+                                )}
+                            </Link>
+
+                            <Link
+                                to="/dashboard/laporan-realisasi"
+                                className={getLinkClass(
+                                    "/dashboard/laporan-realisasi",
+                                )}
+                                title="Realisasi per Satker"
+                            >
+                                <i
+                                    className={`fa-solid fa-file-invoice ${getIconClass("/dashboard/laporan-realisasi")}`}
+                                ></i>
+                                {sidebarOpen && (
+                                    <span className="transition-opacity duration-200 whitespace-nowrap tracking-wide">
+                                        Realisasi per Satker
+                                    </span>
+                                )}
+                            </Link>
+                        </>
                     )}
-                    <Link
-                        to="/laporan-bulanan"
-                        className={getLinkClass("/laporan-bulanan")}
-                        title="Laporan Bulanan"
-                    >
-                        <i
-                            className={`fa-solid fa-calendar-check ${getIconClass("/laporan-bulanan")}`}
-                        ></i>
-                        {sidebarOpen && (
-                            <span className="transition-opacity duration-200 whitespace-nowrap tracking-wide">
-                                Laporan Bulanan
-                            </span>
-                        )}
-                    </Link>
-                    <Link
-                        to="/laporan-realisasi"
-                        className={getLinkClass("/laporan-realisasi")}
-                        title="Realisasi per Satker"
-                    >
-                        <i
-                            className={`fa-solid fa-file-invoice ${getIconClass("/laporan-realisasi")}`}
-                        ></i>
-                        {sidebarOpen && (
-                            <span className="transition-opacity duration-200 whitespace-nowrap tracking-wide">
-                                Realisasi per Satker
-                            </span>
-                        )}
-                    </Link>
+
+                    {/* ============================================== */}
+                    {/* AREA SETTINGS & MASTER - HANYA TAMPIL UNTUK ADMIN */}
+                    {/* ============================================== */}
+                    {isAdmin && (
+                        <>
+                            {sidebarOpen && (
+                                <div className="px-4 mt-6 mb-3 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em]">
+                                    Pengaturan
+                                </div>
+                            )}
+
+                            <Link
+                                to="/dashboard/input-anggaran"
+                                className={getLinkClass(
+                                    "/dashboard/input-anggaran",
+                                )}
+                                title="Master Anggaran"
+                            >
+                                <i
+                                    className={`fa-solid fa-wallet ${getIconClass("/dashboard/input-anggaran")}`}
+                                ></i>
+                                {sidebarOpen && (
+                                    <span className="transition-opacity duration-200 whitespace-nowrap tracking-wide">
+                                        Master Anggaran
+                                    </span>
+                                )}
+                            </Link>
+
+                            {/* MENU MANAJEMEN USER BARU */}
+                            <Link
+                                to="/dashboard/manajemen-user"
+                                className={getLinkClass(
+                                    "/dashboard/manajemen-user",
+                                )}
+                                title="Manajemen Pengguna"
+                            >
+                                <i
+                                    className={`fa-solid fa-users-gear ${getIconClass("/dashboard/manajemen-user")}`}
+                                ></i>
+                                {sidebarOpen && (
+                                    <span className="transition-opacity duration-200 whitespace-nowrap tracking-wide">
+                                        Manajemen Pengguna
+                                    </span>
+                                )}
+                            </Link>
+
+                            <Link
+                                to="/dashboard/log-aktivitas"
+                                className={getLinkClass(
+                                    "/dashboard/log-aktivitas",
+                                )}
+                                title="Log Aktivitas"
+                            >
+                                <i
+                                    className={`fa-solid fa-user-secret ${getIconClass("/dashboard/log-aktivitas")}`}
+                                ></i>
+                                {sidebarOpen && (
+                                    <span className="transition-opacity duration-200 whitespace-nowrap tracking-wide">
+                                        Log Aktivitas
+                                    </span>
+                                )}
+                            </Link>
+                        </>
+                    )}
                 </nav>
             </div>
 

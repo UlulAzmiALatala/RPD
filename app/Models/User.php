@@ -22,6 +22,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',         // <-- Tambahan
+        'kode_satker',  // <-- Tambahan
     ];
 
     /**
@@ -45,5 +47,30 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    // =========================================================
+    // RELASI & HELPER ROLE
+    // =========================================================
+
+    /**
+     * Relasi ke tabel Satker.
+     * Karena user pakai 'kode_satker' (string), kita hubungkan dengan 'kode_satker' di tabel Satker.
+     */
+    public function satker()
+    {
+        return $this->belongsTo(Satker::class, 'kode_satker', 'kode_satker');
+    }
+
+    // Cek apakah dia Admin Kanwil
+    public function isAdmin()
+    {
+        return $this->role === 'admin';
+    }
+
+    // Cek apakah dia Operator Satker
+    public function isSatker()
+    {
+        return $this->role === 'satker';
     }
 }

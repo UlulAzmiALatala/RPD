@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+import axios from "axios";
 
-export default function Header({ sidebarOpen, setSidebarOpen, tahun }) {
+export default function Header({
+    sidebarOpen,
+    setSidebarOpen,
+    tahun,
+    authUser,
+}) {
     const [profileOpen, setProfileOpen] = useState(false);
     const dropdownRef = useRef(null);
 
-    // Fungsi untuk menutup dropdown jika klik di sembarang tempat (klik di luar)
+    // Fungsi untuk menutup dropdown jika klik di sembarang tempat
     useEffect(() => {
         function handleClickOutside(event) {
             if (
@@ -18,6 +25,24 @@ export default function Header({ sidebarOpen, setSidebarOpen, tahun }) {
         return () =>
             document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    const handleLogout = async () => {
+        try {
+            await axios.post("/logout");
+            window.location.href = "/login";
+        } catch (error) {
+            console.error("Gagal logout:", error);
+            window.location.href = "/login";
+        }
+    };
+
+    // Ambil inisial nama
+    const initial = authUser?.name
+        ? authUser.name.charAt(0).toUpperCase()
+        : "U";
+
+    const roleLabel =
+        authUser?.role === "admin" ? "Administrator" : "Satuan Kerja";
 
     return (
         <header className="sticky top-0 z-20 flex justify-between items-center py-3 px-6 bg-white/70 backdrop-blur-xl border-b border-slate-200/60 shadow-sm h-20 transition-colors duration-300">
@@ -57,7 +82,6 @@ export default function Header({ sidebarOpen, setSidebarOpen, tahun }) {
 
             {/* KANAN: Tahun & Profile */}
             <div className="flex items-center gap-x-4">
-                {/* Indikator Tahun */}
                 <div className="hidden sm:flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 shadow-[inset_0_0_10px_rgba(99,102,241,0.05)]">
                     <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
                     <span className="text-xs font-bold text-indigo-700 uppercase tracking-widest">
@@ -65,54 +89,67 @@ export default function Header({ sidebarOpen, setSidebarOpen, tahun }) {
                     </span>
                 </div>
 
-                {/* Profil Dropdown */}
                 <div className="relative" ref={dropdownRef}>
                     <button
                         onClick={() => setProfileOpen(!profileOpen)}
                         className="flex items-center transition ease-in-out duration-300 hover:scale-105 focus:outline-none"
                     >
+                        {/* UPDATE AVATAR DI SINI */}
                         <div className="h-10 w-10 rounded-xl overflow-hidden bg-indigo-100 border border-indigo-200 shadow-sm flex items-center justify-center text-indigo-600 font-black">
-                            A
+                            {authUser?.avatar ? (
+                                <img
+                                    src={`/storage/${authUser.avatar}`}
+                                    alt="Avatar"
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                initial
+                            )}
                         </div>
                     </button>
 
-                    {/* Dropdown Menu (Muncul saat profileOpen = true) */}
                     {profileOpen && (
                         <div className="absolute right-0 mt-3 w-64 bg-white backdrop-blur-xl rounded-[1.5rem] shadow-xl overflow-hidden z-30 border border-slate-200/50 transform opacity-100 scale-100 transition-all duration-200">
                             <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-                                <p className="text-sm font-black text-slate-900">
-                                    Admin SIRA
+                                <p className="text-sm font-black text-slate-900 truncate">
+                                    {authUser?.name || "Memuat..."}
                                 </p>
                                 <p className="text-[10px] uppercase tracking-widest text-slate-400 truncate mt-0.5">
-                                    admin@kemenkum.go.id
+                                    {authUser?.email || "memuat@email.com"}
                                 </p>
-                                <span className="mt-2 text-[9px] font-black text-indigo-600 bg-indigo-100 border border-indigo-200 px-3 py-1 rounded-lg uppercase tracking-widest inline-block">
-                                    Administrator
+                                <span
+                                    className={`mt-2 text-[9px] font-black px-3 py-1 rounded-lg uppercase tracking-widest inline-block border ${
+                                        authUser?.role === "admin"
+                                            ? "text-indigo-600 bg-indigo-100 border-indigo-200"
+                                            : "text-emerald-600 bg-emerald-100 border-emerald-200"
+                                    }`}
+                                >
+                                    {roleLabel}
                                 </span>
                             </div>
 
-                            {/* Tombol Logout mengarah ke route default Laravel */}
-                            <form method="POST" action="/logout">
-                                {/* Tambahkan @csrf jika ini file Blade, tapi karena ini React, biasanya kita panggil API atau biarkan ini mengarah ke endpoint web guard */}
-                                <input
-                                    type="hidden"
-                                    name="_token"
-                                    value={document
-                                        .querySelector(
-                                            'meta[name="csrf-token"]',
-                                        )
-                                        ?.getAttribute("content")}
-                                />
+                            <div className="py-1">
+                                <Link
+                                    to="/dashboard/profil"
+                                    onClick={() => setProfileOpen(false)}
+                                    className="w-full text-left flex items-center gap-3 py-3 px-5 hover:bg-slate-50 text-slate-600 transition-colors group"
+                                >
+                                    <i className="fa-solid fa-user-gear w-5 text-center text-slate-400 group-hover:text-indigo-500 transition-colors"></i>
+                                    <span className="font-bold text-sm">
+                                        Profil Saya
+                                    </span>
+                                </Link>
+
                                 <button
-                                    type="submit"
-                                    className="w-full text-left flex items-center gap-3 py-3 px-5 hover:bg-rose-50 text-rose-600 transition-colors group"
+                                    onClick={handleLogout}
+                                    className="w-full text-left flex items-center gap-3 py-3 px-5 hover:bg-rose-50 text-rose-600 transition-colors group border-t border-slate-100"
                                 >
                                     <i className="fa-solid fa-sign-out-alt w-5 text-center group-hover:-translate-x-1 transition-transform"></i>
                                     <span className="font-bold text-sm">
                                         Log Out
                                     </span>
                                 </button>
-                            </form>
+                            </div>
                         </div>
                     )}
                 </div>

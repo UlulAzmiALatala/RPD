@@ -6,7 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Satker;
 use App\Models\Anggaran;
-use Illuminate\Support\Facades\DB;
+use App\Models\RencanaPenarikan; // <-- Import Model RPD
+use App\Models\Realisasi;        // <-- Import Model Realisasi
 
 class LaporanBulananController extends Controller
 {
@@ -20,34 +21,34 @@ class LaporanBulananController extends Controller
             $laporan = [];
 
             foreach ($satkers as $satker) {
-                // Ambil Pagu Efektif
+                // 1. Ambil Pagu Efektif
                 $anggaran = Anggaran::where('satker_id', $satker->id)
                     ->where('tahun', $tahun)
                     ->first();
                 $paguEfektif = $anggaran ? $anggaran->pagu_efektif : 0;
 
-                // Ambil Data RPD (Sudah disesuaikan dengan nama tabel di database)
-                $rpd = DB::table('rencana_penarikans')
-                    ->where('satker_id', $satker->id)
+                // 2. Ambil Data RPD pake Eloquent (Lebih bersih daripada DB::table)
+                $rpd = RencanaPenarikan::where('satker_id', $satker->id)
                     ->where('tahun', $tahun)
                     ->where('bulan', $bulan)
                     ->first();
 
-                // Ambil Data Realisasi (Sudah disesuaikan dengan nama tabel di database)
-                $realisasi = DB::table('realisasis')
-                    ->where('satker_id', $satker->id)
+                // 3. Ambil Data Realisasi pake Eloquent
+                $realisasi = Realisasi::where('satker_id', $satker->id)
                     ->where('tahun', $tahun)
                     ->where('bulan', $bulan)
                     ->first();
 
-                // Kalkulasi Total
+                // 4. Kalkulasi Total
                 $totalRpd = $rpd ? ($rpd->belanja_gaji + $rpd->belanja_barang + $rpd->belanja_modal) : 0;
                 $totalRealisasi = $realisasi ? ($realisasi->belanja_gaji + $realisasi->belanja_barang + $realisasi->belanja_modal) : 0;
 
-                // Kalkulasi Deviasi
+                // 5. Kalkulasi Deviasi
+                // Minus = Kurang serap (Realisasi di bawah RPD)
+                // Plus = Over serap (Realisasi di atas RPD)
                 $deviasi = $totalRealisasi - $totalRpd;
 
-                // Persentase Penyerapan dari Pagu Efektif
+                // 6. Persentase Penyerapan dari Pagu Efektif
                 $persentase = $paguEfektif > 0 ? round(($totalRealisasi / $paguEfektif) * 100, 2) : 0;
 
                 $laporan[] = [
