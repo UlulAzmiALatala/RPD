@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Satker;
 use App\Models\RencanaPenarikan;
 use App\Models\Realisasi;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -14,21 +15,28 @@ class DashboardController extends Controller
     {
         try {
             $tahun = $request->query('tahun', date('Y'));
-            $user = $request->user(); // Tarik data siapa yang login
+            $user = $request->user();
             $isAdmin = $user->role === 'admin';
+            $tw = $request->query('tw'); // 🔥 Tangkap parameter Triwulan
 
-            // 1. Ambil Data Satker Sesuai Role
+            // =========================================================
+            // 1. AMBIL DATA SATKER SESUAI ROLE (RBAC) & FILTER
+            // =========================================================
             $satkerQuery = Satker::with(['anggarans' => function ($query) use ($tahun) {
                 $query->where('tahun', $tahun);
             }]);
 
-            // Jika dia Satker, filter HANYA satker miliknya saja!
             if (!$isAdmin) {
+                // Kunci mati ke satker miliknya
                 $satkerQuery->where('kode_satker', $user->kode_satker);
+            } else {
+                if ($request->has('satker_id') && $request->query('satker_id') != '') {
+                    $satkerQuery->where('id', $request->query('satker_id'));
+                }
             }
 
             $satkers = $satkerQuery->get();
-            $satkerIds = $satkers->pluck('id')->toArray(); // Array ID Satker (berguna untuk filter lanjutan)
+            $satkerIds = $satkers->pluck('id')->toArray();
 
             $totalAnggaran = 0;
             foreach ($satkers as $satker) {
@@ -37,44 +45,31 @@ class DashboardController extends Controller
                 }
             }
 
-            // 2. Kalkulasi Data Grafik & Deviasi Kumulatif
+            // =========================================================
+            // 2. KALKULASI DATA GRAFIK & IKPA KUMULATIF
+            // =========================================================
             $grafik = [];
-            $bulanIni = date('n');
-            $rpdBulanIni = 0;
-            $realisasiBulanIni = 0;
-
             $sumDeviasiKumulatif = 0;
             $ikpaGlobalBerjalan = 100;
+            $bulanAdaData = 0;
 
             for ($i = 1; $i <= 12; $i++) {
-                // Siapkan Query per Bulan
-                $rpdQuery = RencanaPenarikan::where('tahun', $tahun)->where('bulan', $i);
-                $realisasiQuery = Realisasi::where('tahun', $tahun)->where('bulan', $i);
-
-                // Filter Hak Akses Satker
-                if (!$isAdmin) {
-                    $rpdQuery->whereIn('satker_id', $satkerIds);
-                    $realisasiQuery->whereIn('satker_id', $satkerIds);
-                }
+                $rpdQuery = RencanaPenarikan::where('tahun', $tahun)->where('bulan', $i)->where('status', 'approved')->whereIn('satker_id', $satkerIds);
+                $realisasiQuery = Realisasi::where('tahun', $tahun)->where('bulan', $i)->where('status', 'approved')->whereIn('satker_id', $satkerIds);
 
                 $rpdBulan = $rpdQuery->selectRaw('SUM(belanja_gaji + belanja_barang + belanja_modal) as total')->value('total') ?? 0;
                 $realisasiBulan = $realisasiQuery->selectRaw('SUM(belanja_gaji + belanja_barang + belanja_modal) as total')->value('total') ?? 0;
 
-                // Hitung Deviasi
                 $deviasiBulanIni = abs($rpdBulan - $realisasiBulan);
                 $persenDeviasi = $rpdBulan > 0 ? min(($deviasiBulanIni / $rpdBulan) * 100, 100) : (($realisasiBulan > 0) ? 100 : 0);
 
-                $sumDeviasiKumulatif += $persenDeviasi;
-                $rataKumulatif = $sumDeviasiKumulatif / $i;
-
-                // Tangkap data khusus untuk bulan berjalan
-                if ($i == $bulanIni) {
-                    $rpdBulanIni = $rpdBulan;
-                    $realisasiBulanIni = $realisasiBulan;
+                if ($rpdBulan > 0 || $realisasiBulan > 0) {
+                    $bulanAdaData++;
+                    $sumDeviasiKumulatif += $persenDeviasi;
+                    $rataKumulatif = $sumDeviasiKumulatif / $bulanAdaData;
                     $ikpaGlobalBerjalan = 100 - $rataKumulatif;
                 }
 
-                // Format untuk Recharts di Frontend
                 $namaBulan = ["", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
                 $grafik[] = [
                     'name' => $namaBulan[$i],
@@ -83,22 +78,59 @@ class DashboardController extends Controller
                 ];
             }
 
-            // Hitung Total RPD dan Realisasi Setahun Penuh (Untuk Card Dashboard Satker)
-            $queryTotalRpd = RencanaPenarikan::where('tahun', $tahun);
-            $queryTotalReal = Realisasi::where('tahun', $tahun);
-            if (!$isAdmin) {
-                $queryTotalRpd->whereIn('satker_id', $satkerIds);
-                $queryTotalReal->whereIn('satker_id', $satkerIds);
-            }
-            $totalRpdSetahun = $queryTotalRpd->selectRaw('SUM(belanja_gaji + belanja_barang + belanja_modal) as total')->value('total') ?? 0;
-            $totalRealSetahun = $queryTotalReal->selectRaw('SUM(belanja_gaji + belanja_barang + belanja_modal) as total')->value('total') ?? 0;
+            // =========================================================
+            // 3. KALKULASI TOTAL TERFILTER OLEH TW
+            // =========================================================
+            $queryTotalRpd = RencanaPenarikan::where('tahun', $tahun)->where('status', 'approved')->whereIn('satker_id', $satkerIds);
+            $queryTotalReal = Realisasi::where('tahun', $tahun)->where('status', 'approved')->whereIn('satker_id', $satkerIds);
 
-            // 3. Tambahkan persentase penyerapan per satker untuk tabel bawah
-            $tabelSatker = $satkers->map(function ($satker) use ($tahun) {
+            if ($tw === 'I') {
+                $queryTotalRpd->whereBetween('bulan', [1, 3]);
+                $queryTotalReal->whereBetween('bulan', [1, 3]);
+            } elseif ($tw === 'II') {
+                $queryTotalRpd->whereBetween('bulan', [4, 6]);
+                $queryTotalReal->whereBetween('bulan', [4, 6]);
+            } elseif ($tw === 'III') {
+                $queryTotalRpd->whereBetween('bulan', [7, 9]);
+                $queryTotalReal->whereBetween('bulan', [7, 9]);
+            } elseif ($tw === 'IV') {
+                $queryTotalRpd->whereBetween('bulan', [10, 12]);
+                $queryTotalReal->whereBetween('bulan', [10, 12]);
+            }
+
+            $rpdsFiltered = $queryTotalRpd->get();
+            $realisasisFiltered = $queryTotalReal->get();
+
+            // 🔥 TOTAL RPD DAN REALISASI TERFILTER
+            $totalRpdTerfilter = $rpdsFiltered->sum(function ($q) {
+                return $q->belanja_gaji + $q->belanja_barang + $q->belanja_modal;
+            });
+
+            // 🔥 RINCIAN BELANJA (51, 52, 53) SUDAH TEPAT
+            $rincianBelanja = [
+                'gaji' => $realisasisFiltered->sum('belanja_gaji'),
+                'barang' => $realisasisFiltered->sum('belanja_barang'),
+                'modal' => $realisasisFiltered->sum('belanja_modal')
+            ];
+            $totalRealisasiTerfilter = $rincianBelanja['gaji'] + $rincianBelanja['barang'] + $rincianBelanja['modal'];
+
+            // 🔥 PERSENTASE REALISASI UNTUK AI INSIGHT
+            $persentaseRealisasiDashboard = $totalAnggaran > 0 ? round(($totalRealisasiTerfilter / $totalAnggaran) * 100, 2) : 0;
+
+            // =========================================================
+            // 4. TABEL SATKER
+            // =========================================================
+            $tabelSatker = $satkers->map(function ($satker) use ($tahun, $tw) {
                 $paguSatker = $satker->anggarans->sum('pagu_efektif');
-                $realisasiSatker = Realisasi::where('satker_id', $satker->id)->where('tahun', $tahun)
-                    ->selectRaw('SUM(belanja_gaji + belanja_barang + belanja_modal) as total')
-                    ->value('total') ?? 0;
+
+                $realisasiSatkerQuery = Realisasi::where('satker_id', $satker->id)->where('tahun', $tahun)->where('status', 'approved');
+                if ($tw === 'I') $realisasiSatkerQuery->whereBetween('bulan', [1, 3]);
+                elseif ($tw === 'II') $realisasiSatkerQuery->whereBetween('bulan', [4, 6]);
+                elseif ($tw === 'III') $realisasiSatkerQuery->whereBetween('bulan', [7, 9]);
+                elseif ($tw === 'IV') $realisasiSatkerQuery->whereBetween('bulan', [10, 12]);
+
+                $realisasiSatker = $realisasiSatkerQuery->selectRaw('SUM(belanja_gaji + belanja_barang + belanja_modal) as total')->value('total') ?? 0;
+                $persenSerap = $paguSatker > 0 ? round(($realisasiSatker / $paguSatker) * 100, 2) : 0;
 
                 return [
                     'id' => $satker->id,
@@ -106,9 +138,28 @@ class DashboardController extends Controller
                     'nama_satker' => $satker->nama_satker,
                     'total_pagu' => $paguSatker,
                     'total_realisasi' => $realisasiSatker,
-                    'persen_serap' => $paguSatker > 0 ? round(($realisasiSatker / $paguSatker) * 100, 2) : 0
+                    'persen_serap' => $persenSerap
                 ];
             });
+
+            // =========================================================
+            // 5. FITUR ADMIN: LEADERBOARD & CCTV
+            // =========================================================
+            $topSatker = [];
+            $bottomSatker = [];
+            $miniCCTV = [];
+
+            if ($isAdmin) {
+                $sortedSatker = collect($tabelSatker)->sortByDesc('persen_serap')->values();
+                $topSatker = $sortedSatker->take(3)->values()->toArray();
+                $bottomSatker = $sortedSatker->filter(function ($s) {
+                    return $s['total_pagu'] > 0;
+                })->slice(-3)->reverse()->values()->toArray();
+
+                $miniCCTV = ActivityLog::with(['user' => function ($q) {
+                    $q->select('id', 'name', 'avatar', 'kode_satker', 'role');
+                }])->orderBy('created_at', 'desc')->take(5)->get();
+            }
 
             return response()->json([
                 'status' => 'success',
@@ -116,14 +167,20 @@ class DashboardController extends Controller
                     'tahun' => $tahun,
                     'summary' => [
                         'total_anggaran' => $totalAnggaran,
-                        'rpd_bulan_ini' => $rpdBulanIni,
-                        'realisasi_bulan_ini' => $realisasiBulanIni,
-                        'total_rpd_setahun' => $totalRpdSetahun,
-                        'total_realisasi_setahun' => $totalRealSetahun,
-                        'ikpa' => round($ikpaGlobalBerjalan, 2)
+                        'total_rpd_setahun' => $totalRpdTerfilter,
+                        'total_realisasi_setahun' => $totalRealisasiTerfilter,
+                        'ikpa' => round($ikpaGlobalBerjalan, 2),
+                        'status_kesehatan' => $ikpaGlobalBerjalan >= 95 ? 'Sangat Baik' : ($ikpaGlobalBerjalan >= 85 ? 'Baik' : 'Perlu Evaluasi'),
+                        'persentase_realisasi' => $persentaseRealisasiDashboard
                     ],
                     'grafik' => $grafik,
-                    'tabel_satker' => $tabelSatker
+                    'tabel_satker' => $tabelSatker,
+                    'rincian_belanja' => $rincianBelanja, // 🔥 Rincian sudah ada!
+                    'leaderboard' => [
+                        'top' => $topSatker,
+                        'bottom' => $bottomSatker
+                    ],
+                    'cctv_mini' => $miniCCTV
                 ]
             ]);
         } catch (\Exception $e) {

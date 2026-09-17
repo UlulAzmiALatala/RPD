@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Satker;
 use App\Models\Anggaran;
-use App\Models\RencanaPenarikan; // <-- Import Model RPD
-use App\Models\Realisasi;        // <-- Import Model Realisasi
+use App\Models\RencanaPenarikan;
+use App\Models\Realisasi;
 
 class LaporanBulananController extends Controller
 {
@@ -21,43 +21,107 @@ class LaporanBulananController extends Controller
             $laporan = [];
 
             foreach ($satkers as $satker) {
-                // 1. Ambil Pagu Efektif
+                // 1. Ambil Anggaran (Pagu per Jenis Belanja)
                 $anggaran = Anggaran::where('satker_id', $satker->id)
                     ->where('tahun', $tahun)
                     ->first();
-                $paguEfektif = $anggaran ? $anggaran->pagu_efektif : 0;
 
-                // 2. Ambil Data RPD pake Eloquent (Lebih bersih daripada DB::table)
-                $rpd = RencanaPenarikan::where('satker_id', $satker->id)
+                $paguTotal = $anggaran ? $anggaran->pagu_efektif : 0;
+                $paguGaji = $anggaran ? $anggaran->belanja_gaji : 0;
+                $paguBarang = $anggaran ? $anggaran->belanja_barang : 0;
+                $paguModal = $anggaran ? $anggaran->belanja_modal : 0;
+
+                // 2. Ambil Data RPD & Realisasi (KUMULATIF)
+                $rpds = RencanaPenarikan::where('satker_id', $satker->id)
                     ->where('tahun', $tahun)
-                    ->where('bulan', $bulan)
-                    ->first();
+                    ->where('bulan', '<=', $bulan)
+                    ->where('status', 'approved')
+                    ->get();
 
-                // 3. Ambil Data Realisasi pake Eloquent
-                $realisasi = Realisasi::where('satker_id', $satker->id)
+                $realisasis = Realisasi::where('satker_id', $satker->id)
                     ->where('tahun', $tahun)
-                    ->where('bulan', $bulan)
-                    ->first();
+                    ->where('bulan', '<=', $bulan)
+                    ->where('status', 'approved')
+                    ->get();
 
-                // 4. Kalkulasi Total
-                $totalRpd = $rpd ? ($rpd->belanja_gaji + $rpd->belanja_barang + $rpd->belanja_modal) : 0;
-                $totalRealisasi = $realisasi ? ($realisasi->belanja_gaji + $realisasi->belanja_barang + $realisasi->belanja_modal) : 0;
+                // 3. Kalkulasi Kumulatif per Jenis Belanja
+                $rpdGaji = $rpds->sum('belanja_gaji');
+                $rpdBarang = $rpds->sum('belanja_barang');
+                $rpdModal = $rpds->sum('belanja_modal');
 
-                // 5. Kalkulasi Deviasi
-                // Minus = Kurang serap (Realisasi di bawah RPD)
-                // Plus = Over serap (Realisasi di atas RPD)
-                $deviasi = $totalRealisasi - $totalRpd;
+                $realGaji = $realisasis->sum('belanja_gaji');
+                $realBarang = $realisasis->sum('belanja_barang');
+                $realModal = $realisasis->sum('belanja_modal');
 
-                // 6. Persentase Penyerapan dari Pagu Efektif
-                $persentase = $paguEfektif > 0 ? round(($totalRealisasi / $paguEfektif) * 100, 2) : 0;
+                // TOTAL KUMULATIF
+                $totalRpd = $rpdGaji + $rpdBarang + $rpdModal;
+                $totalRealisasi = $realGaji + $realBarang + $realModal;
+                $totalDeviasiNominal = abs($totalRealisasi - $totalRpd); // Deviasi Total Absolut
 
+                // 4. MENGHITUNG NILAI IKPA HAL III DIPA (Logika Kemenkeu)
+                $totalDeviasiTertimbang = 0;
+
+                // Helper Function untuk menghitung % Deviasi Tertimbang per Jenis Belanja
+                $hitungDeviasiTertimbang = function ($rpd, $realisasi, $paguBelanja, $paguGlobal) {
+                    if ($paguGlobal <= 0 || $rpd <= 0) return 0; // Hindari pembagian nol
+
+                    // A. Deviasi Murni Absolut
+                    $deviasiNominal = abs($realisasi - $rpd);
+
+                    // B. Persentase Deviasi Murni
+                    $persenDeviasiMurni = ($deviasiNominal / $rpd) * 100;
+
+                    // C. Toleransi 5% Kemenkeu (Jika deviasi <= 5%, maka dianggap 0%)
+                    if ($persenDeviasiMurni <= 5) {
+                        $persenDeviasiMurni = 0;
+                    }
+
+                    // D. Proporsi Pagu Belanja
+                    $proporsiPagu = $paguBelanja / $paguGlobal;
+
+                    // E. % Deviasi Tertimbang
+                    return $persenDeviasiMurni * $proporsiPagu;
+                };
+
+                // Hitung Deviasi Tertimbang masing-masing
+                $devTertimbangGaji = $hitungDeviasiTertimbang($rpdGaji, $realGaji, $paguGaji, $paguTotal);
+                $devTertimbangBarang = $hitungDeviasiTertimbang($rpdBarang, $realBarang, $paguBarang, $paguTotal);
+                $devTertimbangModal = $hitungDeviasiTertimbang($rpdModal, $realModal, $paguModal, $paguTotal);
+
+                // Total Rata-rata Kumulatif (Jumlah dari deviasi tertimbang)
+                $rataRataKumulatif = $devTertimbangGaji + $devTertimbangBarang + $devTertimbangModal;
+
+                // 🔥 NILAI IKPA FINAL (100 - Rata-rata Kumulatif)
+                // Batasi minimal 0 agar tidak minus
+                $nilaiIkpa = max(0, 100 - $rataRataKumulatif);
+
+                // 5. Susun Response Array untuk Frontend
                 $laporan[] = [
                     'satker' => $satker,
-                    'pagu_efektif' => $paguEfektif,
+                    'pagu_efektif' => $paguTotal,
+
+                    // Detail RPD
+                    'rpd_gaji' => $rpdGaji,
+                    'rpd_barang' => $rpdBarang,
+                    'rpd_modal' => $rpdModal,
                     'total_rpd' => $totalRpd,
+
+                    // Detail Realisasi
+                    'realisasi_gaji' => $realGaji,
+                    'realisasi_barang' => $realBarang,
+                    'realisasi_modal' => $realModal,
                     'total_realisasi' => $totalRealisasi,
-                    'deviasi' => $deviasi,
-                    'persentase_penyerapan' => $persentase
+
+                    // Detail Deviasi Nominal
+                    'deviasi_gaji' => abs($realGaji - $rpdGaji),
+                    'deviasi_barang' => abs($realBarang - $rpdBarang),
+                    'deviasi_modal' => abs($realModal - $rpdModal),
+                    'total_deviasi' => $totalDeviasiNominal, // Total Nominal
+
+                    // Indikator Kinerja Kemenkeu
+                    'deviasi_tertimbang_kumulatif' => round($rataRataKumulatif, 2), // Ini nilai yang akan mengurangi 100
+                    'nilai_ikpa' => round($nilaiIkpa, 2), // IKPA Hal III DIPA (Valid!)
+                    'persentase_penyerapan' => $paguTotal > 0 ? round(($totalRealisasi / $paguTotal) * 100, 2) : 0
                 ];
             }
 

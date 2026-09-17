@@ -18,6 +18,7 @@ export default function EditRealisasiModal({
     satkers,
     editData,
     satkerSummary,
+    localAuth, // 🔥 TANGKAP LOCAL AUTH DARI INDEX
 }) {
     const [formData, setFormData] = useState({
         satker_id: "",
@@ -60,6 +61,27 @@ export default function EditRealisasiModal({
         }
     }, [isOpen, editData]);
 
+    // =====================================================================
+    // 🔥 CEK OTORISASI DIPA SETJEN UNTUK BELANJA GAJI (51)
+    // =====================================================================
+    const selectedSatkerData = satkers.find(
+        (s) => s.id === parseInt(formData.satker_id),
+    );
+    const isSetjen = selectedSatkerData?.kode_satker === "692028";
+
+    // Jika diedit dan ternyata bukan Setjen tapi ada opsi Gaji, otomatis ubah jadi barang
+    useEffect(() => {
+        if (isOpen && !isSetjen) {
+            setRincian((prev) =>
+                prev.map((item) =>
+                    item.jenis_belanja === "gaji"
+                        ? { ...item, jenis_belanja: "barang" }
+                        : item,
+                ),
+            );
+        }
+    }, [isOpen, formData.satker_id, isSetjen]);
+
     const totalRealisasi = useMemo(
         () =>
             rincian.reduce(
@@ -68,6 +90,7 @@ export default function EditRealisasiModal({
             ),
         [rincian],
     );
+
     const oldTotal = useMemo(
         () =>
             editData && editData.details
@@ -78,6 +101,7 @@ export default function EditRealisasiModal({
                 : 0,
         [editData],
     );
+
     const formatCurrency = (amount) =>
         new Intl.NumberFormat("id-ID", {
             style: "currency",
@@ -99,6 +123,13 @@ export default function EditRealisasiModal({
                   ?.realisasi || 0
             : 0;
 
+    // 🔥 AMBIL DATA DETAIL RPD (51, 52, 53) DARI SUMMARY UNTUK DITAMPILKAN
+    const rpdDetail =
+        formData.satker_id &&
+        satkerSummary[formData.satker_id]?.bulanan[targetBulan]?.rpd_detail
+            ? satkerSummary[formData.satker_id].bulanan[targetBulan].rpd_detail
+            : { gaji: 0, barang: 0, modal: 0 };
+
     // Kembalikan dana lama dulu ke hitungan bulan ini, lalu kurangi dengan inputan baru secara real-time
     const sisaRpdAwal = rpdBulanIni - realBulanIni + oldTotal;
     const sisaRpdDinamis = sisaRpdAwal - totalRealisasi;
@@ -107,6 +138,7 @@ export default function EditRealisasiModal({
         formData.satker_id && satkerSummary[formData.satker_id]
             ? satkerSummary[formData.satker_id].sisa_pagu_realisasi + oldTotal
             : 0;
+
     const isOverbudget = formData.satker_id && totalRealisasi > sisaPagu;
 
     const getTriwulan = (bln) => {
@@ -129,9 +161,11 @@ export default function EditRealisasiModal({
                 nominal: "",
             },
         ]);
+
     const handleRemoveRow = (id) =>
         rincian.length > 1 &&
         setRincian(rincian.filter((item) => item.id !== id));
+
     const handleRincianChange = (id, field, value) =>
         setRincian(
             rincian.map((item) =>
@@ -160,7 +194,6 @@ export default function EditRealisasiModal({
             return;
         }
 
-        // MUNCULKAN POP-UP KONFIRMASI JIKA DEVIASI RPD
         if (sisaRpdDinamis < 0 && !forceSubmit) {
             setShowConfirm(true);
             return;
@@ -244,7 +277,6 @@ export default function EditRealisasiModal({
                         </div>
                     </div>
                 )}
-                {/* ----------------------------------------- */}
 
                 <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-slate-50/50 shrink-0">
                     <div className="flex items-center gap-3">
@@ -283,10 +315,10 @@ export default function EditRealisasiModal({
                                     Peringatan Fatal!
                                 </h4>
                                 <p className="text-sm text-rose-600 mt-1">
-                                    Total Realisasi ({" "}
+                                    Total Realisasi (
                                     <span className="font-bold">
                                         {formatCurrency(totalRealisasi)}
-                                    </span>{" "}
+                                    </span>
                                     ) melebihi Sisa Pagu Negara.
                                 </p>
                             </div>
@@ -344,7 +376,7 @@ export default function EditRealisasiModal({
                                             className={`text-xs font-bold flex justify-between ${sisaRpdDinamis < 0 ? "text-amber-600" : "text-blue-700"}`}
                                         >
                                             <span>
-                                                Sisa RPD{" "}
+                                                Sisa RPD Keseluruhan{" "}
                                                 {namaBulan[formData.bulan - 1]}:
                                             </span>
                                             <span className="font-mono text-sm">
@@ -394,17 +426,42 @@ export default function EditRealisasiModal({
                                 </h3>
                                 <div className="text-sm font-extrabold text-gray-800 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100">
                                     Total:{" "}
-                                    <span
-                                        className={
-                                            sisaRpdDinamis < 0
-                                                ? "text-amber-600"
-                                                : "text-amber-600"
-                                        }
-                                    >
+                                    <span className="text-amber-600">
                                         {formatCurrency(totalRealisasi)}
                                     </span>
                                 </div>
                             </div>
+
+                            {/* 🔥 FITUR BARU: INFO BATAS RPD PER JENIS BELANJA DI MODAL EDIT */}
+                            {formData.satker_id && (
+                                <div className="mb-5 grid grid-cols-3 gap-3">
+                                    <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl border border-emerald-100 flex flex-col items-center justify-center">
+                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-70">
+                                            Batas RPD 51
+                                        </p>
+                                        <p className="font-mono text-sm font-bold mt-1">
+                                            {formatCurrency(rpdDetail.gaji)}
+                                        </p>
+                                    </div>
+                                    <div className="bg-blue-50 text-blue-700 p-3 rounded-xl border border-blue-100 flex flex-col items-center justify-center">
+                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-70">
+                                            Batas RPD 52
+                                        </p>
+                                        <p className="font-mono text-sm font-bold mt-1">
+                                            {formatCurrency(rpdDetail.barang)}
+                                        </p>
+                                    </div>
+                                    <div className="bg-purple-50 text-purple-700 p-3 rounded-xl border border-purple-100 flex flex-col items-center justify-center">
+                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-70">
+                                            Batas RPD 53
+                                        </p>
+                                        <p className="font-mono text-sm font-bold mt-1">
+                                            {formatCurrency(rpdDetail.modal)}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="space-y-3">
                                 {rincian.map((item, index) => (
                                     <div
@@ -428,8 +485,14 @@ export default function EditRealisasiModal({
                                                 }
                                                 className="w-full border-gray-300 rounded-xl py-2.5 px-3 border focus:ring-2 focus:ring-amber-500 text-sm"
                                             >
-                                                <option value="gaji">
-                                                    51 - Gaji
+                                                {/* 🔥 LOGIKA LOCK GAJI SETJEN */}
+                                                <option
+                                                    value="gaji"
+                                                    disabled={!isSetjen}
+                                                >
+                                                    51 - Gaji{" "}
+                                                    {!isSetjen &&
+                                                        "(Khusus Setjen)"}
                                                 </option>
                                                 <option value="barang">
                                                     52 - Barang

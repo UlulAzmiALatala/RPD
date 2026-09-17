@@ -25,6 +25,9 @@ import Profil from "./Pages/Profil";
 // Import Page Log Aktivitas
 import IndexLogAktivitas from "./Pages/Admin/LogAktivitas/Index";
 
+// Import Page Tutup Buku
+import IndexTutupBuku from "./Pages/Admin/TutupBuku/Index";
+
 const rootElement = document.getElementById("app");
 if (rootElement) {
     const root = createRoot(rootElement);
@@ -55,6 +58,11 @@ if (rootElement) {
                 <Route
                     path="/dashboard/laporan-bulanan"
                     element={<LaporanBulanan />}
+                />
+
+                <Route
+                    path="/dashboard/tutup-buku"
+                    element={<IndexTutupBuku />}
                 />
 
                 {/* Route Manajemen User */}

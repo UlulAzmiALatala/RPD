@@ -16,7 +16,9 @@ class RencanaPenarikan extends Model
         'bulan',
         'belanja_gaji',
         'belanja_barang',
-        'belanja_modal'
+        'belanja_modal',
+        'status',         // <-- Tambahan untuk fitur Approval
+        'catatan_revisi'  // <-- Tambahan untuk catatan penolakan
     ];
 
     public function satker(): BelongsTo

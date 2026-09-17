@@ -23,6 +23,7 @@ import EditRpdModal from "./Modals/EditRpdModal";
 import AddRealisasiModal from "./Modals/AddRealisasiModal";
 import EditRealisasiModal from "./Modals/EditRealisasiModal";
 import DeleteModal from "./Modals/DeleteModal";
+import RejectModal from "./Modals/RejectModal";
 
 const formatCurrency = (amount) =>
     new Intl.NumberFormat("id-ID", {
@@ -30,7 +31,9 @@ const formatCurrency = (amount) =>
         currency: "IDR",
         minimumFractionDigits: 0,
     }).format(amount);
+
 const namaBulan = [
+    "",
     "Januari",
     "Februari",
     "Maret",
@@ -46,6 +49,7 @@ const namaBulan = [
 ];
 
 const Pagination = ({ meta, onPageChange, accentColor }) => {
+    /* LOGIKA SAMA, SAYA HIDE UNTUK MENGHEMAT SPACE */
     if (!meta || meta.total === 0) return null;
     const { current_page, last_page, from, to, total } = meta;
     const getPageNumbers = () => {
@@ -92,33 +96,22 @@ const Pagination = ({ meta, onPageChange, accentColor }) => {
     );
 };
 
-export default function IndexTransaksi() {
+export default function IndexTransaksi({ authUser }) {
     const [activeTab, setActiveTab] = useState("rpd");
+    const [selectedTW, setSelectedTW] = useState("ALL"); // 🔥 STATE FILTER TW BARU
     const [data, setData] = useState([]);
     const [satkers, setSatkers] = useState([]);
     const [pagination, setPagination] = useState({});
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
 
-    // States untuk Filter
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedSatker, setSelectedSatker] = useState("");
     const [tahun, setTahun] = useState(new Date().getFullYear().toString());
 
-    const [summary, setSummary] = useState({
-        global: {
-            pagu_efektif: 0,
-            total_rpd: 0,
-            total_realisasi: 0,
-            sisa_pagu_rpd: 0,
-            sisa_pagu_realisasi: 0,
-            persentase_rpd: 0,
-            persentase_realisasi: 0,
-        },
-        per_satker: {},
-    });
+    const [localAuth, setLocalAuth] = useState(authUser);
+    const [summary, setSummary] = useState({ global: {}, per_satker: {} });
 
-    // Modal & Toast States
     const [isAddRpdOpen, setIsAddRpdOpen] = useState(false);
     const [isEditRpdOpen, setIsEditRpdOpen] = useState(false);
     const [isAddRealOpen, setIsAddRealOpen] = useState(false);
@@ -127,6 +120,9 @@ export default function IndexTransaksi() {
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [deleteId, setDeleteId] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isRejectOpen, setIsRejectOpen] = useState(false);
+    const [rejectData, setRejectData] = useState(null);
+
     const [toast, setToast] = useState({
         show: false,
         message: "",
@@ -150,6 +146,17 @@ export default function IndexTransaksi() {
         );
     };
 
+    useEffect(() => {
+        if (!localAuth) {
+            axios
+                .get("/api/user")
+                .then((res) => setLocalAuth(res.data))
+                .catch((err) => console.log(err));
+        } else {
+            setLocalAuth(authUser);
+        }
+    }, [authUser]);
+
     const fetchSummary = async () => {
         try {
             const res = await axios.get(
@@ -163,22 +170,39 @@ export default function IndexTransaksi() {
 
     useEffect(() => {
         axios
-            .get(`/api/dashboard-data?tahun=${tahun}`)
-            .then((res) => setSatkers(res.data.data.tabel_satker))
+            .get("/api/users")
+            .then((res) => {
+                if (res.data.satkers) setSatkers(res.data.satkers);
+            })
             .catch((err) => console.log(err));
         fetchSummary();
     }, [tahun]);
 
     const fetchData = async (page = 1, search = "", satker = "") => {
+        if (!localAuth || satkers.length === 0) return;
         setLoading(true);
         try {
+            let actualSatker = satker;
+            if (localAuth.role !== "admin") {
+                const mySatker = satkers.find(
+                    (s) => s.kode_satker === localAuth.kode_satker,
+                );
+                if (mySatker) actualSatker = mySatker.id;
+                else {
+                    setLoading(false);
+                    return;
+                }
+            }
+
             const endpoint =
                 activeTab === "rpd"
                     ? "/api/transaksi/rpd"
                     : "/api/transaksi/realisasi";
-            const res = await axios.get(
-                `${endpoint}?page=${page}&search=${search}&tahun=${tahun}&satker_id=${satker}`,
-            );
+            // 🔥 TAMBAH PARAMETER TW KE BACKEND
+            let url = `${endpoint}?page=${page}&search=${search}&tahun=${tahun}&satker_id=${actualSatker}`;
+            if (selectedTW !== "ALL") url += `&tw=${selectedTW}`;
+
+            const res = await axios.get(url);
             setData(res.data.data);
             setPagination({
                 current_page: res.data.current_page,
@@ -200,9 +224,19 @@ export default function IndexTransaksi() {
             500,
         );
         return () => clearTimeout(timer);
-    }, [currentPage, searchTerm, selectedSatker, activeTab, tahun]);
+    }, [
+        currentPage,
+        searchTerm,
+        selectedSatker,
+        activeTab,
+        selectedTW,
+        tahun,
+        localAuth,
+        satkers,
+    ]);
 
     const confirmDelete = async () => {
+        /* LOGIKA SAMA, HIDE DEMI SPACE */
         setIsDeleting(true);
         try {
             const endpoint =
@@ -221,6 +255,44 @@ export default function IndexTransaksi() {
         }
     };
 
+    const handleApprove = async (id, status) => {
+        /* LOGIKA SAMA */
+        try {
+            const endpoint =
+                activeTab === "rpd"
+                    ? `/api/transaksi/rpd/${id}/approve`
+                    : `/api/transaksi/realisasi/${id}/approve`;
+            const res = await axios.put(endpoint, {
+                status,
+                catatan_revisi: null,
+            });
+            showToast(res.data.message, "success");
+            fetchData(currentPage, searchTerm, selectedSatker);
+            fetchSummary();
+        } catch (err) {
+            showToast(err.response?.data?.message || "Gagal", "error");
+        }
+    };
+
+    const handleRejectSubmit = async (id, catatan) => {
+        /* LOGIKA SAMA */
+        try {
+            const endpoint =
+                activeTab === "rpd"
+                    ? `/api/transaksi/rpd/${id}/approve`
+                    : `/api/transaksi/realisasi/${id}/approve`;
+            const res = await axios.put(endpoint, {
+                status: "rejected",
+                catatan_revisi: catatan,
+            });
+            showToast(res.data.message, "success");
+            fetchData(currentPage, searchTerm, selectedSatker);
+            fetchSummary();
+        } catch (err) {
+            showToast("Gagal", "error");
+        }
+    };
+
     const handleSuccess = (msg) => {
         fetchData(currentPage, searchTerm, selectedSatker);
         fetchSummary();
@@ -233,46 +305,82 @@ export default function IndexTransaksi() {
         : "bg-blue-600 border-blue-600";
     const lightBg = isRPD ? "bg-indigo-50/50" : "bg-blue-50/50";
     const textAccent = isRPD ? "text-indigo-600" : "text-blue-600";
+    const isAdmin = localAuth?.role === "admin";
 
-    // --- LOGIKA SMART CARDS DINAMIS (Global vs Per-Satker) ---
+    // =========================================================================
+    // 🔥 LOGIKA KALKULASI SUMMARY BERDASARKAN FILTER TRIWULAN (TW)
+    // =========================================================================
     let dispPagu = 0,
         dispTotalRpd = 0,
         dispTotalReal = 0;
 
-    if (selectedSatker && summary.per_satker[selectedSatker]) {
-        // Jika filter Satker aktif, ambil data khusus Satker tersebut
-        const s = summary.per_satker[selectedSatker];
-        dispPagu = s.pagu_efektif;
-        dispTotalRpd = s.total_rpd;
-        dispTotalReal = s.total_realisasi;
-    } else {
-        // Jika tidak difilter, tampilkan data Global
-        dispPagu = summary.global.pagu_efektif;
-        dispTotalRpd = summary.global.total_rpd;
-        dispTotalReal = summary.global.total_realisasi;
+    const getMonthsInTW = (tw) => {
+        if (tw === "I") return [1, 2, 3];
+        if (tw === "II") return [4, 5, 6];
+        if (tw === "III") return [7, 8, 9];
+        if (tw === "IV") return [10, 11, 12];
+        return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // ALL
+    };
+
+    const calculateFromBulanan = (bulananObj) => {
+        let trpd = 0,
+            treal = 0;
+        getMonthsInTW(selectedTW).forEach((m) => {
+            if (bulananObj[m]) {
+                trpd += bulananObj[m].rpd;
+                treal += bulananObj[m].realisasi;
+            }
+        });
+        return { trpd, treal };
+    };
+
+    if (!isAdmin && localAuth?.kode_satker) {
+        const mySatker = satkers.find(
+            (s) => s.kode_satker === localAuth.kode_satker,
+        );
+        if (mySatker && summary.per_satker && summary.per_satker[mySatker.id]) {
+            dispPagu = summary.per_satker[mySatker.id].pagu_efektif || 0;
+            const calc = calculateFromBulanan(
+                summary.per_satker[mySatker.id].bulanan,
+            );
+            dispTotalRpd = calc.trpd;
+            dispTotalReal = calc.treal;
+        }
+    } else if (
+        isAdmin &&
+        selectedSatker &&
+        summary.per_satker &&
+        summary.per_satker[selectedSatker]
+    ) {
+        dispPagu = summary.per_satker[selectedSatker].pagu_efektif || 0;
+        const calc = calculateFromBulanan(
+            summary.per_satker[selectedSatker].bulanan,
+        );
+        dispTotalRpd = calc.trpd;
+        dispTotalReal = calc.treal;
+    } else if (summary.per_satker) {
+        dispPagu = summary.global?.pagu_efektif || 0;
+        let trpd = 0,
+            treal = 0;
+        Object.values(summary.per_satker).forEach((s) => {
+            const calc = calculateFromBulanan(s.bulanan);
+            trpd += calc.trpd;
+            treal += calc.treal;
+        });
+        dispTotalRpd = trpd;
+        dispTotalReal = treal;
     }
 
     const dispTotalInput = isRPD ? dispTotalRpd : dispTotalReal;
     const dispSisa = dispPagu - dispTotalInput;
     const dispPersen = dispPagu > 0 ? (dispTotalInput / dispPagu) * 100 : 0;
 
-    // --- LOGIKA TARGET TRIWULAN (Dinamis berdasarkan bulan saat ini) ---
-    const currentMonth = new Date().getMonth() + 1;
-    let currentTW = "I";
-    let targetTW = 20;
-    if (currentMonth > 3) {
-        currentTW = "II";
-        targetTW = 50;
-    }
-    if (currentMonth > 6) {
-        currentTW = "III";
-        targetTW = 75;
-    }
-    if (currentMonth > 9) {
-        currentTW = "IV";
-        targetTW = 100;
-    }
-
+    let targetTW = 100;
+    if (selectedTW === "I")
+        targetTW = 20; // Asumsi Target Kemenkeu TW I
+    else if (selectedTW === "II") targetTW = 50;
+    else if (selectedTW === "III") targetTW = 75;
+    else if (selectedTW === "ALL") targetTW = 100;
     const isTargetAchieved = dispPersen >= targetTW;
 
     return (
@@ -285,7 +393,7 @@ export default function IndexTransaksi() {
             `}</style>
 
             <div className="space-y-6 font-sans text-gray-600 relative overflow-hidden">
-                {/* TOAST NOTIFICATION */}
+                {/* TOAST AREA */}
                 {toast.show && (
                     <div
                         className={`fixed top-24 right-10 z-[100] flex items-center p-4 min-w-[320px] rounded-xl border backdrop-blur-md ${toast.isExiting ? "toast-exit" : "toast-enter"} ${toast.type === "success" ? "bg-[#0A192F]/90 border-green-500/50 text-white shadow-[0_0_20px_rgba(34,197,94,0.3)]" : "bg-[#0A192F]/90 border-red-500/50 text-white"}`}
@@ -312,16 +420,30 @@ export default function IndexTransaksi() {
                     </div>
                 )}
 
-                {/* Header & Tabs */}
                 <div className="flex flex-col gap-4">
-                    <div>
-                        <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">
-                            Input Transaksi
-                        </h2>
-                        <p className="text-sm text-gray-500 mt-1">
-                            Kelola Rencana Penarikan Dana (RPD) & Realisasi
-                            Anggaran.
-                        </p>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                        <div>
+                            <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">
+                                Input Transaksi
+                            </h2>
+                            <p className="text-sm text-gray-500 mt-1">
+                                Kelola Rencana Penarikan Dana (RPD) & Realisasi
+                                Anggaran.
+                            </p>
+                        </div>
+
+                        {/* 🔥 NAVIGASI TAB TRIWULAN (TW) - HASIL REQUEST PAK KABAG */}
+                        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 text-xs font-bold">
+                            {["ALL", "I", "II", "III", "IV"].map((tw) => (
+                                <button
+                                    key={tw}
+                                    onClick={() => setSelectedTW(tw)}
+                                    className={`px-4 py-2 rounded-lg transition-all ${selectedTW === tw ? "bg-gray-800 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}
+                                >
+                                    {tw === "ALL" ? "Setahun" : `TW ${tw}`}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="flex flex-col xl:flex-row justify-between items-center gap-4 bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
@@ -346,33 +468,33 @@ export default function IndexTransaksi() {
                             </button>
                         </div>
 
-                        {/* --- FILTER & SEARCH BAR BARU --- */}
                         <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto">
-                            {/* Filter Satker */}
-                            <div className="relative w-full md:w-56">
-                                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                    <Filter className="w-4 h-4 text-gray-400" />
-                                </div>
-                                <select
-                                    value={selectedSatker}
-                                    onChange={(e) => {
-                                        setSelectedSatker(e.target.value);
-                                        setCurrentPage(1);
-                                    }}
-                                    className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-700 appearance-none"
-                                >
-                                    <option value="">
-                                        Semua Satker (Global)
-                                    </option>
-                                    {satkers.map((s) => (
-                                        <option key={s.id} value={s.id}>
-                                            {s.kode_satker} - {s.nama_satker}
+                            {isAdmin && (
+                                <div className="relative w-full md:w-56">
+                                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                        <Filter className="w-4 h-4 text-gray-400" />
+                                    </div>
+                                    <select
+                                        value={selectedSatker}
+                                        onChange={(e) => {
+                                            setSelectedSatker(e.target.value);
+                                            setCurrentPage(1);
+                                        }}
+                                        className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-700 appearance-none cursor-pointer"
+                                    >
+                                        <option value="">
+                                            Semua Satker (Global)
                                         </option>
-                                    ))}
-                                </select>
-                            </div>
+                                        {satkers.map((s) => (
+                                            <option key={s.id} value={s.id}>
+                                                {s.kode_satker} -{" "}
+                                                {s.nama_satker}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
-                            {/* Search */}
                             <div className="relative w-full md:w-56">
                                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                                     <Search className="w-4 h-4 text-gray-400" />
@@ -403,16 +525,14 @@ export default function IndexTransaksi() {
                     </div>
                 </div>
 
-                {/* --- SMART CARDS SUMMARY (Bisa Berubah Sesuai Filter Satker!) --- */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {/* Card 1: Pagu Efektif */}
                     <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center">
                             <Wallet size={24} />
                         </div>
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                {selectedSatker
+                                {!isAdmin || selectedSatker
                                     ? "Pagu Satker"
                                     : "Total Pagu Efektif"}
                             </p>
@@ -421,7 +541,6 @@ export default function IndexTransaksi() {
                             </h3>
                         </div>
                     </div>
-                    {/* Card 2: Total Input */}
                     <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
                         <div
                             className={`w-12 h-12 rounded-xl flex items-center justify-center ${isRPD ? "bg-indigo-50 text-indigo-500" : "bg-blue-50 text-blue-500"}`}
@@ -437,7 +556,6 @@ export default function IndexTransaksi() {
                             </h3>
                         </div>
                     </div>
-                    {/* Card 3: Sisa Pagu */}
                     <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
                         <div
                             className={`w-12 h-12 rounded-xl flex items-center justify-center ${dispSisa < 0 ? "bg-rose-50 text-rose-500" : "bg-amber-50 text-amber-500"}`}
@@ -455,22 +573,21 @@ export default function IndexTransaksi() {
                             </h3>
                         </div>
                     </div>
-                    {/* Card 4: Progress & Triwulan (BARU!) */}
                     <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-center relative overflow-hidden">
                         <div className="flex justify-between items-center mb-2">
                             <div>
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
                                     Serapan {isRPD ? "RPD" : "Realisasi"}
                                 </p>
-                                {!isRPD && (
+                                {!isRPD && selectedTW !== "ALL" && (
                                     <p className="text-[10px] font-extrabold text-indigo-500 mt-0.5 tracking-wide">
-                                        TARGET TW {currentTW} : {targetTW}%
+                                        TARGET TW {selectedTW} : {targetTW}%
                                     </p>
                                 )}
                             </div>
                             <div className="text-right">
                                 <span
-                                    className={`text-sm font-extrabold px-2 py-1 rounded-md ${!isRPD && !isTargetAchieved ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}
+                                    className={`text-sm font-extrabold px-2 py-1 rounded-md ${!isRPD && !isTargetAchieved && selectedTW !== "ALL" ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}
                                 >
                                     {dispPersen.toFixed(2)}%
                                 </span>
@@ -478,26 +595,24 @@ export default function IndexTransaksi() {
                         </div>
                         <div className="w-full bg-gray-100 rounded-full h-2 mt-1">
                             <div
-                                className={`h-2 rounded-full transition-all duration-1000 ${!isRPD && !isTargetAchieved ? "bg-rose-500" : "bg-emerald-500"}`}
+                                className={`h-2 rounded-full transition-all duration-1000 ${!isRPD && !isTargetAchieved && selectedTW !== "ALL" ? "bg-rose-500" : "bg-emerald-500"}`}
                                 style={{
                                     width: `${Math.min(dispPersen, 100)}%`,
                                 }}
                             ></div>
                         </div>
-                        {/* Peringatan Triwulan */}
-                        {!isRPD && (
+                        {!isRPD && selectedTW !== "ALL" && (
                             <p
                                 className={`text-[10px] font-bold mt-2 text-right ${isTargetAchieved ? "text-emerald-600" : "text-rose-500"}`}
                             >
                                 {isTargetAchieved
-                                    ? "✅ Target TW Terpenuhi"
-                                    : "⚠️ Belum memenuhi target TW"}
+                                    ? "✅ Target Terpenuhi"
+                                    : "⚠️ Belum memenuhi target"}
                             </p>
                         )}
                     </div>
                 </div>
 
-                {/* Tabel Content */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                     <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
                         <h3
@@ -507,17 +622,17 @@ export default function IndexTransaksi() {
                                 <CalendarRange size={18} />
                             ) : (
                                 <Receipt size={18} />
-                            )}
+                            )}{" "}
                             Daftar{" "}
                             {isRPD
                                 ? "Rencana Penarikan Dana (RPD)"
                                 : "Realisasi Pengeluaran"}
+                            {selectedTW !== "ALL" && (
+                                <span className="ml-2 px-2 py-0.5 bg-gray-800 text-white rounded text-[10px]">
+                                    Filter: TW {selectedTW}
+                                </span>
+                            )}
                         </h3>
-                        {selectedSatker && (
-                            <span className="text-xs font-bold bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
-                                Filter Aktif
-                            </span>
-                        )}
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm whitespace-nowrap">
@@ -542,6 +657,9 @@ export default function IndexTransaksi() {
                                         Total
                                     </th>
                                     <th className="px-6 py-4 text-center">
+                                        Status
+                                    </th>
+                                    <th className="px-6 py-4 text-center">
                                         Aksi
                                     </th>
                                 </tr>
@@ -550,7 +668,7 @@ export default function IndexTransaksi() {
                                 {loading ? (
                                     <tr>
                                         <td
-                                            colSpan="7"
+                                            colSpan="8"
                                             className="px-6 py-12 text-center"
                                         >
                                             <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
@@ -562,10 +680,11 @@ export default function IndexTransaksi() {
                                 ) : data.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan="7"
+                                            colSpan="8"
                                             className="px-6 py-12 text-center text-gray-400 italic"
                                         >
-                                            Belum ada data transaksi ditemukan.
+                                            Belum ada data transaksi ditemukan
+                                            di periode ini.
                                         </td>
                                     </tr>
                                 ) : (
@@ -580,7 +699,7 @@ export default function IndexTransaksi() {
                                                 className="hover:bg-gray-50/50 transition-colors group"
                                             >
                                                 <td className="px-6 py-4 font-bold text-gray-900">
-                                                    {namaBulan[item.bulan - 1]}
+                                                    {namaBulan[item.bulan]}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="font-bold text-gray-900">
@@ -617,37 +736,137 @@ export default function IndexTransaksi() {
                                                     {formatCurrency(total)}
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <div className="flex justify-center gap-2 opacity-70 group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedData(
-                                                                    item,
-                                                                );
-                                                                isRPD
-                                                                    ? setIsEditRpdOpen(
-                                                                          true,
-                                                                      )
-                                                                    : setIsEditRealOpen(
-                                                                          true,
-                                                                      );
-                                                            }}
-                                                            className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-200"
-                                                        >
-                                                            <Edit size={16} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setDeleteId(
-                                                                    item.id,
-                                                                );
-                                                                setIsDeleteOpen(
-                                                                    true,
-                                                                );
-                                                            }}
-                                                            className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 border border-red-200"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
+                                                    {item.status ===
+                                                        "approved" && (
+                                                        <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-md text-[10px] font-black tracking-wide uppercase shadow-sm">
+                                                            Disetujui
+                                                        </span>
+                                                    )}
+                                                    {item.status ===
+                                                        "rejected" && (
+                                                        <div className="flex flex-col items-center">
+                                                            <span
+                                                                className="bg-rose-100 text-rose-700 px-3 py-1 rounded-md text-[10px] font-black tracking-wide uppercase shadow-sm mb-1 cursor-help"
+                                                                title={
+                                                                    item.catatan_revisi
+                                                                }
+                                                            >
+                                                                Ditolak
+                                                            </span>
+                                                            {item.catatan_revisi && (
+                                                                <span className="text-[9px] text-rose-500 w-24 truncate">
+                                                                    "
+                                                                    {
+                                                                        item.catatan_revisi
+                                                                    }
+                                                                    "
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {(!item.status ||
+                                                        item.status ===
+                                                            "draft") && (
+                                                        <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-md text-[10px] font-black tracking-wide uppercase shadow-sm">
+                                                            Menunggu
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <div className="flex items-center justify-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                                                        {(item.status !==
+                                                            "approved" ||
+                                                            isAdmin) && (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSelectedData(
+                                                                            item,
+                                                                        );
+                                                                        isRPD
+                                                                            ? setIsEditRpdOpen(
+                                                                                  true,
+                                                                              )
+                                                                            : setIsEditRealOpen(
+                                                                                  true,
+                                                                              );
+                                                                    }}
+                                                                    className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-200"
+                                                                    title="Edit Data"
+                                                                >
+                                                                    <Edit
+                                                                        size={
+                                                                            16
+                                                                        }
+                                                                    />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setDeleteId(
+                                                                            item.id,
+                                                                        );
+                                                                        setIsDeleteOpen(
+                                                                            true,
+                                                                        );
+                                                                    }}
+                                                                    className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 border border-red-200"
+                                                                    title="Hapus Data"
+                                                                >
+                                                                    <Trash2
+                                                                        size={
+                                                                            16
+                                                                        }
+                                                                    />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        {isAdmin &&
+                                                            item.status !==
+                                                                "approved" && (
+                                                                <button
+                                                                    onClick={() =>
+                                                                        handleApprove(
+                                                                            item.id,
+                                                                            "approved",
+                                                                        )
+                                                                    }
+                                                                    className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 border border-emerald-200 ml-2"
+                                                                    title="Setujui Data Ini"
+                                                                >
+                                                                    <CheckCircle
+                                                                        size={
+                                                                            16
+                                                                        }
+                                                                    />
+                                                                </button>
+                                                            )}
+                                                        {isAdmin &&
+                                                            item.status !==
+                                                                "rejected" && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setRejectData(
+                                                                            item,
+                                                                        );
+                                                                        setIsRejectOpen(
+                                                                            true,
+                                                                        );
+                                                                    }}
+                                                                    className="p-1.5 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 border border-orange-200"
+                                                                    title={
+                                                                        item.status ===
+                                                                        "approved"
+                                                                            ? "Cabut Persetujuan / Tolak"
+                                                                            : "Tolak Data Ini"
+                                                                    }
+                                                                >
+                                                                    <XCircle
+                                                                        size={
+                                                                            16
+                                                                        }
+                                                                    />
+                                                                </button>
+                                                            )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -664,6 +883,7 @@ export default function IndexTransaksi() {
                     />
                 </div>
 
+                {/* MODALS SECTION DI SINI KITA PASSING LOCALAUTH KE DALAM MODAL */}
                 <AddRpdModal
                     isOpen={isAddRpdOpen}
                     onClose={() => setIsAddRpdOpen(false)}
@@ -671,6 +891,7 @@ export default function IndexTransaksi() {
                     defaultTahun={tahun}
                     onSuccess={handleSuccess}
                     satkerSummary={summary.per_satker}
+                    localAuth={localAuth}
                 />
                 <EditRpdModal
                     isOpen={isEditRpdOpen}
@@ -679,6 +900,7 @@ export default function IndexTransaksi() {
                     editData={selectedData}
                     onSuccess={handleSuccess}
                     satkerSummary={summary.per_satker}
+                    localAuth={localAuth}
                 />
                 <AddRealisasiModal
                     isOpen={isAddRealOpen}
@@ -687,6 +909,7 @@ export default function IndexTransaksi() {
                     defaultTahun={tahun}
                     onSuccess={handleSuccess}
                     satkerSummary={summary.per_satker}
+                    localAuth={localAuth}
                 />
                 <EditRealisasiModal
                     isOpen={isEditRealOpen}
@@ -695,6 +918,7 @@ export default function IndexTransaksi() {
                     editData={selectedData}
                     onSuccess={handleSuccess}
                     satkerSummary={summary.per_satker}
+                    localAuth={localAuth}
                 />
                 <DeleteModal
                     isOpen={isDeleteOpen}
@@ -702,6 +926,12 @@ export default function IndexTransaksi() {
                     isDeleting={isDeleting}
                     onConfirm={confirmDelete}
                     title={`Hapus Data ${isRPD ? "RPD" : "Realisasi"}`}
+                />
+                <RejectModal
+                    isOpen={isRejectOpen}
+                    onClose={() => setIsRejectOpen(false)}
+                    data={rejectData}
+                    onConfirm={handleRejectSubmit}
                 />
             </div>
         </MainLayout>
