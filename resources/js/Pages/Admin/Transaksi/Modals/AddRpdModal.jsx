@@ -1,6 +1,13 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { X, Save, Loader2, CalendarRange, AlertCircle } from "lucide-react";
+import {
+    X,
+    Save,
+    Loader2,
+    CalendarRange,
+    AlertCircle,
+    Lock,
+} from "lucide-react";
 
 export default function AddRpdModal({
     isOpen,
@@ -23,8 +30,39 @@ export default function AddRpdModal({
 
     if (!isOpen) return null;
 
-    const handleChange = (e) =>
-        setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    // 🔥 DETEKSI APAKAH SATKER YANG DIPILIH ADALAH SETJEN
+    const selectedSatkerObj = satkers.find(
+        (s) => s.id.toString() === formData.satker_id?.toString(),
+    );
+    const namaSatkerUpper = (
+        selectedSatkerObj?.nama_satker || ""
+    ).toUpperCase();
+    const isSetjen =
+        namaSatkerUpper.includes("SETJEN") ||
+        namaSatkerUpper.includes("SEKRETARIAT JENDERAL");
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData((prev) => {
+            const updated = { ...prev, [name]: value };
+            // Jika satker berubah dan bukan Setjen, pastikan belanja_gaji di-set jadi 0/kosong
+            if (name === "satker_id") {
+                const satkerTarget = satkers.find(
+                    (s) => s.id.toString() === value?.toString(),
+                );
+                const nameUpper = (
+                    satkerTarget?.nama_satker || ""
+                ).toUpperCase();
+                const targetIsSetjen =
+                    nameUpper.includes("SETJEN") ||
+                    nameUpper.includes("SEKRETARIAT JENDERAL");
+                if (!targetIsSetjen) {
+                    updated.belanja_gaji = "0";
+                }
+            }
+            return updated;
+        });
+    };
 
     const formatCurrency = (amount) =>
         new Intl.NumberFormat("id-ID", {
@@ -34,7 +72,6 @@ export default function AddRpdModal({
         }).format(amount);
 
     // --- LOGIKA VALIDASI SISA PAGU REAL-TIME ---
-    // Cari sisa pagu berdasarkan satker yang dipilih
     const sisaPagu =
         formData.satker_id && satkerSummary[formData.satker_id]
             ? satkerSummary[formData.satker_id].sisa_pagu_rpd
@@ -52,7 +89,6 @@ export default function AddRpdModal({
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Pencegahan ganda (Front-end block)
         if (isOverbudget) {
             setErrorMsg(
                 `Total RPD melebih Sisa Pagu! Kurangi nominal sebesar ${formatCurrency(totalInput - sisaPagu)}`,
@@ -60,10 +96,16 @@ export default function AddRpdModal({
             return;
         }
 
+        // Jika bukan Setjen, pastikan kirim nilai gaji 0
+        const payload = {
+            ...formData,
+            belanja_gaji: isSetjen ? formData.belanja_gaji : 0,
+        };
+
         setIsSubmitting(true);
         setErrorMsg("");
         try {
-            const response = await axios.post("/api/transaksi/rpd", formData);
+            const response = await axios.post("/api/transaksi/rpd", payload);
             setFormData({
                 satker_id: "",
                 tahun: defaultTahun,
@@ -174,6 +216,18 @@ export default function AddRpdModal({
                                     ))}
                                 </select>
 
+                                {/* Notifikasi khusus Satker Non-Setjen */}
+                                {formData.satker_id && !isSetjen && (
+                                    <p className="text-xs font-bold text-amber-600 mt-2 flex items-center gap-1">
+                                        <Lock size={12} />{" "}
+                                        <span>
+                                            Info: Satker ini bukan DIPA Setjen.
+                                            Kolom Belanja Gaji (51) dikunci
+                                            otomatis (0).
+                                        </span>
+                                    </p>
+                                )}
+
                                 {/* Indikator Sisa Pagu Muncul Disini */}
                                 {formData.satker_id && (
                                     <p
@@ -216,31 +270,57 @@ export default function AddRpdModal({
                                 </select>
                             </div>
                         </div>
+
                         <div className="space-y-4">
-                            {["gaji", "barang", "modal"].map((jenis) => (
-                                <div
-                                    key={jenis}
-                                    className="flex flex-col sm:flex-row gap-2 sm:items-center"
-                                >
-                                    <label className="sm:w-1/3 text-sm font-bold capitalize text-gray-700">
-                                        Rencana {jenis}
-                                    </label>
-                                    <div className="relative sm:w-2/3">
-                                        <span className="absolute left-3 top-2.5 text-gray-500 font-bold">
-                                            Rp
-                                        </span>
-                                        <input
-                                            type="number"
-                                            name={`belanja_${jenis}`}
-                                            value={formData[`belanja_${jenis}`]}
-                                            onChange={handleChange}
-                                            required
-                                            min="0"
-                                            className="w-full pl-10 border-gray-300 rounded-xl p-2.5 font-mono text-sm focus:ring-2 focus:ring-indigo-500"
-                                        />
+                            {["gaji", "barang", "modal"].map((jenis) => {
+                                // Jika jenis adalah 'gaji' dan satker BUKAN Setjen, maka disable inputan
+                                const isDisabled =
+                                    jenis === "gaji" &&
+                                    formData.satker_id &&
+                                    !isSetjen;
+
+                                return (
+                                    <div
+                                        key={jenis}
+                                        className="flex flex-col sm:flex-row gap-2 sm:items-center"
+                                    >
+                                        <label
+                                            className={`sm:w-1/3 text-sm font-bold capitalize text-gray-700 flex items-center gap-1.5 ${isDisabled ? "text-gray-400" : ""}`}
+                                        >
+                                            Rencana {jenis}{" "}
+                                            {isDisabled && (
+                                                <Lock
+                                                    size={14}
+                                                    className="text-amber-500"
+                                                />
+                                            )}
+                                        </label>
+                                        <div className="relative sm:w-2/3">
+                                            <span
+                                                className={`absolute left-3 top-2.5 font-bold ${isDisabled ? "text-gray-300" : "text-gray-500"}`}
+                                            >
+                                                Rp
+                                            </span>
+                                            <input
+                                                type="number"
+                                                name={`belanja_${jenis}`}
+                                                value={
+                                                    isDisabled
+                                                        ? "0"
+                                                        : formData[
+                                                              `belanja_${jenis}`
+                                                          ]
+                                                }
+                                                onChange={handleChange}
+                                                required
+                                                disabled={isDisabled}
+                                                min="0"
+                                                className={`w-full pl-10 border-gray-300 rounded-xl p-2.5 font-mono text-sm focus:ring-2 focus:ring-indigo-500 ${isDisabled ? "bg-gray-100 text-gray-400 cursor-not-allowed" : ""}`}
+                                            />
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </form>
                 </div>

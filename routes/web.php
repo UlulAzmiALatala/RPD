@@ -28,6 +28,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Route API Dashboard
     Route::get('/api/dashboard-data', [DashboardController::class, 'index'])->name('api.dashboard');
+    Route::get('/api/dashboard-data/pdf', [DashboardController::class, 'cetakPdfDashboard']); // 🔥 TAMBAHAN BARU
 
     // Route API Transaksi - RPD
     Route::get('/api/transaksi/rpd', [TransaksiController::class, 'getRpd']);
@@ -43,13 +44,14 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/api/transaksi/realisasi/{id}', [TransaksiController::class, 'destroyRealisasi']);
     Route::put('/api/transaksi/realisasi/{id}/approve', [TransaksiController::class, 'approveRealisasi']);
 
-    // 🔥 Route Summary & Laporan Realisasi (Dialihkan ke LaporanRealisasiController)
+    // Route Summary & Laporan Realisasi (Dialihkan ke LaporanRealisasiController)
     Route::get('/api/transaksi/summary', [LaporanRealisasiController::class, 'getSummary']);
     Route::get('/api/laporan/realisasi-satker', [LaporanRealisasiController::class, 'getLaporanRealisasi']);
     Route::get('/api/laporan/realisasi-satker/pdf', [LaporanRealisasiController::class, 'cetakPdfLaporan']);
 
     // Route API Laporan Bulanan (Global)
     Route::get('/api/laporan/bulanan', [LaporanBulananController::class, 'index']);
+    Route::get('/api/laporan/bulanan/pdf', [LaporanBulananController::class, 'cetakPdfLaporanBulanan']);
 
     // Route API Master Anggaran
     Route::get('/api/anggaran', [AnggaranController::class, 'index']);

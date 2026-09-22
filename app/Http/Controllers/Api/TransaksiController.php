@@ -93,6 +93,22 @@ class TransaksiController extends Controller
             return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
         }
 
+        // 🔥 CEK VALIDASI SATKER SETJEN UNTUK BELANJA GAJI (51)
+        $satker = Satker::find($request->satker_id);
+        $namaSatkerUpper = strtoupper($satker->nama_satker ?? '');
+        $kodeSatker = $satker->kode_satker ?? '';
+
+        // Asumsi: Satker Setjen adalah yang memiliki kata 'SEKRETARIAT JENDERAL' atau 'SETJEN' atau kode khusus
+        $isSetjen = str_contains($namaSatkerUpper, 'SETJEN') || str_contains($namaSatkerUpper, 'SEKRETARIAT JENDERAL');
+
+        $belanjaGaji = (float) $request->belanja_gaji;
+        if (!$isSetjen && $belanjaGaji > 0) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal! Satuan Kerja selain DIPA Setjen tidak diperkenankan mengalokasikan Belanja Gaji (51).'
+            ], 422);
+        }
+
         if ($this->checkCutOff($request->tahun, $request->bulan)) {
             return response()->json(['status' => 'error', 'message' => "Gagal! Transaksi Bulan {$request->bulan} Tahun {$request->tahun} sudah ditutup (Cut-Off)."], 403);
         }
@@ -110,15 +126,15 @@ class TransaksiController extends Controller
             'satker_id' => $request->satker_id,
             'tahun' => $request->tahun,
             'bulan' => $request->bulan,
-            'belanja_gaji' => (float) $request->belanja_gaji,
+            'belanja_gaji' => $isSetjen ? $belanjaGaji : 0, // Paksa 0 jika bukan Setjen
             'belanja_barang' => (float) $request->belanja_barang,
             'belanja_modal' => (float) $request->belanja_modal,
             'status' => 'draft',
             'catatan_revisi' => null
         ]);
 
-        $namaSatker = Satker::find($request->satker_id)->nama_satker ?? 'Unknown Satker';
-        $totalInput = $request->belanja_gaji + $request->belanja_barang + $request->belanja_modal;
+        $namaSatker = $satker->nama_satker ?? 'Unknown Satker';
+        $totalInput = ($isSetjen ? $belanjaGaji : 0) + $request->belanja_barang + $request->belanja_modal;
 
         ActivityLog::record('CREATE', 'TRANSAKSI RPD', "Mengajukan draft RPD Bulan {$request->bulan} Tahun {$request->tahun} untuk Satker {$namaSatker}. (Total: Rp " . number_format($totalInput, 0, ',', '.') . ")");
 

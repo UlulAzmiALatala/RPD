@@ -10,15 +10,16 @@ import {
     Filter,
     DownloadCloud,
     TrendingUp,
+    Trophy,
 } from "lucide-react";
 
 export default function LaporanBulanan() {
     const [tahun, setTahun] = useState(new Date().getFullYear().toString());
-    const currentMonth = new Date().getMonth() + 1;
-    const [bulan, setBulan] = useState(currentMonth.toString());
+    const [bulan, setBulan] = useState((new Date().getMonth() + 1).toString());
     const [jenisLaporan, setJenisLaporan] = useState("rpd_vs_realisasi");
 
     const [laporanData, setLaporanData] = useState([]);
+    const [twAktif, setTwAktif] = useState("");
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
@@ -31,6 +32,7 @@ export default function LaporanBulanan() {
             .get(`/api/laporan/bulanan?tahun=${tahun}&bulan=${bulan}`)
             .then((response) => {
                 setLaporanData(response.data.data);
+                setTwAktif(response.data.tw_aktif);
             })
             .catch((error) => {
                 setErrorMsg("Terjadi kesalahan saat memuat laporan bulanan.");
@@ -50,6 +52,16 @@ export default function LaporanBulanan() {
         return new Intl.NumberFormat("id-ID", {
             minimumFractionDigits: 0,
         }).format(angka || 0);
+    };
+
+    const formatDecimal = (value) => {
+        if (typeof value === "number") {
+            return new Intl.NumberFormat("id-ID", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }).format(value);
+        }
+        return value;
     };
 
     const namaBulan = [
@@ -107,8 +119,10 @@ export default function LaporanBulanan() {
             });
         } else {
             aoa = [
-                ["REKAPITULASI RPD, REALISASI, DAN IKPA LINTAS SATKER"],
-                [`Kumulatif s.d. Bulan: ${namaBulan[bulan]} ${tahun}`],
+                ["REKAPITULASI POIN IKPA DAN EVALUASI LINTAS SATKER"],
+                [
+                    `Kumulatif s.d. Bulan: ${namaBulan[bulan]} ${tahun} (TW ${twAktif})`,
+                ],
                 [],
                 [
                     "No",
@@ -119,10 +133,27 @@ export default function LaporanBulanan() {
                     "Total Realisasi (Rp)",
                     "Total Deviasi Nominal (Rp)",
                     "Deviasi Tertimbang (%)",
-                    "NILAI IKPA",
+                    "Status Kemenkeu 51",
+                    "Status Kemenkeu 52",
+                    "Status Kemenkeu 53",
+                    "NILAI IKPA (Hal III DIPA)",
+                    "TOTAL POIN SIRA (Maks 30)",
                 ],
             ];
             laporanData.forEach((row, index) => {
+                const eval51 =
+                    row.evaluasi_tw["51"].status === "N/A"
+                        ? "N/A"
+                        : row.evaluasi_tw["51"].status.toUpperCase();
+                const eval52 =
+                    row.evaluasi_tw["52"].status === "N/A"
+                        ? "N/A"
+                        : row.evaluasi_tw["52"].status.toUpperCase();
+                const eval53 =
+                    row.evaluasi_tw["53"].status === "N/A"
+                        ? "N/A"
+                        : row.evaluasi_tw["53"].status.toUpperCase();
+
                 aoa.push([
                     index + 1,
                     row.satker.kode_satker,
@@ -132,7 +163,11 @@ export default function LaporanBulanan() {
                     Number(row.total_realisasi),
                     Number(row.total_deviasi),
                     Number(row.deviasi_tertimbang_kumulatif) / 100,
+                    eval51,
+                    eval52,
+                    eval53,
                     Number(row.nilai_ikpa),
+                    Number(row.evaluasi_tw.poin.total_poin),
                 ]);
             });
         }
@@ -148,6 +183,10 @@ export default function LaporanBulanan() {
             { wch: 20 },
             { wch: 20 },
             { wch: 15 },
+            { wch: 15 },
+            { wch: 15 },
+            { wch: 20 },
+            { wch: 20 },
         ];
         worksheet["!cols"] = wscols;
 
@@ -182,6 +221,13 @@ export default function LaporanBulanan() {
         );
     };
 
+    const handleExportPdfNasional = () => {
+        window.open(
+            `/api/laporan/bulanan/pdf?tahun=${tahun}&bulan=${bulan}`,
+            "_blank",
+        );
+    };
+
     return (
         <MainLayout tahun={tahun}>
             <div className="space-y-6 font-sans text-slate-600 relative overflow-hidden pb-10">
@@ -197,8 +243,9 @@ export default function LaporanBulanan() {
                             </h2>
                         </div>
                         <p className="text-sm font-medium text-slate-500 ml-[76px]">
-                            Monitoring performa RPD, Realisasi, dan Deviasi IKPA
-                            Global.
+                            Monitoring performa RPD, Realisasi, Penyerapan, dan
+                            Deviasi IKPA Global. Diurutkan berdasarkan Total
+                            Poin SIRA Tertinggi.
                         </p>
                     </div>
 
@@ -275,7 +322,7 @@ export default function LaporanBulanan() {
                     </div>
                 )}
 
-                {/* --- TABEL REKAPITULASI (SUPER FLAT & CLEAN) --- */}
+                {/* --- TABEL REKAPITULASI --- */}
                 <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden animate-[fadeIn_0.5s_ease-out]">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-6 md:px-8 border-b border-slate-100 bg-slate-50/30">
                         <div className="flex items-center gap-3">
@@ -288,10 +335,26 @@ export default function LaporanBulanan() {
                                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-500">
                                         {namaBulan[bulan]} {tahun}
                                     </span>
+                                    {twAktif && (
+                                        <span className="ml-2 px-2 py-0.5 text-[10px] bg-blue-100 text-blue-700 rounded-md uppercase">
+                                            TW {twAktif}
+                                        </span>
+                                    )}
                                 </h3>
                             </div>
                         </div>
                         <div className="flex gap-3 w-full md:w-auto">
+                            <button
+                                onClick={handleExportPdfNasional}
+                                disabled={laporanData.length === 0}
+                                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-rose-50 text-rose-600 hover:bg-gradient-to-r hover:from-rose-500 hover:to-red-500 hover:text-white border border-rose-200 hover:border-transparent rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 disabled:opacity-50 group shadow-sm"
+                            >
+                                <FileText
+                                    size={16}
+                                    className="group-hover:-translate-y-0.5 transition-transform"
+                                />{" "}
+                                Unduh PDF Nasional
+                            </button>
                             <button
                                 onClick={handleExportExcel}
                                 disabled={laporanData.length === 0}
@@ -338,31 +401,85 @@ export default function LaporanBulanan() {
                                     </tr>
                                 ) : (
                                     <tr>
-                                        <th className="px-5 py-5 rounded-tl-xl text-left">
-                                            Satuan Kerja
+                                        <th
+                                            className="px-5 py-5 rounded-tl-xl text-left align-middle"
+                                            rowSpan="2"
+                                        >
+                                            Peringkat
                                         </th>
-                                        <th className="px-5 py-5 text-right border-x border-slate-700">
+                                        <th
+                                            className="px-5 py-5 text-right border-x border-slate-700 align-middle"
+                                            rowSpan="2"
+                                        >
                                             Pagu Efektif
                                         </th>
-                                        <th className="px-5 py-5 text-right text-indigo-300 bg-indigo-900/30">
+                                        <th
+                                            className="px-5 py-5 text-right text-indigo-300 bg-indigo-900/30 align-middle"
+                                            rowSpan="2"
+                                        >
                                             Total RPD
                                         </th>
-                                        <th className="px-5 py-5 text-right text-emerald-300 bg-emerald-900/30">
+                                        <th
+                                            className="px-5 py-5 text-right text-emerald-300 bg-emerald-900/30 align-middle"
+                                            rowSpan="2"
+                                        >
                                             Total Realisasi
                                         </th>
-                                        <th className="px-5 py-5 text-right text-rose-300 bg-rose-900/30 border-r border-slate-700">
+                                        <th
+                                            className="px-5 py-5 text-right text-rose-300 bg-rose-900/30 border-r border-slate-700 align-middle"
+                                            rowSpan="2"
+                                        >
                                             Selisih Nominal
                                         </th>
-                                        <th className="px-5 py-5 text-right">
-                                            Deviasi
-                                            <br />
-                                            Tertimbang
+                                        <th
+                                            className="px-5 py-5 text-right align-middle"
+                                            rowSpan="2"
+                                        >
+                                            Deviasi Tertimbang
                                         </th>
-                                        <th className="px-5 py-5 bg-yellow-500/20 text-yellow-400 border-x border-slate-700">
+                                        <th
+                                            className="px-5 py-2 border-x border-slate-700 bg-blue-900/30"
+                                            colSpan="3"
+                                        >
+                                            Status Target Penyerapan (TW{" "}
+                                            {twAktif})
+                                        </th>
+                                        <th
+                                            className="px-5 py-5 bg-slate-800 text-slate-300 border-r border-slate-700 align-middle"
+                                            rowSpan="2"
+                                        >
                                             Nilai IKPA
+                                            <div className="text-[8px] text-slate-500 mt-1 leading-tight">
+                                                Hal. III DIPA
+                                            </div>
                                         </th>
-                                        <th className="px-5 py-5 rounded-tr-xl">
+                                        <th
+                                            className="px-5 py-5 bg-yellow-500/20 text-yellow-400 border-r border-slate-700 align-middle"
+                                            rowSpan="2"
+                                        >
+                                            TOTAL POIN
+                                            <div className="text-[8px] text-yellow-500/50 mt-1 leading-tight">
+                                                SIRA (Maks 30)
+                                            </div>
+                                        </th>
+                                        <th
+                                            className="px-5 py-5 rounded-tr-xl align-middle"
+                                            rowSpan="2"
+                                        >
                                             Aksi
+                                        </th>
+                                    </tr>
+                                )}
+                                {jenisLaporan !== "murni_realisasi" && (
+                                    <tr className="bg-slate-800 text-[9px]">
+                                        <th className="px-3 py-2 border-l border-r border-slate-700 text-blue-300">
+                                            Target 51
+                                        </th>
+                                        <th className="px-3 py-2 border-r border-slate-700 text-blue-300">
+                                            Target 52
+                                        </th>
+                                        <th className="px-3 py-2 border-r border-slate-700 text-blue-300">
+                                            Target 53
                                         </th>
                                     </tr>
                                 )}
@@ -371,24 +488,35 @@ export default function LaporanBulanan() {
                                 {loading ? (
                                     <tr>
                                         <td
-                                            colSpan="8"
+                                            colSpan="13"
                                             className="px-6 py-20 text-center"
                                         >
                                             <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 mb-4"></div>
                                         </td>
                                     </tr>
                                 ) : laporanData.length > 0 ? (
-                                    laporanData.map((row) => (
+                                    laporanData.map((row, index) => (
                                         <tr
                                             key={row.satker.id}
                                             className="hover:bg-indigo-50/40 transition-colors group"
                                         >
-                                            <td className="px-5 py-4">
-                                                <div className="font-bold text-slate-800">
-                                                    {row.satker.nama_satker}
+                                            <td className="px-5 py-4 flex items-center gap-3">
+                                                <div
+                                                    className={`w-8 h-8 flex items-center justify-center rounded-full font-black text-xs ${index === 0 ? "bg-amber-100 text-amber-600" : index === 1 ? "bg-slate-200 text-slate-600" : index === 2 ? "bg-orange-100 text-orange-600" : "bg-slate-50 text-slate-400"}`}
+                                                >
+                                                    {index === 0 ? (
+                                                        <Trophy size={14} />
+                                                    ) : (
+                                                        `#${index + 1}`
+                                                    )}
                                                 </div>
-                                                <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase mt-0.5">
-                                                    {row.satker.kode_satker}
+                                                <div>
+                                                    <div className="font-bold text-slate-800">
+                                                        {row.satker.nama_satker}
+                                                    </div>
+                                                    <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase mt-0.5">
+                                                        {row.satker.kode_satker}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-5 py-4 text-right font-extrabold text-slate-600 border-x border-slate-100 bg-slate-50/20">
@@ -449,14 +577,56 @@ export default function LaporanBulanan() {
                                                     <td className="px-5 py-4 text-right font-bold text-slate-700">
                                                         {
                                                             row.deviasi_tertimbang_kumulatif
-                                                        }
+                                                        }{" "}
                                                         %
                                                     </td>
-                                                    <td className="px-5 py-4 text-center bg-amber-50/30 border-x border-slate-100">
+
+                                                    {/* 🔥 KOLOM KELULUSAN TARGET TW */}
+                                                    {["51", "52", "53"].map(
+                                                        (kode) => {
+                                                            const stat =
+                                                                row.evaluasi_tw[
+                                                                    kode
+                                                                ].status;
+                                                            return (
+                                                                <td
+                                                                    key={kode}
+                                                                    className="px-3 py-4 text-center border-l border-slate-100"
+                                                                >
+                                                                    {stat ===
+                                                                    "N/A" ? (
+                                                                        <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-2 py-1 rounded-md">
+                                                                            N/A
+                                                                        </span>
+                                                                    ) : stat ===
+                                                                      "Lulus" ? (
+                                                                        <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-2.5 py-1 rounded-md">
+                                                                            Lulus
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-[10px] font-black text-rose-600 bg-rose-100 px-2.5 py-1 rounded-md">
+                                                                            Gagal
+                                                                        </span>
+                                                                    )}
+                                                                </td>
+                                                            );
+                                                        },
+                                                    )}
+
+                                                    <td className="px-5 py-4 text-center bg-slate-50 border-x border-slate-100 font-bold text-slate-600">
+                                                        {row.nilai_ikpa}
+                                                    </td>
+
+                                                    {/* 🔥 SUPER KOLOM: TOTAL POIN SIRA */}
+                                                    <td className="px-5 py-4 text-center bg-amber-50/30 border-r border-slate-100">
                                                         <span
-                                                            className={`text-lg font-black drop-shadow-sm ${row.nilai_ikpa >= 90 ? "text-emerald-600" : row.nilai_ikpa >= 70 ? "text-amber-500" : "text-rose-600"}`}
+                                                            className={`text-lg font-black drop-shadow-sm ${row.evaluasi_tw.poin.total_poin >= 27 ? "text-emerald-600" : row.evaluasi_tw.poin.total_poin >= 20 ? "text-amber-500" : "text-rose-600"}`}
                                                         >
-                                                            {row.nilai_ikpa}
+                                                            {formatDecimal(
+                                                                row.evaluasi_tw
+                                                                    .poin
+                                                                    .total_poin,
+                                                            )}
                                                         </span>
                                                     </td>
                                                 </>
@@ -483,7 +653,7 @@ export default function LaporanBulanan() {
                                 ) : (
                                     <tr>
                                         <td
-                                            colSpan="8"
+                                            colSpan="13"
                                             className="px-6 py-20 text-center text-slate-400 font-bold"
                                         >
                                             Data Belum Tersedia

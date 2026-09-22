@@ -24,7 +24,7 @@
         .tabel-data { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
         .tabel-data th, .tabel-data td { border: 1px solid #000; padding: 3px; text-align: center; vertical-align: middle; }
         
-        /* Pewarnaan Header Tabel (Sesuai Screenshot) */
+        /* Pewarnaan Header Tabel */
         .bg-navy { background-color: #0f172a; color: #fff; }
         .bg-blue { background-color: #1e3a8a; color: #fff; }
         .bg-green { background-color: #065f46; color: #fff; }
@@ -40,11 +40,31 @@
         .text-right { text-align: right; }
         .font-bold { font-weight: bold; }
         
+        /* 🔥 TABEL EVALUASI TW 🔥 */
+        .tabel-evaluasi { width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 8px; }
+        .tabel-evaluasi th, .tabel-evaluasi td { border: 1px solid #000; padding: 4px; text-align: center; vertical-align: middle; }
+        .tabel-evaluasi th { background-color: #0f172a; color: #ffffff; font-weight: bold; text-transform: uppercase; }
+        .tabel-evaluasi .tw-header { background-color: #cbd5e1; color: #0f172a; font-weight: bold; }
+        
+        .badge-lulus { background-color: #d1fae5; color: #065f46; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block;}
+        .badge-gagal { background-color: #ffe4e6; color: #be123c; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block;}
+        .badge-na { background-color: #f1f5f9; color: #64748b; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block;}
+
+        /* BOX PERHITUNGAN POIN */
+        .box-poin { width: 100%; border: 1px solid #0f172a; background-color: #f8fafc; padding: 5px; margin-bottom: 20px; font-size: 8px; }
+        .box-poin table { width: 100%; border-collapse: collapse; }
+        .box-poin th, .box-poin td { padding: 3px 5px; text-align: left; border: none; }
+        .box-poin .poin-title { font-weight: bold; color: #1e3a8a; }
+        .box-poin .poin-result { font-weight: bold; color: #065f46; text-align: right; font-size: 9px; }
+        .box-poin .poin-total { border-top: 1px dashed #94a3b8; font-weight: bold; font-size: 10px; color: #0f172a; }
+
         .ttd-container { width: 100%; margin-top: 15px; page-break-inside: avoid; }
         .ttd-box { width: 30%; float: right; text-align: center; font-size: 9px; }
         .ttd-box p { margin: 0 0 3px 0; }
         .ttd-nama { font-weight: bold; text-decoration: underline; margin-top: 40px; }
         .clear { clear: both; }
+        
+        .section-title { font-size: 10px; font-weight: bold; color: #0f172a; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 2px; text-transform: uppercase;}
     </style>
 </head>
 <body>
@@ -53,12 +73,12 @@
         <h2>KEMENTERIAN HUKUM REPUBLIK INDONESIA</h2>
         <h1>KANTOR WILAYAH SULAWESI TENGAH</h1>
         <p>Jalan Dewi Sartika No. 74, Palu Selatan, Kota Palu, Sulawesi Tengah 94114</p>
-        <p>Telepon: (0451) 482613 | Laman: sulteng.kemenkumham.go.id</p>
+        <p>Telepon: (0451) 482613 | Laman: silakum.kemenkumsulteng.cloud/</p>
     </div>
 
     <!-- JUDUL -->
     <div class="judul-laporan">
-        <h3>DETAIL INDIKATOR HALAMAN III DIPA</h3>
+        <h3>DETAIL INDIKATOR HALAMAN III DIPA DAN PENYERAPAN ANGGARAN</h3>
     </div>
 
     <!-- INFO SATKER -->
@@ -72,7 +92,7 @@
         </div>
     </div>
 
-    <!-- TABEL UTAMA (SANGAT DETAIL SESUAI SCREENSHOT REACT) -->
+    <!-- TABEL UTAMA (DISESUAIKAN DENGAN KEMENKEU & REACT) -->
     <table class="tabel-data">
         <thead>
             <tr>
@@ -81,15 +101,19 @@
                 <!-- Kolom Rencana -->
                 <th colspan="3" class="bg-blue">Rencana Penarikan</th>
                 
-                <!-- Kolom Penyerapan & % Deviasi -->
+                <!-- Kolom Penyerapan & % Deviasi Bergandengan -->
                 <th colspan="6" class="bg-green">Penyerapan & % Deviasi</th>
                 
                 <!-- Kolom Deviasi Nominal -->
                 <th colspan="3" class="bg-red">Deviasi Nominal (Rp)</th>
                 
-                <!-- Kolom Hasil Akhir -->
+                <!-- Kolom Proporsi Pagu -->
                 <th rowspan="2" class="bg-brown" style="width: 4%;">% Proporsi<br>Pagu</th>
+
+                <!-- Kolom Deviasi Tertimbang -->
                 <th rowspan="2" class="bg-indigo" style="width: 4%;">% Deviasi<br>Tertimbang</th>
+                
+                <!-- Kolom Hasil Akhir -->
                 <th rowspan="2" class="bg-indigo" style="width: 4%;">% Rata-rata<br>Kumulatif</th>
                 <th rowspan="2" class="bg-purple" style="width: 4%;">NILAI<br>IKPA</th>
             </tr>
@@ -99,7 +123,7 @@
                 <th>52</th>
                 <th>53</th>
                 
-                <!-- Penyerapan & % Dev -->
+                <!-- Penyerapan & % Dev Bergandengan -->
                 <th>51</th>
                 <th class="text-amber">% Dev</th>
                 <th>52</th>
@@ -123,13 +147,15 @@
                 <td class="text-right">{{ number_format($row['rpd_52'], 0, ',', '.') }}</td>
                 <td class="text-right">{{ number_format($row['rpd_53'], 0, ',', '.') }}</td>
                 
-                <!-- Realisasi & Persen Deviasi Komponen -->
+                <!-- Realisasi 51 & % Dev 51 -->
                 <td class="text-right">{{ number_format($row['realisasi_51'], 0, ',', '.') }}</td>
                 <td>{{ is_numeric($row['persen_deviasi_51']) ? number_format($row['persen_deviasi_51'], 2, ',', '.') : '-' }}</td>
                 
+                <!-- Realisasi 52 & % Dev 52 -->
                 <td class="text-right">{{ number_format($row['realisasi_52'], 0, ',', '.') }}</td>
                 <td>{{ is_numeric($row['persen_deviasi_52']) ? number_format($row['persen_deviasi_52'], 2, ',', '.') : '-' }}</td>
                 
+                <!-- Realisasi 53 & % Dev 53 -->
                 <td class="text-right">{{ number_format($row['realisasi_53'], 0, ',', '.') }}</td>
                 <td>{{ is_numeric($row['persen_deviasi_53']) ? number_format($row['persen_deviasi_53'], 2, ',', '.') : '-' }}</td>
                 
@@ -139,7 +165,6 @@
                 <td class="text-right">{{ number_format($row['deviasi_53'], 0, ',', '.') }}</td>
                 
                 <!-- Proporsi Pagu -->
-                <!-- Menghitung proporsi total RPD bulan ini terhadap total pagu -->
                 @php
                     $totalRpdBulanIni = $row['rpd_51'] + $row['rpd_52'] + $row['rpd_53'];
                     $proporsiBulanIni = ($pagu_total > 0 && $totalRpdBulanIni > 0) ? ($totalRpdBulanIni / $pagu_total) * 100 : 0;
@@ -159,14 +184,96 @@
         </tbody>
     </table>
 
+    <!-- 🔥 TABEL EVALUASI TARGET KEMENKEU & POIN (BARU) 🔥 -->
+    @if(isset($evaluasi_tw))
+    <div style="page-break-inside: avoid;">
+        <div class="section-title">EVALUASI TARGET PENYERAPAN DAN POIN SIRA (BERDASARKAN TRIWULAN)</div>
+        <table class="tabel-evaluasi">
+            <thead>
+                <tr>
+                    <th style="width: 8%;">Triwulan</th>
+                    <th style="width: 20%;">Jenis Belanja</th>
+                    <th style="width: 15%;">Realisasi Kumulatif (Rp)</th>
+                    <th style="width: 12%;">Target (%)</th>
+                    <th style="width: 12%;">Aktual (%)</th>
+                    <th style="width: 12%;">Status</th>
+                    <th style="width: 21%;">Kalkulasi Poin SIRA</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach(['I', 'II', 'III', 'IV'] as $tw)
+                    @php 
+                        $eval = $evaluasi_tw[$tw]; 
+                        $poin = $eval['poin'];
+                        $belanjas = [
+                            '51' => 'Belanja Pegawai (51)',
+                            '52' => 'Belanja Barang (52)',
+                            '53' => 'Belanja Modal (53)'
+                        ];
+                    @endphp
+                    
+                    @foreach($belanjas as $kode => $nama)
+                    <tr>
+                        @if($kode == '51')
+                            <td rowspan="3" class="tw-header">TW {{ $tw }}</td>
+                        @endif
+                        <td class="text-left font-bold">{{ $nama }}</td>
+                        
+                        @if($eval[$kode]['status'] === 'N/A')
+                            <td colspan="4" style="background-color: #f8fafc;"><span class="badge-na">TIDAK ADA PAGU</span></td>
+                        @else
+                            <td class="text-right">Rp {{ number_format($eval[$kode]['nominal'], 0, ',', '.') }}</td>
+                            <td>{{ $eval[$kode]['target_persen'] }}%</td>
+                            <td class="font-bold">{{ number_format($eval[$kode]['realisasi_persen'], 2, ',', '.') }}%</td>
+                            <td>
+                                <span class="{{ $eval[$kode]['status'] == 'Tercapai' ? 'badge-lulus' : 'badge-gagal' }}">
+                                    {{ strtoupper($eval[$kode]['status']) }}
+                                </span>
+                            </td>
+                        @endif
+
+                        @if($kode == '51')
+                            <td rowspan="3" style="padding: 0; vertical-align: top;">
+                                <div class="box-poin">
+                                    <table>
+                                        <tr>
+                                            <td class="poin-title">1. Penyerapan (Maks 100)</td>
+                                            <td class="text-right">{{ number_format($poin['nilai_penyerapan'], 2, ',', '.') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-left: 10px; font-style: italic;">Dikali Bobot 20%</td>
+                                            <td class="poin-result">{{ number_format($poin['tertimbang_penyerapan'], 2, ',', '.') }} pts</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="poin-title">2. Hal. III DIPA (Maks 100)</td>
+                                            <td class="text-right">{{ number_format($poin['ikpa_hal_iii'], 2, ',', '.') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-left: 10px; font-style: italic; padding-bottom: 5px;">Dikali Bobot 10%</td>
+                                            <td class="poin-result" style="padding-bottom: 5px;">{{ number_format($poin['tertimbang_hal_iii'], 2, ',', '.') }} pts</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="poin-total" style="padding-top: 5px;">TOTAL POIN SIRA TW {{ $tw }}</td>
+                                            <td class="poin-total text-right" style="padding-top: 5px; color: #b45309;">{{ number_format($poin['total_poin'], 2, ',', '.') }} / 30</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </td>
+                        @endif
+                    </tr>
+                    @endforeach
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+    @endif
+
     <!-- KOLOM TANDA TANGAN -->
     <div class="ttd-container">
         <div class="ttd-box">
             <p>Palu, {{ $tanggal_cetak }}</p>
             <p>Kepala Kantor Wilayah,</p>
-            
-            <!-- Ruang Kosong untuk TTD -->
-            
+            <br><br><br><br>
             <p class="ttd-nama">Rakhmat Renaldy, S.H., M.H.</p>
             <p>NIP. 197310101996031001</p>
         </div>
