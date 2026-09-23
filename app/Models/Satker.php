@@ -33,4 +33,9 @@ class Satker extends Model
     {
         return $this->hasMany(Realisasi::class);
     }
+
+    public function rincianOutputs()
+    {
+        return $this->hasMany(RincianOutput::class, 'satker_id');
+    }
 }

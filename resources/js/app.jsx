@@ -16,6 +16,9 @@ import IndexAnggaran from "./Pages/Admin/Anggaran/Index";
 import LaporanRealisasi from "./Pages/Admin/Laporan/LaporanRealisasi";
 import LaporanBulanan from "./Pages/Admin/Laporan/LaporanBulanan";
 
+// 🔥 Import Page Capaian Output (RO) 🔥
+import RincianOutputIndex from "./Pages/Admin/RincianOutput/Index";
+
 // Import Page Manajemen User
 import IndexUser from "./Pages/Admin/ManajemenUser/Index";
 
@@ -51,6 +54,13 @@ if (rootElement) {
                     path="/dashboard/input-transaksi"
                     element={<IndexTransaksi />}
                 />
+
+                {/* 🔥 Route Halaman Rincian Output (RO) 🔥 */}
+                <Route
+                    path="/dashboard/rincian-output"
+                    element={<RincianOutputIndex />}
+                />
+
                 <Route
                     path="/dashboard/laporan-realisasi"
                     element={<LaporanRealisasi />}
@@ -74,17 +84,19 @@ if (rootElement) {
                 {/* Route Profil Saya */}
                 <Route path="/dashboard/profil" element={<Profil />} />
 
+                {/* Route Log Aktivitas */}
+                <Route
+                    path="/dashboard/log-aktivitas"
+                    element={<IndexLogAktivitas />}
+                />
+
                 {/* --- REDIRECTS --- */}
                 {/* Jika buka root domain, arahkan ke dashboard (nanti dicek auth-nya) */}
                 <Route
                     path="/"
                     element={<Navigate to="/dashboard" replace />}
                 />
-                {/* Route Log Aktivitas */}
-                <Route
-                    path="/dashboard/log-aktivitas"
-                    element={<IndexLogAktivitas />}
-                />
+
                 {/* Jika URL ngawur, arahkan ke login */}
                 <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>

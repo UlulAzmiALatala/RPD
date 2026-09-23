@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\TransaksiController;
-use App\Http\Controllers\Api\LaporanRealisasiController; // 🔥 Controller Laporan Baru
+use App\Http\Controllers\Api\LaporanRealisasiController;
 use App\Http\Controllers\Api\AnggaranController;
 use App\Http\Controllers\Api\LaporanBulananController;
 use App\Http\Controllers\Api\UserController;
@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\CutOffController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\RincianOutputController; // 🔥 Controller RO Baru
 
 // ==============================================================================
 // 1. ROUTE API (Tetap dipertahankan di sini, dilindungi Auth)
@@ -28,7 +29,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Route API Dashboard
     Route::get('/api/dashboard-data', [DashboardController::class, 'index'])->name('api.dashboard');
-    Route::get('/api/dashboard-data/pdf', [DashboardController::class, 'cetakPdfDashboard']); // 🔥 TAMBAHAN BARU
+    Route::get('/api/dashboard-data/pdf', [DashboardController::class, 'cetakPdfDashboard']);
 
     // Route API Transaksi - RPD
     Route::get('/api/transaksi/rpd', [TransaksiController::class, 'getRpd']);
@@ -44,7 +45,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/api/transaksi/realisasi/{id}', [TransaksiController::class, 'destroyRealisasi']);
     Route::put('/api/transaksi/realisasi/{id}/approve', [TransaksiController::class, 'approveRealisasi']);
 
-    // Route Summary & Laporan Realisasi (Dialihkan ke LaporanRealisasiController)
+    // Route Summary & Laporan Realisasi
     Route::get('/api/transaksi/summary', [LaporanRealisasiController::class, 'getSummary']);
     Route::get('/api/laporan/realisasi-satker', [LaporanRealisasiController::class, 'getLaporanRealisasi']);
     Route::get('/api/laporan/realisasi-satker/pdf', [LaporanRealisasiController::class, 'cetakPdfLaporan']);
@@ -74,6 +75,14 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/api/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
     Route::put('/api/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
     Route::get('/api/activity-logs', [ActivityLogController::class, 'index']);
+
+    // ==============================================================================
+    // 🔥 ROUTE API RINCIAN OUTPUT (RO) - INDIKATOR IKPA 25% 🔥
+    // ==============================================================================
+    Route::get('/api/rincian-output', [RincianOutputController::class, 'index']);
+    Route::post('/api/rincian-output', [RincianOutputController::class, 'storeTarget']);
+    Route::post('/api/rincian-output/realisasi', [RincianOutputController::class, 'storeRealisasi']);
+    Route::delete('/api/rincian-output/{id}', [RincianOutputController::class, 'destroyRo']);
 });
 
 
