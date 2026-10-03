@@ -6,27 +6,29 @@ use App\Http\Controllers\Controller;
 use App\Models\RencanaPenarikan;
 use App\Models\Realisasi;
 use App\Models\Satker;
-use App\Models\CutOff;
 use App\Models\ActivityLog;
 use App\Models\User;
 use App\Notifications\TransaksiNotification;
+use App\Traits\CheckCutOffTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Auth;
 
 class TransaksiController extends Controller
 {
+    use CheckCutOffTrait;
+
     // =====================================================================
-    // 🛡️ HELPER: CEK STATUS TUTUP BUKU (CUT-OFF)
+    // 🛡️ HELPER: AMBIL ID SATKER MILIK USER LOGIN (JIKA DIA OPERATOR)
     // =====================================================================
-    private function checkCutOff($tahun, $bulan)
+    private function getMySatkerId(User $user)
     {
-        $cutOff = CutOff::where('tahun', $tahun)->where('bulan', $bulan)->first();
-        if ($cutOff && $cutOff->is_closed) {
-            return true;
+        if ($user->isSatker()) {
+            return Satker::where('kode_satker', $user->kode_satker)->value('id');
         }
-        return false;
+        return null;
     }
 
     // =====================================================================
@@ -36,6 +38,9 @@ class TransaksiController extends Controller
     public function getRpd(Request $request)
     {
         try {
+            /** @var User $user */
+            $user = Auth::user();
+
             $tahun = $request->query('tahun', date('Y'));
             $search = $request->query('search');
             $satkerId = $request->query('satker_id');
@@ -46,6 +51,14 @@ class TransaksiController extends Controller
                 ->where('tahun', $tahun)
                 ->orderBy('bulan', 'asc');
 
+            if ($user->isSatker()) {
+                $query->where('satker_id', $this->getMySatkerId($user));
+            } else {
+                if ($satkerId) {
+                    $query->where('satker_id', $satkerId);
+                }
+            }
+
             if ($search) {
                 $query->whereHas('satker', function ($q) use ($search) {
                     $q->where('nama_satker', 'like', "%{$search}%")
@@ -53,23 +66,12 @@ class TransaksiController extends Controller
                 });
             }
 
-            if ($satkerId) {
-                $query->where('satker_id', $satkerId);
-            }
+            if ($status) $query->where('status', $status);
 
-            if ($status) {
-                $query->where('status', $status);
-            }
-
-            if ($tw === 'I') {
-                $query->whereBetween('bulan', [1, 3]);
-            } elseif ($tw === 'II') {
-                $query->whereBetween('bulan', [4, 6]);
-            } elseif ($tw === 'III') {
-                $query->whereBetween('bulan', [7, 9]);
-            } elseif ($tw === 'IV') {
-                $query->whereBetween('bulan', [10, 12]);
-            }
+            if ($tw === 'I') $query->whereBetween('bulan', [1, 3]);
+            elseif ($tw === 'II') $query->whereBetween('bulan', [4, 6]);
+            elseif ($tw === 'III') $query->whereBetween('bulan', [7, 9]);
+            elseif ($tw === 'IV') $query->whereBetween('bulan', [10, 12]);
 
             $rpds = $query->paginate(10);
             return response()->json($rpds);
@@ -80,6 +82,13 @@ class TransaksiController extends Controller
 
     public function storeRpd(Request $request)
     {
+        /** @var User $user */
+        $user = Auth::user();
+
+        if ($user->isSatker()) {
+            $request->merge(['satker_id' => $this->getMySatkerId($user)]);
+        }
+
         $validator = Validator::make($request->all(), [
             'satker_id' => 'required|exists:satkers,id',
             'tahun' => 'required|integer',
@@ -93,12 +102,11 @@ class TransaksiController extends Controller
             return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
         }
 
-        // 🔥 CEK VALIDASI SATKER SETJEN UNTUK BELANJA GAJI (51)
+        $tanggalTransaksi = sprintf('%04d-%02d-01', $request->tahun, $request->bulan);
+        $this->validateCutOff($tanggalTransaksi, $user->isAdmin());
+
         $satker = Satker::find($request->satker_id);
         $namaSatkerUpper = strtoupper($satker->nama_satker ?? '');
-        $kodeSatker = $satker->kode_satker ?? '';
-
-        // Asumsi: Satker Setjen adalah yang memiliki kata 'SEKRETARIAT JENDERAL' atau 'SETJEN' atau kode khusus
         $isSetjen = str_contains($namaSatkerUpper, 'SETJEN') || str_contains($namaSatkerUpper, 'SEKRETARIAT JENDERAL');
 
         $belanjaGaji = (float) $request->belanja_gaji;
@@ -107,10 +115,6 @@ class TransaksiController extends Controller
                 'status' => 'error',
                 'message' => 'Gagal! Satuan Kerja selain DIPA Setjen tidak diperkenankan mengalokasikan Belanja Gaji (51).'
             ], 422);
-        }
-
-        if ($this->checkCutOff($request->tahun, $request->bulan)) {
-            return response()->json(['status' => 'error', 'message' => "Gagal! Transaksi Bulan {$request->bulan} Tahun {$request->tahun} sudah ditutup (Cut-Off)."], 403);
         }
 
         $existingRpd = RencanaPenarikan::where('satker_id', $request->satker_id)
@@ -126,7 +130,7 @@ class TransaksiController extends Controller
             'satker_id' => $request->satker_id,
             'tahun' => $request->tahun,
             'bulan' => $request->bulan,
-            'belanja_gaji' => $isSetjen ? $belanjaGaji : 0, // Paksa 0 jika bukan Setjen
+            'belanja_gaji' => $isSetjen ? $belanjaGaji : 0,
             'belanja_barang' => (float) $request->belanja_barang,
             'belanja_modal' => (float) $request->belanja_modal,
             'status' => 'draft',
@@ -139,22 +143,25 @@ class TransaksiController extends Controller
         ActivityLog::record('CREATE', 'TRANSAKSI RPD', "Mengajukan draft RPD Bulan {$request->bulan} Tahun {$request->tahun} untuk Satker {$namaSatker}. (Total: Rp " . number_format($totalInput, 0, ',', '.') . ")");
 
         $admins = User::where('role', 'admin')->get();
-        $pesanNotif = "{$namaSatker} baru saja mengajukan RPD Bulan {$request->bulan}. Silakan verifikasi.";
-        Notification::send($admins, new TransaksiNotification('Draft RPD Baru', $pesanNotif, 'info'));
+        Notification::send($admins, new TransaksiNotification('Draft RPD Baru', "{$namaSatker} baru saja mengajukan RPD Bulan {$request->bulan}. Silakan verifikasi.", 'info'));
 
         return response()->json(['status' => 'success', 'message' => 'Data RPD berhasil diajukan dan menunggu verifikasi Admin.', 'data' => $rpd], 201);
     }
 
-    public function updateRpd(Request $request, $id)
+    public function updateRpd(Request $request, string $id)
     {
+        /** @var User $user */
+        $user = Auth::user();
+
         $rpd = RencanaPenarikan::find($id);
-        if (!$rpd) {
-            return response()->json(['status' => 'error', 'message' => 'Data tidak ditemukan.'], 404);
+        if (!$rpd) return response()->json(['status' => 'error', 'message' => 'Data tidak ditemukan.'], 404);
+
+        if ($user->isSatker() && $rpd->satker_id !== $this->getMySatkerId($user)) {
+            return response()->json(['status' => 'error', 'message' => 'Akses ditolak! Ini bukan data Satker Anda.'], 403);
         }
 
-        if ($this->checkCutOff($rpd->tahun, $rpd->bulan)) {
-            return response()->json(['status' => 'error', 'message' => "Gagal! Transaksi Bulan {$rpd->bulan} Tahun {$rpd->tahun} sudah ditutup (Cut-Off)."], 403);
-        }
+        $tanggalTransaksi = sprintf('%04d-%02d-01', $rpd->tahun, $rpd->bulan);
+        $this->validateCutOff($tanggalTransaksi, $user->isAdmin());
 
         $validator = Validator::make($request->all(), [
             'belanja_gaji' => 'required|numeric|min:0',
@@ -162,9 +169,7 @@ class TransaksiController extends Controller
             'belanja_modal' => 'required|numeric|min:0',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
-        }
+        if ($validator->fails()) return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
 
         $rpd->update([
             'belanja_gaji' => (float) $request->belanja_gaji,
@@ -180,53 +185,53 @@ class TransaksiController extends Controller
         ActivityLog::record('UPDATE', 'TRANSAKSI RPD', "Memperbarui draft RPD Bulan {$rpd->bulan} Tahun {$rpd->tahun} milik Satker {$namaSatker}. (Total Baru: Rp " . number_format($totalInput, 0, ',', '.') . ")");
 
         $admins = User::where('role', 'admin')->get();
-        $pesanNotif = "{$namaSatker} telah merevisi RPD Bulan {$rpd->bulan}. Silakan verifikasi ulang.";
-        Notification::send($admins, new TransaksiNotification('Revisi RPD', $pesanNotif, 'info'));
+        Notification::send($admins, new TransaksiNotification('Revisi RPD', "{$namaSatker} telah merevisi RPD Bulan {$rpd->bulan}. Silakan verifikasi ulang.", 'info'));
 
         return response()->json(['status' => 'success', 'message' => 'Data RPD berhasil diperbarui dan status kembali menjadi Draft.']);
     }
 
-    public function destroyRpd($id)
+    public function destroyRpd(string $id)
     {
+        /** @var User $user */
+        $user = Auth::user();
+
         $rpd = RencanaPenarikan::find($id);
-        if ($rpd) {
-            if ($this->checkCutOff($rpd->tahun, $rpd->bulan)) {
-                return response()->json(['status' => 'error', 'message' => "Gagal! Transaksi Bulan {$rpd->bulan} Tahun {$rpd->tahun} sudah ditutup (Cut-Off)."], 403);
-            }
+        if (!$rpd) return response()->json(['status' => 'error', 'message' => 'Data tidak ditemukan.'], 404);
 
-            $namaSatker = Satker::find($rpd->satker_id)->nama_satker ?? 'Unknown Satker';
-            $bulan = $rpd->bulan;
-            $tahun = $rpd->tahun;
-            $totalHapus = $rpd->belanja_gaji + $rpd->belanja_barang + $rpd->belanja_modal;
-
-            $rpd->delete();
-
-            ActivityLog::record('DELETE', 'TRANSAKSI RPD', "Menghapus data RPD Bulan {$bulan} Tahun {$tahun} milik Satker {$namaSatker}. (Total Terhapus: Rp " . number_format($totalHapus, 0, ',', '.') . ")");
-
-            return response()->json(['status' => 'success', 'message' => 'Data RPD berhasil dihapus.']);
+        if ($user->isSatker() && $rpd->satker_id !== $this->getMySatkerId($user)) {
+            return response()->json(['status' => 'error', 'message' => 'Akses ditolak! Ini bukan data Satker Anda.'], 403);
         }
-        return response()->json(['status' => 'error', 'message' => 'Data tidak ditemukan.'], 404);
+
+        $tanggalTransaksi = sprintf('%04d-%02d-01', $rpd->tahun, $rpd->bulan);
+        $this->validateCutOff($tanggalTransaksi, $user->isAdmin());
+
+        $namaSatker = Satker::find($rpd->satker_id)->nama_satker ?? 'Unknown Satker';
+        $totalHapus = $rpd->belanja_gaji + $rpd->belanja_barang + $rpd->belanja_modal;
+
+        $rpd->delete();
+
+        ActivityLog::record('DELETE', 'TRANSAKSI RPD', "Menghapus data RPD Bulan {$rpd->bulan} Tahun {$rpd->tahun} milik Satker {$namaSatker}. (Total Terhapus: Rp " . number_format($totalHapus, 0, ',', '.') . ")");
+
+        return response()->json(['status' => 'success', 'message' => 'Data RPD berhasil dihapus.']);
     }
 
-    public function approveRpd(Request $request, $id)
+    public function approveRpd(Request $request, string $id)
     {
+        /** @var User $user */
+        $user = Auth::user();
+
         $validator = Validator::make($request->all(), [
             'status' => 'required|in:approved,rejected',
             'catatan_revisi' => 'required_if:status,rejected|nullable|string'
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
-        }
+        if ($validator->fails()) return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
 
         $rpd = RencanaPenarikan::find($id);
-        if (!$rpd) {
-            return response()->json(['status' => 'error', 'message' => 'Data tidak ditemukan.'], 404);
-        }
+        if (!$rpd) return response()->json(['status' => 'error', 'message' => 'Data tidak ditemukan.'], 404);
 
-        if ($this->checkCutOff($rpd->tahun, $rpd->bulan)) {
-            return response()->json(['status' => 'error', 'message' => "Gagal! Transaksi Bulan {$rpd->bulan} Tahun {$rpd->tahun} sudah ditutup (Cut-Off)."], 403);
-        }
+        $tanggalTransaksi = sprintf('%04d-%02d-01', $rpd->tahun, $rpd->bulan);
+        $this->validateCutOff($tanggalTransaksi, $user->isAdmin());
 
         $rpd->update([
             'status' => $request->status,
@@ -244,7 +249,6 @@ class TransaksiController extends Controller
             $title = $request->status === 'approved' ? 'RPD Disetujui ✅' : 'RPD Ditolak ❌';
             $tipeNotif = $request->status === 'approved' ? 'success' : 'danger';
             $pesanBalasan = "Pengajuan RPD Bulan {$rpd->bulan} telah di-" . ($request->status === 'approved' ? "Setujui." : "Tolak. Catatan: " . $request->catatan_revisi);
-
             Notification::send($userSatker, new TransaksiNotification($title, $pesanBalasan, $tipeNotif));
         }
 
@@ -258,6 +262,9 @@ class TransaksiController extends Controller
     public function getRealisasi(Request $request)
     {
         try {
+            /** @var User $user */
+            $user = Auth::user();
+
             $tahun = $request->query('tahun', date('Y'));
             $search = $request->query('search');
             $satkerId = $request->query('satker_id');
@@ -268,6 +275,12 @@ class TransaksiController extends Controller
                 ->where('tahun', $tahun)
                 ->orderBy('bulan', 'asc');
 
+            if ($user->isSatker()) {
+                $query->where('satker_id', $this->getMySatkerId($user));
+            } else {
+                if ($satkerId) $query->where('satker_id', $satkerId);
+            }
+
             if ($search) {
                 $query->whereHas('satker', function ($q) use ($search) {
                     $q->where('nama_satker', 'like', "%{$search}%")
@@ -275,23 +288,12 @@ class TransaksiController extends Controller
                 });
             }
 
-            if ($satkerId) {
-                $query->where('satker_id', $satkerId);
-            }
+            if ($status) $query->where('status', $status);
 
-            if ($status) {
-                $query->where('status', $status);
-            }
-
-            if ($tw === 'I') {
-                $query->whereBetween('bulan', [1, 3]);
-            } elseif ($tw === 'II') {
-                $query->whereBetween('bulan', [4, 6]);
-            } elseif ($tw === 'III') {
-                $query->whereBetween('bulan', [7, 9]);
-            } elseif ($tw === 'IV') {
-                $query->whereBetween('bulan', [10, 12]);
-            }
+            if ($tw === 'I') $query->whereBetween('bulan', [1, 3]);
+            elseif ($tw === 'II') $query->whereBetween('bulan', [4, 6]);
+            elseif ($tw === 'III') $query->whereBetween('bulan', [7, 9]);
+            elseif ($tw === 'IV') $query->whereBetween('bulan', [10, 12]);
 
             $realisasis = $query->paginate(10);
             return response()->json($realisasis);
@@ -302,6 +304,13 @@ class TransaksiController extends Controller
 
     public function storeRealisasi(Request $request)
     {
+        /** @var User $user */
+        $user = Auth::user();
+
+        if ($user->isSatker()) {
+            $request->merge(['satker_id' => $this->getMySatkerId($user)]);
+        }
+
         $validator = Validator::make($request->all(), [
             'satker_id' => 'required|exists:satkers,id',
             'tahun' => 'required|integer',
@@ -312,22 +321,17 @@ class TransaksiController extends Controller
             'rincian.*.nominal' => 'required|numeric|min:0',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
-        }
+        if ($validator->fails()) return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
 
-        if ($this->checkCutOff($request->tahun, $request->bulan)) {
-            return response()->json(['status' => 'error', 'message' => "Gagal! Transaksi Bulan {$request->bulan} Tahun {$request->tahun} sudah ditutup (Cut-Off)."], 403);
-        }
+        $tanggalTransaksi = sprintf('%04d-%02d-01', $request->tahun, $request->bulan);
+        $this->validateCutOff($tanggalTransaksi, $user->isAdmin());
 
         $exists = Realisasi::where('satker_id', $request->satker_id)
             ->where('tahun', $request->tahun)
             ->where('bulan', $request->bulan)
             ->exists();
 
-        if ($exists) {
-            return response()->json(['status' => 'error', 'message' => 'Data Realisasi untuk bulan ini sudah ada! Gunakan fitur Edit.'], 409);
-        }
+        if ($exists) return response()->json(['status' => 'error', 'message' => 'Data Realisasi untuk bulan ini sudah ada! Gunakan fitur Edit.'], 409);
 
         DB::beginTransaction();
         try {
@@ -369,8 +373,7 @@ class TransaksiController extends Controller
             ActivityLog::record('CREATE', 'TRANSAKSI REALISASI', "Mengajukan draft Realisasi Bulan {$request->bulan} Tahun {$request->tahun} untuk Satker {$namaSatker}. (Total: Rp " . number_format($totalInput, 0, ',', '.') . ")");
 
             $admins = User::where('role', 'admin')->get();
-            $pesanNotif = "{$namaSatker} mengajukan draf Realisasi Bulan {$request->bulan}. Silakan verifikasi.";
-            Notification::send($admins, new TransaksiNotification('Realisasi Baru', $pesanNotif, 'warning'));
+            Notification::send($admins, new TransaksiNotification('Realisasi Baru', "{$namaSatker} mengajukan draf Realisasi Bulan {$request->bulan}. Silakan verifikasi.", 'warning'));
 
             return response()->json(['status' => 'success', 'message' => 'Data Realisasi berhasil diajukan dan menunggu verifikasi Admin.'], 201);
         } catch (\Exception $e) {
@@ -379,16 +382,20 @@ class TransaksiController extends Controller
         }
     }
 
-    public function updateRealisasi(Request $request, $id)
+    public function updateRealisasi(Request $request, string $id)
     {
+        /** @var User $user */
+        $user = Auth::user();
+
         $realisasi = Realisasi::find($id);
-        if (!$realisasi) {
-            return response()->json(['status' => 'error', 'message' => 'Data Realisasi tidak ditemukan.'], 404);
+        if (!$realisasi) return response()->json(['status' => 'error', 'message' => 'Data Realisasi tidak ditemukan.'], 404);
+
+        if ($user->isSatker() && $realisasi->satker_id !== $this->getMySatkerId($user)) {
+            return response()->json(['status' => 'error', 'message' => 'Akses ditolak! Ini bukan data Satker Anda.'], 403);
         }
 
-        if ($this->checkCutOff($realisasi->tahun, $realisasi->bulan)) {
-            return response()->json(['status' => 'error', 'message' => "Gagal! Transaksi Bulan {$realisasi->bulan} Tahun {$realisasi->tahun} sudah ditutup (Cut-Off)."], 403);
-        }
+        $tanggalTransaksi = sprintf('%04d-%02d-01', $realisasi->tahun, $realisasi->bulan);
+        $this->validateCutOff($tanggalTransaksi, $user->isAdmin());
 
         $validator = Validator::make($request->all(), [
             'rincian' => 'required|array|min:1',
@@ -397,9 +404,7 @@ class TransaksiController extends Controller
             'rincian.*.nominal' => 'required|numeric|min:0',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
-        }
+        if ($validator->fails()) return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
 
         DB::beginTransaction();
         try {
@@ -439,8 +444,7 @@ class TransaksiController extends Controller
             ActivityLog::record('UPDATE', 'TRANSAKSI REALISASI', "Memperbarui draft Realisasi Bulan {$realisasi->bulan} Tahun {$realisasi->tahun} milik Satker {$namaSatker}. (Total Baru: Rp " . number_format($totalInput, 0, ',', '.') . ")");
 
             $admins = User::where('role', 'admin')->get();
-            $pesanNotif = "{$namaSatker} merevisi laporan Realisasi Bulan {$realisasi->bulan}. Silakan verifikasi ulang.";
-            Notification::send($admins, new TransaksiNotification('Revisi Realisasi', $pesanNotif, 'warning'));
+            Notification::send($admins, new TransaksiNotification('Revisi Realisasi', "{$namaSatker} merevisi laporan Realisasi Bulan {$realisasi->bulan}. Silakan verifikasi ulang.", 'warning'));
 
             return response()->json(['status' => 'success', 'message' => 'Data Realisasi berhasil diperbarui dan status kembali menjadi Draft.']);
         } catch (\Exception $e) {
@@ -449,47 +453,47 @@ class TransaksiController extends Controller
         }
     }
 
-    public function destroyRealisasi($id)
+    public function destroyRealisasi(string $id)
     {
+        /** @var User $user */
+        $user = Auth::user();
+
         $realisasi = Realisasi::find($id);
-        if ($realisasi) {
-            if ($this->checkCutOff($realisasi->tahun, $realisasi->bulan)) {
-                return response()->json(['status' => 'error', 'message' => "Gagal! Transaksi Bulan {$realisasi->bulan} Tahun {$realisasi->tahun} sudah ditutup (Cut-Off)."], 403);
-            }
+        if (!$realisasi) return response()->json(['status' => 'error', 'message' => 'Data tidak ditemukan.'], 404);
 
-            $namaSatker = Satker::find($realisasi->satker_id)->nama_satker ?? 'Unknown Satker';
-            $bulan = $realisasi->bulan;
-            $tahun = $realisasi->tahun;
-            $totalHapus = $realisasi->belanja_gaji + $realisasi->belanja_barang + $realisasi->belanja_modal;
-
-            $realisasi->delete();
-
-            ActivityLog::record('DELETE', 'TRANSAKSI REALISASI', "Menghapus seluruh rincian Realisasi Anggaran Bulan {$bulan} Tahun {$tahun} milik Satker {$namaSatker}. (Total Terhapus: Rp " . number_format($totalHapus, 0, ',', '.') . ")");
-
-            return response()->json(['status' => 'success', 'message' => 'Data Realisasi dan rinciannya berhasil dihapus.']);
+        if ($user->isSatker() && $realisasi->satker_id !== $this->getMySatkerId($user)) {
+            return response()->json(['status' => 'error', 'message' => 'Akses ditolak! Ini bukan data Satker Anda.'], 403);
         }
-        return response()->json(['status' => 'error', 'message' => 'Data tidak ditemukan.'], 404);
+
+        $tanggalTransaksi = sprintf('%04d-%02d-01', $realisasi->tahun, $realisasi->bulan);
+        $this->validateCutOff($tanggalTransaksi, $user->isAdmin());
+
+        $namaSatker = Satker::find($realisasi->satker_id)->nama_satker ?? 'Unknown Satker';
+        $totalHapus = $realisasi->belanja_gaji + $realisasi->belanja_barang + $realisasi->belanja_modal;
+
+        $realisasi->delete();
+        ActivityLog::record('DELETE', 'TRANSAKSI REALISASI', "Menghapus seluruh rincian Realisasi Anggaran Bulan {$realisasi->bulan} Tahun {$realisasi->tahun} milik Satker {$namaSatker}. (Total Terhapus: Rp " . number_format($totalHapus, 0, ',', '.') . ")");
+
+        return response()->json(['status' => 'success', 'message' => 'Data Realisasi dan rinciannya berhasil dihapus.']);
     }
 
-    public function approveRealisasi(Request $request, $id)
+    public function approveRealisasi(Request $request, string $id)
     {
+        /** @var User $user */
+        $user = Auth::user();
+
         $validator = Validator::make($request->all(), [
             'status' => 'required|in:approved,rejected',
             'catatan_revisi' => 'required_if:status,rejected|nullable|string'
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
-        }
+        if ($validator->fails()) return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
 
         $realisasi = Realisasi::find($id);
-        if (!$realisasi) {
-            return response()->json(['status' => 'error', 'message' => 'Data tidak ditemukan.'], 404);
-        }
+        if (!$realisasi) return response()->json(['status' => 'error', 'message' => 'Data tidak ditemukan.'], 404);
 
-        if ($this->checkCutOff($realisasi->tahun, $realisasi->bulan)) {
-            return response()->json(['status' => 'error', 'message' => "Gagal! Transaksi Bulan {$realisasi->bulan} Tahun {$realisasi->tahun} sudah ditutup (Cut-Off)."], 403);
-        }
+        $tanggalTransaksi = sprintf('%04d-%02d-01', $realisasi->tahun, $realisasi->bulan);
+        $this->validateCutOff($tanggalTransaksi, $user->isAdmin());
 
         $realisasi->update([
             'status' => $request->status,
@@ -507,7 +511,6 @@ class TransaksiController extends Controller
             $title = $request->status === 'approved' ? 'Realisasi Disetujui ✅' : 'Realisasi Ditolak ❌';
             $tipeNotif = $request->status === 'approved' ? 'success' : 'danger';
             $pesanBalasan = "Pengajuan Realisasi Bulan {$realisasi->bulan} telah di-" . ($request->status === 'approved' ? "Setujui." : "Tolak. Catatan: " . $request->catatan_revisi);
-
             Notification::send($userSatker, new TransaksiNotification($title, $pesanBalasan, $tipeNotif));
         }
 

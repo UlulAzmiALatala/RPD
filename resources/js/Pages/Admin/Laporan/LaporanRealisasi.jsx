@@ -16,6 +16,8 @@ import {
     CheckCircle2,
     XCircle,
     Star,
+    Wallet,
+    Info,
 } from "lucide-react";
 
 export default function LaporanRealisasi() {
@@ -123,7 +125,6 @@ export default function LaporanRealisasi() {
             }
         }
 
-        // Ambil Poin SIRA dari Triwulan Terakhir yang dievaluasi
         let totalPoinSira = "-";
         if (laporanData.evaluasi_tw) {
             totalPoinSira = laporanData.evaluasi_tw["IV"].poin.total_poin;
@@ -150,7 +151,7 @@ export default function LaporanRealisasi() {
                 ],
                 [
                     `Tahun Anggaran: ${tahun}`,
-                    `Total Pagu: Rp ${formatRp(laporanData.pagu_total)}`,
+                    `Total Pagu Efektif: Rp ${formatRp(laporanData.pagu_efektif)}`,
                 ],
                 [],
                 [
@@ -169,8 +170,8 @@ export default function LaporanRealisasi() {
                     (row.realisasi.b52 || 0) +
                     (row.realisasi.b53 || 0);
                 const persenSerap =
-                    laporanData.pagu_total > 0
-                        ? (totRealBulan / laporanData.pagu_total) * 100
+                    laporanData.pagu_efektif > 0
+                        ? (totRealBulan / laporanData.pagu_efektif) * 100
                         : 0;
                 aoa.push([
                     namaBulan[row.bulan],
@@ -189,7 +190,8 @@ export default function LaporanRealisasi() {
                 ],
                 [
                     `Tahun Anggaran: ${tahun}`,
-                    `Total Pagu: Rp ${formatRp(laporanData.pagu_total)}`,
+                    `Pagu Kotor (Utk Evaluasi Kemenkeu): Rp ${formatRp(laporanData.pagu_total)}`,
+                    `Pagu Efektif (Utk Penyerapan Murni): Rp ${formatRp(laporanData.pagu_efektif)}`,
                 ],
                 [],
                 [
@@ -245,7 +247,6 @@ export default function LaporanRealisasi() {
                 ]);
             });
 
-            // 🔥 APPEND EVALUASI TW & POIN KE EXCEL 🔥
             if (laporanData.evaluasi_tw) {
                 aoa.push([]);
                 aoa.push([]);
@@ -256,7 +257,8 @@ export default function LaporanRealisasi() {
                     "Triwulan",
                     "Jenis Belanja",
                     "Realisasi Kumulatif (Rp)",
-                    "Target Minimal (%)",
+                    "Target Minimal Kemenkeu (%)",
+                    "Target Nominal Kemenkeu (Rp)",
                     "Aktual Penyerapan (%)",
                     "Status",
                     "",
@@ -264,7 +266,9 @@ export default function LaporanRealisasi() {
                     "Poin Penyerapan (Bobot 20%)",
                     "Nilai IKPA Hal III (Maks 100)",
                     "Poin Hal III (Bobot 10%)",
-                    "TOTAL POIN SIRA (Maks 30)",
+                    "Nilai Capaian RO (Maks 100)",
+                    "Poin Capaian RO (Bobot 25%)",
+                    "TOTAL POIN SIRA (Maks 55)",
                 ]);
 
                 ["I", "II", "III", "IV"].forEach((tw) => {
@@ -285,11 +289,12 @@ export default function LaporanRealisasi() {
                             namaBelanja,
                             item.status === "N/A" ? "-" : item.nominal,
                             item.status === "N/A" ? "-" : item.target_persen,
+                            item.status === "N/A" ? "-" : item.target_nominal,
                             item.status === "N/A" ? "-" : item.realisasi_persen,
                             item.status === "N/A"
                                 ? "TIDAK ADA PAGU"
                                 : item.status,
-                            "", // Spacer
+                            "",
                         ];
 
                         if (firstRow) {
@@ -298,11 +303,12 @@ export default function LaporanRealisasi() {
                                 poin.tertimbang_penyerapan,
                                 poin.ikpa_hal_iii,
                                 poin.tertimbang_hal_iii,
+                                poin.nilai_ro,
+                                poin.tertimbang_ro,
                                 poin.total_poin,
                             );
                             firstRow = false;
                         }
-
                         aoa.push(rowData);
                     });
                 });
@@ -346,7 +352,7 @@ export default function LaporanRealisasi() {
                         </div>
                         <p className="text-sm font-medium text-slate-500 ml-[76px]">
                             Analisis mendalam Indikator Kinerja Pelaksanaan
-                            Anggaran (Halaman III DIPA & Penyerapan).
+                            Anggaran (Halaman III DIPA, Penyerapan, & Output).
                         </p>
                     </div>
 
@@ -441,9 +447,24 @@ export default function LaporanRealisasi() {
                                         {formatDecimal(summary.totalPoinSira)}
                                     </h3>
                                     <span className="text-lg font-bold text-indigo-300">
-                                        / 30 Pts
+                                        / 55 Pts
                                     </span>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* 🔥 PAGU EFEKTIF (BUKAN KOTOR) 🔥 */}
+                        <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-5 hover:shadow-lg transition-shadow">
+                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner bg-slate-50 text-slate-500">
+                                <Wallet size={32} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Total Pagu Efektif
+                                </p>
+                                <h3 className="text-xl font-black mt-1 text-slate-700">
+                                    {formatRp(laporanData.pagu_efektif)}
+                                </h3>
                             </div>
                         </div>
 
@@ -464,6 +485,7 @@ export default function LaporanRealisasi() {
                                 </h3>
                             </div>
                         </div>
+
                         <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-5 hover:shadow-lg transition-shadow">
                             <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center shadow-inner">
                                 <TrendingUp size={32} />
@@ -474,19 +496,6 @@ export default function LaporanRealisasi() {
                                 </p>
                                 <h3 className="text-xl font-black text-slate-800 mt-1">
                                     {formatRp(summary.totRealisasi)}
-                                </h3>
-                            </div>
-                        </div>
-                        <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-5 hover:shadow-lg transition-shadow">
-                            <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center shadow-inner">
-                                <TrendingDown size={32} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Total Deviasi
-                                </p>
-                                <h3 className="text-xl font-black text-rose-600 mt-1">
-                                    {formatRp(summary.totDeviasi)}
                                 </h3>
                             </div>
                         </div>
@@ -507,11 +516,11 @@ export default function LaporanRealisasi() {
                                     Satker:{" "}
                                     <span className="text-indigo-600">
                                         {laporanData.satker.nama_satker}
-                                    </span>{" "}
+                                    </span>
                                     <span className="mx-2 text-slate-300">
                                         |
-                                    </span>{" "}
-                                    Pagu:{" "}
+                                    </span>
+                                    Pagu Evaluasi Kemenkeu (Kotor):{" "}
                                     <span className="text-emerald-600">
                                         Rp {formatRp(laporanData.pagu_total)}
                                     </span>
@@ -519,24 +528,27 @@ export default function LaporanRealisasi() {
                             </div>
                             <div className="flex gap-3 w-full md:w-auto">
                                 <button
-                                    onClick={handleExportPdf}
-                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-rose-50 text-rose-600 hover:bg-gradient-to-r hover:from-rose-500 hover:to-red-500 hover:text-white border border-rose-200 hover:border-transparent rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-sm hover:shadow-rose-200 group"
+                                    onClick={() =>
+                                        window.open(
+                                            `/api/laporan/rincian-output/pdf?tahun=${tahun}&satker_id=${satkerId}`,
+                                            "_blank",
+                                        )
+                                    }
+                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white border border-purple-200 hover:border-transparent rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-sm group"
                                 >
-                                    <FileText
-                                        size={16}
-                                        className="group-hover:-translate-y-0.5 transition-transform"
-                                    />{" "}
-                                    Unduh PDF
+                                    <FileText size={16} /> PDF RO
+                                </button>
+                                <button
+                                    onClick={handleExportPdf}
+                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-rose-50 text-rose-600 hover:bg-gradient-to-r hover:from-rose-500 hover:to-red-500 hover:text-white border border-rose-200 hover:border-transparent rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-sm group"
+                                >
+                                    <FileText size={16} /> Unduh PDF IKPA
                                 </button>
                                 <button
                                     onClick={handleExportExcel}
-                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 hover:border-emerald-500 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-sm hover:shadow-emerald-200 group"
+                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 hover:border-emerald-500 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-sm group"
                                 >
-                                    <FileSpreadsheet
-                                        size={16}
-                                        className="group-hover:scale-110 transition-transform"
-                                    />{" "}
-                                    Excel
+                                    <FileSpreadsheet size={16} /> Excel
                                 </button>
                             </div>
                         </div>
@@ -563,7 +575,7 @@ export default function LaporanRealisasi() {
                                                     TOTAL REALISASI
                                                 </th>
                                                 <th className="px-5 py-5 bg-emerald-900/40 border-l border-slate-700">
-                                                    % Serap
+                                                    % Serap (Dari Pagu Efektif)
                                                 </th>
                                             </tr>
                                         </thead>
@@ -578,16 +590,16 @@ export default function LaporanRealisasi() {
                                                         (row.realisasi.b53 ||
                                                             0);
                                                     const persenSerap =
-                                                        laporanData.pagu_total >
+                                                        laporanData.pagu_efektif >
                                                         0
                                                             ? (totRealBulan /
-                                                                  laporanData.pagu_total) *
+                                                                  laporanData.pagu_efektif) *
                                                               100
                                                             : 0;
                                                     return (
                                                         <tr
                                                             key={row.bulan}
-                                                            className="hover:bg-indigo-50/40 text-right transition-colors font-mono group"
+                                                            className="hover:bg-indigo-50/40 text-right transition-colors font-mono group whitespace-nowrap"
                                                         >
                                                             <td className="px-5 py-4 border-r border-slate-100 text-center font-sans font-bold text-slate-900 bg-slate-50/50">
                                                                 {namaBulan[
@@ -643,7 +655,6 @@ export default function LaporanRealisasi() {
                                     </>
                                 ) : (
                                     <>
-                                        {/* 🔥 SUPER TABEL IKPA KEMENKEU (% DEVIASI BERGANDENGAN DENGAN PENYERAPAN) 🔥 */}
                                         <thead className="bg-[#0A192F] text-white text-center font-semibold shadow-md">
                                             <tr>
                                                 <th
@@ -674,7 +685,7 @@ export default function LaporanRealisasi() {
                                                     colSpan="3"
                                                     className="px-2 py-2 border-r border-slate-600 bg-amber-900/50"
                                                 >
-                                                    % Proporsi Pagu
+                                                    % Proporsi Pagu Kotor
                                                 </th>
                                                 <th
                                                     colSpan="3"
@@ -704,11 +715,10 @@ export default function LaporanRealisasi() {
                                                 >
                                                     NILAI
                                                     <br />
-                                                    IKPA
+                                                    IKPA (Hal III)
                                                 </th>
                                             </tr>
                                             <tr className="bg-slate-800 text-slate-300 text-[9px] tracking-wider uppercase">
-                                                {/* Rencana */}
                                                 <th className="px-2 py-1.5 border-r border-slate-600">
                                                     51
                                                 </th>
@@ -719,7 +729,6 @@ export default function LaporanRealisasi() {
                                                     53
                                                 </th>
 
-                                                {/* Penyerapan & % Deviasi Bergandengan */}
                                                 <th className="px-2 py-1.5 border-slate-600">
                                                     51
                                                 </th>
@@ -739,7 +748,6 @@ export default function LaporanRealisasi() {
                                                     % Dev
                                                 </th>
 
-                                                {/* Deviasi Nominal */}
                                                 <th className="px-2 py-1.5 border-r border-slate-600">
                                                     51
                                                 </th>
@@ -750,7 +758,6 @@ export default function LaporanRealisasi() {
                                                     53
                                                 </th>
 
-                                                {/* % Proporsi Pagu */}
                                                 <th className="px-2 py-1.5 border-r border-slate-600">
                                                     51
                                                 </th>
@@ -761,7 +768,6 @@ export default function LaporanRealisasi() {
                                                     53
                                                 </th>
 
-                                                {/* % Dev Tertimbang */}
                                                 <th className="px-2 py-1.5 border-r border-slate-600">
                                                     51
                                                 </th>
@@ -809,7 +815,6 @@ export default function LaporanRealisasi() {
                                                                     .toUpperCase()}
                                                             </td>
 
-                                                            {/* Rencana */}
                                                             <td className="px-2 py-2.5 border-r border-slate-100 text-slate-500">
                                                                 {formatRp(
                                                                     row.rencana
@@ -829,7 +834,6 @@ export default function LaporanRealisasi() {
                                                                 )}
                                                             </td>
 
-                                                            {/* Penyerapan 51 & % Dev 51 */}
                                                             <td className="px-2 py-2.5 text-emerald-600 bg-emerald-50/20">
                                                                 {formatRp(
                                                                     row
@@ -845,7 +849,6 @@ export default function LaporanRealisasi() {
                                                                 )}
                                                             </td>
 
-                                                            {/* Penyerapan 52 & % Dev 52 */}
                                                             <td className="px-2 py-2.5 text-emerald-600 bg-emerald-50/20">
                                                                 {formatRp(
                                                                     row
@@ -861,7 +864,6 @@ export default function LaporanRealisasi() {
                                                                 )}
                                                             </td>
 
-                                                            {/* Penyerapan 53 & % Dev 53 */}
                                                             <td className="px-2 py-2.5 text-emerald-600 bg-emerald-50/20">
                                                                 {formatRp(
                                                                     row
@@ -877,7 +879,6 @@ export default function LaporanRealisasi() {
                                                                 )}
                                                             </td>
 
-                                                            {/* Deviasi Nominal */}
                                                             <td className="px-2 py-2.5 border-r border-slate-100 text-rose-500">
                                                                 {formatRp(
                                                                     row.deviasi
@@ -897,7 +898,6 @@ export default function LaporanRealisasi() {
                                                                 )}
                                                             </td>
 
-                                                            {/* % Proporsi Pagu */}
                                                             <td className="px-2 py-2.5 border-r border-slate-100 text-indigo-500">
                                                                 {formatDecimal(
                                                                     row
@@ -920,7 +920,6 @@ export default function LaporanRealisasi() {
                                                                 )}
                                                             </td>
 
-                                                            {/* % Dev Tertimbang */}
                                                             <td className="px-2 py-2.5 border-r border-slate-100 font-bold text-purple-600">
                                                                 {formatDecimal(
                                                                     row
@@ -943,7 +942,6 @@ export default function LaporanRealisasi() {
                                                                 )}
                                                             </td>
 
-                                                            {/* % Deviasi Seluruh & Rata Rata */}
                                                             <td className="px-2 py-2.5 border-r border-slate-100 font-bold text-slate-700 bg-slate-50/50">
                                                                 {formatDecimal(
                                                                     row.persen_seluruh,
@@ -955,7 +953,6 @@ export default function LaporanRealisasi() {
                                                                 )}
                                                             </td>
 
-                                                            {/* Nilai IKPA */}
                                                             <td className="px-2 py-2.5 text-center align-middle bg-slate-50">
                                                                 <span
                                                                     className={`px-2 py-1 inline-flex text-[10px] font-black rounded border shadow-sm ${ikpaColor} font-sans`}
@@ -977,7 +974,7 @@ export default function LaporanRealisasi() {
                     </div>
                 )}
 
-                {/* 🔥 NEW: EVALUASI PENYERAPAN KEMENKEU & POIN (PER TRIWULAN) 🔥 */}
+                {/* 🔥 EVALUASI PENYERAPAN KEMENKEU & POIN SIRA 55 POINTS 🔥 */}
                 {laporanData?.evaluasi_tw && (
                     <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden animate-[fadeIn_0.5s_ease-out] mt-6">
                         <div className="p-6 md:px-8 border-b border-slate-100 bg-blue-50/30 flex items-center gap-4">
@@ -991,11 +988,58 @@ export default function LaporanRealisasi() {
                                 </h3>
                                 <p className="text-xs font-bold text-slate-500 mt-1">
                                     Kalkulasi otomatis sumbangsih poin IKPA Hal
-                                    III (Bobot 10%) dan Penyerapan Anggaran
-                                    (Bobot 20%) terhadap skor akhir Satker.
+                                    III (Bobot 10%), Penyerapan Anggaran (Bobot
+                                    20%), dan Capaian Output (Bobot 25%).
                                 </p>
                             </div>
                         </div>
+
+                        {/* 🔥 SPANDUK EDUKASI KEMENKEU (PENYERAPAN VS DEVIASI) 🔥 */}
+                        <div className="mx-6 md:mx-8 mt-6 p-5 bg-indigo-50/80 border border-indigo-100 rounded-2xl flex items-start gap-4 shadow-sm">
+                            <div className="p-2.5 bg-indigo-100 rounded-full flex-shrink-0">
+                                <Info className="w-6 h-6 text-indigo-600" />
+                            </div>
+                            <div className="text-[13px] text-indigo-900 leading-relaxed">
+                                <strong className="block mb-2 text-sm font-black text-indigo-800">
+                                    Kenapa Kolom Deviasi (Tabel Atas) "AMAN",
+                                    tapi Status Penyerapan "GAGAL"?
+                                </strong>
+                                <ul className="list-disc pl-5 space-y-2 mt-1">
+                                    <li>
+                                        <strong className="font-bold">
+                                            IKPA Penyerapan (Tabel Bawah):
+                                        </strong>{" "}
+                                        Bersifat absolut dan{" "}
+                                        <strong>kumulatif</strong>. Kemenkeu
+                                        menghitung berdasarkan Pagu Kotor. Jika
+                                        di TW I Anda kekurangan serap (misal
+                                        target Rp 3 Miliar namun realisasi Rp
+                                        2,9 Miliar), maka statusnya{" "}
+                                        <strong>GAGAL</strong>. Kekurangan ini
+                                        akan menjadi "Hutang Berantai" yang
+                                        terus membebani TW selanjutnya jika
+                                        tidak segera dilunasi.
+                                    </li>
+                                    <li>
+                                        <strong className="font-bold">
+                                            IKPA Deviasi Hal. III DIPA (Tabel
+                                            Atas):
+                                        </strong>{" "}
+                                        Hanya menilai kesesuaian antara{" "}
+                                        <strong>
+                                            Janji (RPD) vs Realisasi Bulanan
+                                        </strong>
+                                        . Deviasi memiliki batas toleransi aman
+                                        maksimal 5%. Anda bisa saja aman di
+                                        Deviasi (karena realisasinya pas dengan
+                                        janji), namun tetap gagal di Penyerapan
+                                        (karena janji dan realisasinya sama-sama
+                                        di bawah target nasional Kemenkeu).
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
                         <div className="p-6 md:p-8 grid grid-cols-1 xl:grid-cols-2 gap-6">
                             {["I", "II", "III", "IV"].map((tw) => {
                                 const evalTw = laporanData.evaluasi_tw[tw];
@@ -1004,13 +1048,13 @@ export default function LaporanRealisasi() {
                                 return (
                                     <div
                                         key={tw}
-                                        className="border border-slate-200 rounded-2xl p-5 bg-slate-50/50 flex flex-col"
+                                        className="border border-slate-200 rounded-2xl p-5 bg-slate-50/50 flex flex-col hover:border-indigo-300 transition-colors"
                                     >
                                         <h4 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">
                                             <CalendarRange
                                                 className="text-indigo-500"
                                                 size={20}
-                                            />
+                                            />{" "}
                                             TRIWULAN {tw}
                                         </h4>
                                         <div className="space-y-3 mb-6">
@@ -1030,7 +1074,7 @@ export default function LaporanRealisasi() {
                                                 return (
                                                     <div
                                                         key={kode}
-                                                        className={`flex items-center justify-between p-3 rounded-xl border ${isNA ? "bg-slate-100 border-slate-200" : isLulus ? "bg-emerald-50 border-emerald-100" : "bg-rose-50 border-rose-100"}`}
+                                                        className={`flex items-center justify-between p-3 rounded-xl border ${isNA ? "bg-slate-100 border-slate-200" : isLulus ? "bg-emerald-50 border-emerald-200 shadow-[0_0_10px_rgba(16,185,129,0.1)]" : "bg-rose-50 border-rose-200 shadow-[0_0_10px_rgba(244,63,94,0.1)]"}`}
                                                     >
                                                         <div className="flex flex-col">
                                                             <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
@@ -1039,14 +1083,14 @@ export default function LaporanRealisasi() {
                                                                 ) : isLulus ? (
                                                                     <CheckCircle2
                                                                         size={
-                                                                            12
+                                                                            14
                                                                         }
                                                                         className="text-emerald-500"
                                                                     />
                                                                 ) : (
                                                                     <XCircle
                                                                         size={
-                                                                            12
+                                                                            14
                                                                         }
                                                                         className="text-rose-500"
                                                                     />
@@ -1059,13 +1103,19 @@ export default function LaporanRealisasi() {
                                                                     Rp{" "}
                                                                     {formatRp(
                                                                         item.nominal,
-                                                                    )}
+                                                                    )}{" "}
+                                                                    <span className="text-[10px] text-slate-400 font-normal">
+                                                                        / Rp{" "}
+                                                                        {formatRp(
+                                                                            item.target_nominal,
+                                                                        )}
+                                                                    </span>
                                                                 </span>
                                                             )}
                                                         </div>
 
                                                         {isNA ? (
-                                                            <span className="text-xs font-black text-slate-400 px-3 py-1 bg-slate-200 rounded-lg">
+                                                            <span className="text-[10px] font-black text-slate-400 px-3 py-1 bg-slate-200 rounded-lg">
                                                                 TIDAK ADA PAGU
                                                             </span>
                                                         ) : (
@@ -1095,7 +1145,7 @@ export default function LaporanRealisasi() {
                                                                     </span>
                                                                 </div>
                                                                 <div
-                                                                    className={`px-2.5 py-1 text-[10px] font-black rounded-lg ${isLulus ? "bg-emerald-200 text-emerald-800" : "bg-rose-200 text-rose-800"}`}
+                                                                    className={`px-2.5 py-1 text-[10px] font-black rounded-lg border ${isLulus ? "bg-emerald-100 text-emerald-700 border-emerald-300" : "bg-rose-100 text-rose-700 border-rose-300"}`}
                                                                 >
                                                                     {isLulus
                                                                         ? "LULUS"
@@ -1108,9 +1158,8 @@ export default function LaporanRealisasi() {
                                             })}
                                         </div>
 
-                                        {/* RUMUS POIN TERTIMBANG SIRA */}
                                         <div className="mt-auto bg-[#0A192F] rounded-xl p-4 shadow-inner border border-slate-700">
-                                            <div className="grid grid-cols-2 gap-4 mb-3 border-b border-slate-700/50 pb-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3 border-b border-slate-700/50 pb-3">
                                                 <div>
                                                     <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
                                                         Skor Penyerapan (Bobot
@@ -1155,6 +1204,28 @@ export default function LaporanRealisasi() {
                                                         </span>
                                                     </div>
                                                 </div>
+                                                <div>
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                                                        Skor Output RO (Bobot
+                                                        25%)
+                                                    </div>
+                                                    <div className="flex items-end gap-2">
+                                                        <span className="text-xl font-black text-purple-400">
+                                                            {formatDecimal(
+                                                                p.nilai_ro,
+                                                            )}
+                                                        </span>
+                                                        <span className="text-xs text-slate-500 font-bold mb-1">
+                                                            x 25% ={" "}
+                                                            <span className="text-white bg-purple-500/20 px-1.5 py-0.5 rounded text-sm">
+                                                                {formatDecimal(
+                                                                    p.tertimbang_ro,
+                                                                )}{" "}
+                                                                pts
+                                                            </span>
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div className="flex items-center justify-between">
                                                 <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest flex items-center gap-1.5">
@@ -1169,7 +1240,7 @@ export default function LaporanRealisasi() {
                                                         p.total_poin,
                                                     )}{" "}
                                                     <span className="text-xs text-yellow-700">
-                                                        / 30 Pts
+                                                        / 55 Pts
                                                     </span>
                                                 </span>
                                             </div>

@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Anggaran;
-use App\Models\ActivityLog; // <-- IMPORT MODEL CCTV KITA
-use App\Models\Satker;      // <-- Import Satker untuk ambil nama satkernya di Log
+use App\Models\ActivityLog;
+use App\Models\Satker;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -37,7 +37,7 @@ class AnggaranController extends Controller
         }
     }
 
-    // 2. Menyimpan Pagu Anggaran Baru (Tanpa Pagu Blokir)
+    // 2. Menyimpan Pagu Anggaran Baru
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -46,6 +46,9 @@ class AnggaranController extends Controller
             'belanja_gaji' => 'required|numeric|min:0',
             'belanja_barang' => 'required|numeric|min:0',
             'belanja_modal' => 'required|numeric|min:0',
+            'blokir_gaji' => 'nullable|numeric|min:0',
+            'blokir_barang' => 'nullable|numeric|min:0',
+            'blokir_modal' => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -60,9 +63,19 @@ class AnggaranController extends Controller
         $belanjaGaji = $request->belanja_gaji ?: 0;
         $belanjaBarang = $request->belanja_barang ?: 0;
         $belanjaModal = $request->belanja_modal ?: 0;
-        $paguBlokir = 0;
+
+        // Tangkap Pagu Blokir Pecahan
+        $blokirGaji = $request->blokir_gaji ?: 0;
+        $blokirBarang = $request->blokir_barang ?: 0;
+        $blokirModal = $request->blokir_modal ?: 0;
+
+        // Validasi Ekstra: Blokir tidak boleh lebih besar dari Pagu per belanja
+        if ($blokirGaji > $belanjaGaji || $blokirBarang > $belanjaBarang || $blokirModal > $belanjaModal) {
+            return response()->json(['status' => 'error', 'message' => 'Pagu Blokir tidak boleh melebihi Pagu di masing-masing jenis belanja!'], 422);
+        }
 
         $totalPagu = $belanjaGaji + $belanjaBarang + $belanjaModal;
+        $paguBlokir = $blokirGaji + $blokirBarang + $blokirModal;
         $paguEfektif = $totalPagu - $paguBlokir;
 
         $anggaran = Anggaran::create([
@@ -71,14 +84,14 @@ class AnggaranController extends Controller
             'belanja_gaji' => $belanjaGaji,
             'belanja_barang' => $belanjaBarang,
             'belanja_modal' => $belanjaModal,
+            'blokir_gaji' => $blokirGaji,
+            'blokir_barang' => $blokirBarang,
+            'blokir_modal' => $blokirModal,
             'total_pagu' => $totalPagu,
             'pagu_blokir' => $paguBlokir,
             'pagu_efektif' => $paguEfektif,
         ]);
 
-        // ==========================================
-        // 🔴 REKAM CCTV (CREATE)
-        // ==========================================
         $namaSatker = Satker::find($request->satker_id)->nama_satker ?? 'Unknown Satker';
         ActivityLog::record(
             'CREATE',
@@ -93,7 +106,7 @@ class AnggaranController extends Controller
         ]);
     }
 
-    // 3. Mengupdate Pagu Anggaran (Termasuk Pagu Blokir)
+    // 3. Mengupdate Pagu Anggaran
     public function update(Request $request, $id)
     {
         $anggaran = Anggaran::find($id);
@@ -105,7 +118,9 @@ class AnggaranController extends Controller
             'belanja_gaji' => 'required|numeric|min:0',
             'belanja_barang' => 'required|numeric|min:0',
             'belanja_modal' => 'required|numeric|min:0',
-            'pagu_blokir' => 'required|numeric|min:0',
+            'blokir_gaji' => 'required|numeric|min:0',
+            'blokir_barang' => 'required|numeric|min:0',
+            'blokir_modal' => 'required|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -115,28 +130,32 @@ class AnggaranController extends Controller
         $belanjaGaji = $request->belanja_gaji;
         $belanjaBarang = $request->belanja_barang;
         $belanjaModal = $request->belanja_modal;
-        $paguBlokir = $request->pagu_blokir;
 
-        $totalPagu = $belanjaGaji + $belanjaBarang + $belanjaModal;
+        $blokirGaji = $request->blokir_gaji;
+        $blokirBarang = $request->blokir_barang;
+        $blokirModal = $request->blokir_modal;
 
-        if ($paguBlokir > $totalPagu) {
-            return response()->json(['status' => 'error', 'message' => 'Nominal Pagu Blokir tidak boleh melebihi Total Pagu!'], 422);
+        // Validasi Ekstra: Blokir tidak boleh lebih besar dari Pagu per belanja
+        if ($blokirGaji > $belanjaGaji || $blokirBarang > $belanjaBarang || $blokirModal > $belanjaModal) {
+            return response()->json(['status' => 'error', 'message' => 'Pagu Blokir tidak boleh melebihi Pagu di masing-masing jenis belanja!'], 422);
         }
 
+        $totalPagu = $belanjaGaji + $belanjaBarang + $belanjaModal;
+        $paguBlokir = $blokirGaji + $blokirBarang + $blokirModal;
         $paguEfektif = $totalPagu - $paguBlokir;
 
         $anggaran->update([
             'belanja_gaji' => $belanjaGaji,
             'belanja_barang' => $belanjaBarang,
             'belanja_modal' => $belanjaModal,
+            'blokir_gaji' => $blokirGaji,
+            'blokir_barang' => $blokirBarang,
+            'blokir_modal' => $blokirModal,
             'total_pagu' => $totalPagu,
             'pagu_blokir' => $paguBlokir,
             'pagu_efektif' => $paguEfektif,
         ]);
 
-        // ==========================================
-        // 🔴 REKAM CCTV (UPDATE)
-        // ==========================================
         $namaSatker = Satker::find($anggaran->satker_id)->nama_satker ?? 'Unknown Satker';
         ActivityLog::record(
             'UPDATE',
@@ -159,16 +178,12 @@ class AnggaranController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Data Anggaran tidak ditemukan.'], 404);
         }
 
-        // Ambil data sebelum dihapus buat modal CCTV
         $tahun = $anggaran->tahun;
         $namaSatker = Satker::find($anggaran->satker_id)->nama_satker ?? 'Unknown Satker';
         $totalHapus = $anggaran->total_pagu;
 
         $anggaran->delete();
 
-        // ==========================================
-        // 🔴 REKAM CCTV (DELETE)
-        // ==========================================
         ActivityLog::record(
             'DELETE',
             'MASTER ANGGARAN',

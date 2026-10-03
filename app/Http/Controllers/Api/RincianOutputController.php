@@ -208,4 +208,40 @@ class RincianOutputController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Gagal menghapus Target RO.'], 500);
         }
     }
+
+    public function cetakPdfRo(Request $request)
+    {
+        $tahun = $request->query('tahun', date('Y'));
+        $satkerId = $request->query('satker_id');
+
+        if (!$satkerId) {
+            return response()->json(['status' => 'error', 'message' => 'Silakan pilih Satuan Kerja terlebih dahulu.'], 400);
+        }
+
+        $satker = Satker::find($satkerId);
+        if (!$satker) {
+            return response()->json(['status' => 'error', 'message' => 'Satker tidak ditemukan.'], 404);
+        }
+
+        // Ambil data RO berserta realisasinya
+        $dataRO = RincianOutput::with('realisasiOutputs')
+            ->where('satker_id', $satkerId)
+            ->where('tahun', $tahun)
+            ->get();
+
+        $namaBulan = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        $tanggalCetak = date('d') . ' ' . $namaBulan[date('n') - 1] . ' ' . date('Y');
+
+        $data = [
+            'satker' => $satker,
+            'tahun' => $tahun,
+            'data_ro' => $dataRO,
+            'tanggal_cetak' => $tanggalCetak
+        ];
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.laporan-detail-ro', $data);
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download("Laporan_Detail_RO_{$satker->kode_satker}_{$tahun}.pdf");
+    }
 }

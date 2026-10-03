@@ -49,7 +49,6 @@ const namaBulan = [
 ];
 
 const Pagination = ({ meta, onPageChange, accentColor }) => {
-    /* LOGIKA SAMA, SAYA HIDE UNTUK MENGHEMAT SPACE */
     if (!meta || meta.total === 0) return null;
     const { current_page, last_page, from, to, total } = meta;
     const getPageNumbers = () => {
@@ -98,7 +97,7 @@ const Pagination = ({ meta, onPageChange, accentColor }) => {
 
 export default function IndexTransaksi({ authUser }) {
     const [activeTab, setActiveTab] = useState("rpd");
-    const [selectedTW, setSelectedTW] = useState("ALL"); // 🔥 STATE FILTER TW BARU
+    const [selectedTW, setSelectedTW] = useState("ALL");
     const [data, setData] = useState([]);
     const [satkers, setSatkers] = useState([]);
     const [pagination, setPagination] = useState({});
@@ -198,7 +197,6 @@ export default function IndexTransaksi({ authUser }) {
                 activeTab === "rpd"
                     ? "/api/transaksi/rpd"
                     : "/api/transaksi/realisasi";
-            // 🔥 TAMBAH PARAMETER TW KE BACKEND
             let url = `${endpoint}?page=${page}&search=${search}&tahun=${tahun}&satker_id=${actualSatker}`;
             if (selectedTW !== "ALL") url += `&tw=${selectedTW}`;
 
@@ -236,7 +234,6 @@ export default function IndexTransaksi({ authUser }) {
     ]);
 
     const confirmDelete = async () => {
-        /* LOGIKA SAMA, HIDE DEMI SPACE */
         setIsDeleting(true);
         try {
             const endpoint =
@@ -256,7 +253,6 @@ export default function IndexTransaksi({ authUser }) {
     };
 
     const handleApprove = async (id, status) => {
-        /* LOGIKA SAMA */
         try {
             const endpoint =
                 activeTab === "rpd"
@@ -275,7 +271,6 @@ export default function IndexTransaksi({ authUser }) {
     };
 
     const handleRejectSubmit = async (id, catatan) => {
-        /* LOGIKA SAMA */
         try {
             const endpoint =
                 activeTab === "rpd"
@@ -308,12 +303,8 @@ export default function IndexTransaksi({ authUser }) {
     const isAdmin = localAuth?.role === "admin";
 
     // =========================================================================
-    // 🔥 LOGIKA KALKULASI SUMMARY BERDASARKAN FILTER TRIWULAN (TW)
+    // 🔥 LOGIKA KALKULASI SUMMARY (PERBAIKAN SISA PAGU STATIS & DINAMIS 51, 52, 53)
     // =========================================================================
-    let dispPagu = 0,
-        dispTotalRpd = 0,
-        dispTotalReal = 0;
-
     const getMonthsInTW = (tw) => {
         if (tw === "I") return [1, 2, 3];
         if (tw === "II") return [4, 5, 6];
@@ -322,66 +313,136 @@ export default function IndexTransaksi({ authUser }) {
         return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // ALL
     };
 
-    const calculateFromBulanan = (bulananObj) => {
-        let trpd = 0,
-            treal = 0;
-        getMonthsInTW(selectedTW).forEach((m) => {
-            if (bulananObj[m]) {
-                trpd += bulananObj[m].rpd;
-                treal += bulananObj[m].realisasi;
+    const getTargetTW = (tw) => {
+        if (tw === "I") return { gaji: 20, barang: 15, modal: 10 };
+        if (tw === "II") return { gaji: 50, barang: 50, modal: 40 };
+        if (tw === "III") return { gaji: 75, barang: 70, modal: 70 };
+        return { gaji: 95, barang: 90, modal: 90 }; // ALL atau IV
+    };
+
+    let dispPagu = 0,
+        dispTotalInputTW = 0,
+        dispTotalInputALL = 0,
+        dispTargetIKPARp = 0;
+
+    // 🔥 VARIABEL BARU UNTUK SISA PAGU DI HEADER TABEL 🔥
+    let dispSisa51 = 0,
+        dispSisa52 = 0,
+        dispSisa53 = 0;
+
+    const calculateSatkerMetrics = (satkerData) => {
+        const paguGajiEfektif =
+            (satkerData.pagu_gaji || 0) - (satkerData.blokir_gaji || 0);
+        const paguBarangEfektif =
+            (satkerData.pagu_barang || 0) - (satkerData.blokir_barang || 0);
+        const paguModalEfektif =
+            (satkerData.pagu_modal || 0) - (satkerData.blokir_modal || 0);
+
+        const targetPct = getTargetTW(selectedTW);
+
+        const targetKemenkeuGaji =
+            satkerData.pagu_gaji * (targetPct.gaji / 100);
+        const targetKemenkeuBarang =
+            satkerData.pagu_barang * (targetPct.barang / 100);
+        const targetKemenkeuModal =
+            satkerData.pagu_modal * (targetPct.modal / 100);
+
+        const finalTargetGaji = Math.min(targetKemenkeuGaji, paguGajiEfektif);
+        const finalTargetBarang = Math.min(
+            targetKemenkeuBarang,
+            paguBarangEfektif,
+        );
+        const finalTargetModal = Math.min(
+            targetKemenkeuModal,
+            paguModalEfektif,
+        );
+
+        let inputTW = 0,
+            inputALL = 0;
+        let inputAll51 = 0,
+            inputAll52 = 0,
+            inputAll53 = 0;
+
+        for (let m = 1; m <= 12; m++) {
+            if (satkerData.bulanan[m]) {
+                const detail = isRPD
+                    ? satkerData.bulanan[m].rpd_detail
+                    : satkerData.bulanan[m].real_detail;
+                const b51 = detail?.gaji || 0;
+                const b52 = detail?.barang || 0;
+                const b53 = detail?.modal || 0;
+                const totalBulanIni = b51 + b52 + b53;
+
+                inputALL += totalBulanIni;
+                inputAll51 += b51;
+                inputAll52 += b52;
+                inputAll53 += b53;
+
+                if (getMonthsInTW(selectedTW).includes(m)) {
+                    inputTW += totalBulanIni;
+                }
             }
-        });
-        return { trpd, treal };
+        }
+
+        return {
+            paguEfektif: paguGajiEfektif + paguBarangEfektif + paguModalEfektif,
+            totalInputTW: inputTW,
+            totalInputALL: inputALL,
+            totalTarget: finalTargetGaji + finalTargetBarang + finalTargetModal,
+            sisa51: paguGajiEfektif - inputAll51,
+            sisa52: paguBarangEfektif - inputAll52,
+            sisa53: paguModalEfektif - inputAll53,
+        };
     };
 
     if (!isAdmin && localAuth?.kode_satker) {
         const mySatker = satkers.find(
             (s) => s.kode_satker === localAuth.kode_satker,
         );
-        if (mySatker && summary.per_satker && summary.per_satker[mySatker.id]) {
-            dispPagu = summary.per_satker[mySatker.id].pagu_efektif || 0;
-            const calc = calculateFromBulanan(
-                summary.per_satker[mySatker.id].bulanan,
+        if (mySatker && summary.per_satker?.[mySatker.id]) {
+            const metrics = calculateSatkerMetrics(
+                summary.per_satker[mySatker.id],
             );
-            dispTotalRpd = calc.trpd;
-            dispTotalReal = calc.treal;
+            dispPagu = metrics.paguEfektif;
+            dispTotalInputTW = metrics.totalInputTW;
+            dispTotalInputALL = metrics.totalInputALL;
+            dispTargetIKPARp = metrics.totalTarget;
+            dispSisa51 = metrics.sisa51;
+            dispSisa52 = metrics.sisa52;
+            dispSisa53 = metrics.sisa53;
         }
     } else if (
         isAdmin &&
         selectedSatker &&
-        summary.per_satker &&
-        summary.per_satker[selectedSatker]
+        summary.per_satker?.[selectedSatker]
     ) {
-        dispPagu = summary.per_satker[selectedSatker].pagu_efektif || 0;
-        const calc = calculateFromBulanan(
-            summary.per_satker[selectedSatker].bulanan,
+        const metrics = calculateSatkerMetrics(
+            summary.per_satker[selectedSatker],
         );
-        dispTotalRpd = calc.trpd;
-        dispTotalReal = calc.treal;
+        dispPagu = metrics.paguEfektif;
+        dispTotalInputTW = metrics.totalInputTW;
+        dispTotalInputALL = metrics.totalInputALL;
+        dispTargetIKPARp = metrics.totalTarget;
+        dispSisa51 = metrics.sisa51;
+        dispSisa52 = metrics.sisa52;
+        dispSisa53 = metrics.sisa53;
     } else if (summary.per_satker) {
-        dispPagu = summary.global?.pagu_efektif || 0;
-        let trpd = 0,
-            treal = 0;
         Object.values(summary.per_satker).forEach((s) => {
-            const calc = calculateFromBulanan(s.bulanan);
-            trpd += calc.trpd;
-            treal += calc.treal;
+            const metrics = calculateSatkerMetrics(s);
+            dispPagu += metrics.paguEfektif;
+            dispTotalInputTW += metrics.totalInputTW;
+            dispTotalInputALL += metrics.totalInputALL;
+            dispTargetIKPARp += metrics.totalTarget;
+            dispSisa51 += metrics.sisa51;
+            dispSisa52 += metrics.sisa52;
+            dispSisa53 += metrics.sisa53;
         });
-        dispTotalRpd = trpd;
-        dispTotalReal = treal;
     }
 
-    const dispTotalInput = isRPD ? dispTotalRpd : dispTotalReal;
-    const dispSisa = dispPagu - dispTotalInput;
-    const dispPersen = dispPagu > 0 ? (dispTotalInput / dispPagu) * 100 : 0;
-
-    let targetTW = 100;
-    if (selectedTW === "I")
-        targetTW = 20; // Asumsi Target Kemenkeu TW I
-    else if (selectedTW === "II") targetTW = 50;
-    else if (selectedTW === "III") targetTW = 75;
-    else if (selectedTW === "ALL") targetTW = 100;
-    const isTargetAchieved = dispPersen >= targetTW;
+    const dispSisaReal = dispPagu - dispTotalInputALL;
+    const dispPersen =
+        dispTargetIKPARp > 0 ? (dispTotalInputTW / dispTargetIKPARp) * 100 : 0;
+    const isTargetAchieved = dispTotalInputTW >= dispTargetIKPARp;
 
     return (
         <MainLayout tahun={tahun}>
@@ -432,7 +493,7 @@ export default function IndexTransaksi({ authUser }) {
                             </p>
                         </div>
 
-                        {/* 🔥 NAVIGASI TAB TRIWULAN (TW) - HASIL REQUEST PAK KABAG */}
+                        {/* 🔥 NAVIGASI TAB TRIWULAN (TW) 🔥 */}
                         <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 text-xs font-bold">
                             {["ALL", "I", "II", "III", "IV"].map((tw) => (
                                 <button
@@ -525,6 +586,7 @@ export default function IndexTransaksi({ authUser }) {
                     </div>
                 </div>
 
+                {/* 🔥 CARD SUMMARY 🔥 */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center">
@@ -533,7 +595,7 @@ export default function IndexTransaksi({ authUser }) {
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
                                 {!isAdmin || selectedSatker
-                                    ? "Pagu Satker"
+                                    ? "Pagu Efektif Satker"
                                     : "Total Pagu Efektif"}
                             </p>
                             <h3 className="text-lg font-extrabold text-gray-900 mt-0.5">
@@ -541,6 +603,7 @@ export default function IndexTransaksi({ authUser }) {
                             </h3>
                         </div>
                     </div>
+
                     <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
                         <div
                             className={`w-12 h-12 rounded-xl flex items-center justify-center ${isRPD ? "bg-indigo-50 text-indigo-500" : "bg-blue-50 text-blue-500"}`}
@@ -548,66 +611,78 @@ export default function IndexTransaksi({ authUser }) {
                             <TrendingUp size={24} />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                Total {isRPD ? "RPD" : "Realisasi"}
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                Total {isRPD ? "RPD" : "Realisasi"}{" "}
+                                {selectedTW !== "ALL"
+                                    ? `(TW ${selectedTW})`
+                                    : "(Setahun)"}
                             </p>
                             <h3 className="text-lg font-extrabold text-gray-900 mt-0.5">
-                                {formatCurrency(dispTotalInput)}
+                                {formatCurrency(dispTotalInputTW)}
                             </h3>
                         </div>
                     </div>
+
                     <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
                         <div
-                            className={`w-12 h-12 rounded-xl flex items-center justify-center ${dispSisa < 0 ? "bg-rose-50 text-rose-500" : "bg-amber-50 text-amber-500"}`}
+                            className={`w-12 h-12 rounded-xl flex items-center justify-center ${dispSisaReal < 0 ? "bg-rose-50 text-rose-500" : "bg-amber-50 text-amber-500"}`}
                         >
                             <AlertCircle size={24} />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                Sisa Pagu ({isRPD ? "RPD" : "Real"})
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex flex-col">
+                                <span>Sisa Dompet Pagu Efektif</span>
                             </p>
                             <h3
-                                className={`text-lg font-extrabold mt-0.5 ${dispSisa < 0 ? "text-rose-600" : "text-gray-900"}`}
+                                className={`text-lg font-extrabold mt-0.5 ${dispSisaReal < 0 ? "text-rose-600" : "text-gray-900"}`}
                             >
-                                {formatCurrency(dispSisa)}
+                                {formatCurrency(dispSisaReal)}
                             </h3>
                         </div>
                     </div>
+
                     <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-center relative overflow-hidden">
                         <div className="flex justify-between items-center mb-2">
                             <div>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                    Serapan {isRPD ? "RPD" : "Realisasi"}
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                    Serapan {isRPD ? "RPD" : "Realisasi"}{" "}
+                                    {selectedTW !== "ALL" && `TW ${selectedTW}`}
                                 </p>
-                                {!isRPD && selectedTW !== "ALL" && (
+                                {!isRPD && (
                                     <p className="text-[10px] font-extrabold text-indigo-500 mt-0.5 tracking-wide">
-                                        TARGET TW {selectedTW} : {targetTW}%
+                                        TARGET KEMENKEU
                                     </p>
                                 )}
                             </div>
                             <div className="text-right">
                                 <span
-                                    className={`text-sm font-extrabold px-2 py-1 rounded-md ${!isRPD && !isTargetAchieved && selectedTW !== "ALL" ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}
+                                    className={`text-sm font-extrabold px-2 py-1 rounded-md ${!isRPD && !isTargetAchieved ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}
                                 >
-                                    {dispPersen.toFixed(2)}%
+                                    {dispPersen.toFixed(1)}%
                                 </span>
                             </div>
                         </div>
-                        <div className="w-full bg-gray-100 rounded-full h-2 mt-1">
+                        <div className="w-full bg-gray-100 rounded-full h-2 mt-1 relative">
+                            {!isRPD && (
+                                <div
+                                    className="absolute top-0 bottom-0 border-r-2 border-indigo-400 z-10"
+                                    style={{ left: "100%" }}
+                                ></div>
+                            )}
                             <div
-                                className={`h-2 rounded-full transition-all duration-1000 ${!isRPD && !isTargetAchieved && selectedTW !== "ALL" ? "bg-rose-500" : "bg-emerald-500"}`}
+                                className={`h-2 rounded-full transition-all duration-1000 ${!isRPD && !isTargetAchieved ? "bg-rose-500" : "bg-emerald-500"}`}
                                 style={{
                                     width: `${Math.min(dispPersen, 100)}%`,
                                 }}
                             ></div>
                         </div>
-                        {!isRPD && selectedTW !== "ALL" && (
+                        {!isRPD && (
                             <p
                                 className={`text-[10px] font-bold mt-2 text-right ${isTargetAchieved ? "text-emerald-600" : "text-rose-500"}`}
                             >
                                 {isTargetAchieved
-                                    ? "✅ Target Terpenuhi"
-                                    : "⚠️ Belum memenuhi target"}
+                                    ? `✅ Memenuhi Target (${formatCurrency(dispTargetIKPARp)})`
+                                    : `⚠️ Kurang ${formatCurrency(dispTargetIKPARp - dispTotalInputTW)}`}
                             </p>
                         )}
                     </div>
@@ -640,26 +715,52 @@ export default function IndexTransaksi({ authUser }) {
                                 className={`${lightBg} border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold`}
                             >
                                 <tr>
-                                    <th className="px-6 py-4">Bulan</th>
-                                    <th className="px-6 py-4">Satuan Kerja</th>
-                                    <th className="px-6 py-4 text-right">
-                                        Belanja Gaji
+                                    <th className="px-6 py-4 align-top">
+                                        Bulan
                                     </th>
-                                    <th className="px-6 py-4 text-right">
-                                        Belanja Barang
+                                    <th className="px-6 py-4 align-top">
+                                        Satuan Kerja
                                     </th>
-                                    <th className="px-6 py-4 text-right">
-                                        Belanja Modal
+                                    {/* 🔥 PILAR UX BARU: SISA PAGU DI HEADER TABEL 🔥 */}
+                                    <th className="px-6 py-4 text-right align-top">
+                                        <div className="mb-1">
+                                            Belanja Gaji (51)
+                                        </div>
+                                        <div
+                                            className={`text-[9px] mt-1 font-bold tracking-wider inline-block px-2 py-0.5 rounded shadow-sm ${dispSisa51 < 0 ? "bg-rose-100 text-rose-600" : "bg-white text-emerald-600 border border-emerald-100"}`}
+                                        >
+                                            Sisa: {formatCurrency(dispSisa51)}
+                                        </div>
+                                    </th>
+                                    <th className="px-6 py-4 text-right align-top">
+                                        <div className="mb-1">
+                                            Belanja Barang (52)
+                                        </div>
+                                        <div
+                                            className={`text-[9px] mt-1 font-bold tracking-wider inline-block px-2 py-0.5 rounded shadow-sm ${dispSisa52 < 0 ? "bg-rose-100 text-rose-600" : "bg-white text-emerald-600 border border-emerald-100"}`}
+                                        >
+                                            Sisa: {formatCurrency(dispSisa52)}
+                                        </div>
+                                    </th>
+                                    <th className="px-6 py-4 text-right align-top">
+                                        <div className="mb-1">
+                                            Belanja Modal (53)
+                                        </div>
+                                        <div
+                                            className={`text-[9px] mt-1 font-bold tracking-wider inline-block px-2 py-0.5 rounded shadow-sm ${dispSisa53 < 0 ? "bg-rose-100 text-rose-600" : "bg-white text-emerald-600 border border-emerald-100"}`}
+                                        >
+                                            Sisa: {formatCurrency(dispSisa53)}
+                                        </div>
                                     </th>
                                     <th
-                                        className={`px-6 py-4 text-right ${textAccent}`}
+                                        className={`px-6 py-4 text-right align-top ${textAccent}`}
                                     >
-                                        Total
+                                        Total Transaksi
                                     </th>
-                                    <th className="px-6 py-4 text-center">
+                                    <th className="px-6 py-4 text-center align-top">
                                         Status
                                     </th>
-                                    <th className="px-6 py-4 text-center">
+                                    <th className="px-6 py-4 text-center align-top">
                                         Aksi
                                     </th>
                                 </tr>
@@ -683,8 +784,7 @@ export default function IndexTransaksi({ authUser }) {
                                             colSpan="8"
                                             className="px-6 py-12 text-center text-gray-400 italic"
                                         >
-                                            Belum ada data transaksi ditemukan
-                                            di periode ini.
+                                            Belum ada data transaksi ditemukan.
                                         </td>
                                     </tr>
                                 ) : (
@@ -738,7 +838,7 @@ export default function IndexTransaksi({ authUser }) {
                                                 <td className="px-6 py-4 text-center">
                                                     {item.status ===
                                                         "approved" && (
-                                                        <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-md text-[10px] font-black tracking-wide uppercase shadow-sm">
+                                                        <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-md text-[10px] font-black uppercase">
                                                             Disetujui
                                                         </span>
                                                     )}
@@ -746,7 +846,7 @@ export default function IndexTransaksi({ authUser }) {
                                                         "rejected" && (
                                                         <div className="flex flex-col items-center">
                                                             <span
-                                                                className="bg-rose-100 text-rose-700 px-3 py-1 rounded-md text-[10px] font-black tracking-wide uppercase shadow-sm mb-1 cursor-help"
+                                                                className="bg-rose-100 text-rose-700 px-3 py-1 rounded-md text-[10px] font-black uppercase mb-1 cursor-help"
                                                                 title={
                                                                     item.catatan_revisi
                                                                 }
@@ -767,7 +867,7 @@ export default function IndexTransaksi({ authUser }) {
                                                     {(!item.status ||
                                                         item.status ===
                                                             "draft") && (
-                                                        <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-md text-[10px] font-black tracking-wide uppercase shadow-sm">
+                                                        <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-md text-[10px] font-black uppercase">
                                                             Menunggu
                                                         </span>
                                                     )}
@@ -856,7 +956,7 @@ export default function IndexTransaksi({ authUser }) {
                                                                     title={
                                                                         item.status ===
                                                                         "approved"
-                                                                            ? "Cabut Persetujuan / Tolak"
+                                                                            ? "Cabut Persetujuan"
                                                                             : "Tolak Data Ini"
                                                                     }
                                                                 >
@@ -883,7 +983,6 @@ export default function IndexTransaksi({ authUser }) {
                     />
                 </div>
 
-                {/* MODALS SECTION DI SINI KITA PASSING LOCALAUTH KE DALAM MODAL */}
                 <AddRpdModal
                     isOpen={isAddRpdOpen}
                     onClose={() => setIsAddRpdOpen(false)}

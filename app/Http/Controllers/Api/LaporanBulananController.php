@@ -8,6 +8,8 @@ use App\Models\Satker;
 use App\Models\Anggaran;
 use App\Models\RencanaPenarikan;
 use App\Models\Realisasi;
+use App\Models\RincianOutput;   // 🔥 IMPORT MODEL RO
+use App\Models\RealisasiOutput; // 🔥 IMPORT MODEL REALISASI RO
 
 class LaporanBulananController extends Controller
 {
@@ -117,9 +119,10 @@ class LaporanBulananController extends Controller
             // =========================================================
             // 5. 🔥 FITUR BARU: EVALUASI TARGET KEMENKEU & POIN SIRA
             // =========================================================
-            $persenSerap51 = $paguGaji > 0 ? ($realGaji / $paguGaji) * 100 : 0;
-            $persenSerap52 = $paguBarang > 0 ? ($realBarang / $paguBarang) * 100 : 0;
-            $persenSerap53 = $paguModal > 0 ? ($realModal / $paguModal) * 100 : 0;
+            // Gembok Max 100% agar UI stabil
+            $persenSerap51 = $paguGaji > 0 ? min(($realGaji / $paguGaji) * 100, 100) : 0;
+            $persenSerap52 = $paguBarang > 0 ? min(($realBarang / $paguBarang) * 100, 100) : 0;
+            $persenSerap53 = $paguModal > 0 ? min(($realModal / $paguModal) * 100, 100) : 0;
 
             $target51 = $this->getTargetKemenkeu($twAktif, '51');
             $target52 = $this->getTargetKemenkeu($twAktif, '52');
@@ -142,11 +145,35 @@ class LaporanBulananController extends Controller
                 $nilai_penyerapan = 100;
             }
 
-            // KALKULASI POIN TERTIMBANG SIRA (10% & 20%)
+            // =========================================================
+            // 🔥 KALKULASI CAPAIAN OUTPUT RO (NEW SIRA 55 POINTS) 🔥
+            // =========================================================
+            $rincianOutputs = RincianOutput::where('satker_id', $satker->id)->where('tahun', $tahun)->get();
+            $roIds = $rincianOutputs->pluck('id');
+            $realisasiOutputs = RealisasiOutput::whereIn('rincian_output_id', $roIds)
+                ->where('bulan', '<=', $bulan) // Tarik data kumulatif s/d bulan pilihan
+                ->get();
+
+            $total_pc_ro = 0;
+            $jumlah_ro = $rincianOutputs->count();
+            $nilai_ro = 0;
+
+            if ($jumlah_ro > 0) {
+                foreach ($rincianOutputs as $ro) {
+                    $vol_kumulatif = $realisasiOutputs->where('rincian_output_id', $ro->id)->sum('realisasi_volume');
+                    $pc = $ro->target_volume > 0 ? ($vol_kumulatif / $ro->target_volume) * 100 : 0;
+                    $total_pc_ro += min($pc, 100);
+                }
+                $nilai_ro = $total_pc_ro / $jumlah_ro; // Rata-rata dari seluruh target RO
+            }
+
+            // KALKULASI POIN TERTIMBANG SIRA (10% + 20% + 25%) = MAX 55
             $ikpaNumeric = $nilaiIkpa === '-' ? 0 : (float)$nilaiIkpa;
             $tertimbang_hal_iii = round(($ikpaNumeric * 10) / 100, 2);
             $tertimbang_penyerapan = round(($nilai_penyerapan * 20) / 100, 2);
-            $total_poin_sira = round($tertimbang_hal_iii + $tertimbang_penyerapan, 2);
+            $tertimbang_ro = round(($nilai_ro * 25) / 100, 2);
+
+            $total_poin_sira = round($tertimbang_hal_iii + $tertimbang_penyerapan + $tertimbang_ro, 2);
 
             $evaluasi_tw = [
                 'tw_aktif' => $twAktif,
@@ -166,9 +193,11 @@ class LaporanBulananController extends Controller
                     'status' => $paguModal > 0 ? ($persenSerap53 >= $target53 ? 'Lulus' : 'Gagal') : 'N/A'
                 ],
                 'poin' => [
+                    'nilai_ro' => round($nilai_ro, 2), // Kirim Nilai Asli (0-100)
                     'tertimbang_hal_iii' => $tertimbang_hal_iii,
                     'tertimbang_penyerapan' => $tertimbang_penyerapan,
-                    'total_poin' => $total_poin_sira
+                    'tertimbang_ro' => $tertimbang_ro, // Kirim Nilai Bobot (0-25)
+                    'total_poin' => $total_poin_sira // Max 55
                 ]
             ];
 
@@ -194,7 +223,7 @@ class LaporanBulananController extends Controller
             ];
         }
 
-        // Urutkan Laporan berdasarkan Total Poin SIRA Tertinggi
+        // Urutkan Laporan berdasarkan Total Poin SIRA Tertinggi (Klasemen Utama)
         usort($laporan, function ($a, $b) {
             return $b['evaluasi_tw']['poin']['total_poin'] <=> $a['evaluasi_tw']['poin']['total_poin'];
         });

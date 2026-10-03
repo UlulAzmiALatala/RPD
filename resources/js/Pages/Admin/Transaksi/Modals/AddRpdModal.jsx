@@ -7,6 +7,11 @@ import {
     CalendarRange,
     AlertCircle,
     Lock,
+    Target,
+    Calculator,
+    Info,
+    CheckCircle,
+    AlertTriangle,
 } from "lucide-react";
 
 export default function AddRpdModal({
@@ -30,35 +35,29 @@ export default function AddRpdModal({
 
     if (!isOpen) return null;
 
-    // 🔥 DETEKSI APAKAH SATKER YANG DIPILIH ADALAH SETJEN
     const selectedSatkerObj = satkers.find(
         (s) => s.id.toString() === formData.satker_id?.toString(),
     );
-    const namaSatkerUpper = (
-        selectedSatkerObj?.nama_satker || ""
-    ).toUpperCase();
     const isSetjen =
-        namaSatkerUpper.includes("SETJEN") ||
-        namaSatkerUpper.includes("SEKRETARIAT JENDERAL");
+        (selectedSatkerObj?.nama_satker || "")
+            .toUpperCase()
+            .includes("SETJEN") ||
+        (selectedSatkerObj?.nama_satker || "")
+            .toUpperCase()
+            .includes("SEKRETARIAT JENDERAL");
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => {
             const updated = { ...prev, [name]: value };
-            // Jika satker berubah dan bukan Setjen, pastikan belanja_gaji di-set jadi 0/kosong
             if (name === "satker_id") {
-                const satkerTarget = satkers.find(
-                    (s) => s.id.toString() === value?.toString(),
-                );
-                const nameUpper = (
-                    satkerTarget?.nama_satker || ""
-                ).toUpperCase();
-                const targetIsSetjen =
-                    nameUpper.includes("SETJEN") ||
-                    nameUpper.includes("SEKRETARIAT JENDERAL");
-                if (!targetIsSetjen) {
-                    updated.belanja_gaji = "0";
-                }
+                const targetIsSetjen = (
+                    satkers.find((s) => s.id.toString() === value?.toString())
+                        ?.nama_satker || ""
+                )
+                    .toUpperCase()
+                    .includes("SETJEN");
+                if (!targetIsSetjen) updated.belanja_gaji = "0";
             }
             return updated;
         });
@@ -71,41 +70,159 @@ export default function AddRpdModal({
             minimumFractionDigits: 0,
         }).format(amount);
 
-    // --- LOGIKA VALIDASI SISA PAGU REAL-TIME ---
     const sisaPagu =
         formData.satker_id && satkerSummary[formData.satker_id]
             ? satkerSummary[formData.satker_id].sisa_pagu_rpd
             : 0;
 
-    // Hitung total inputan user saat ini
+    const paguGaji =
+        formData.satker_id && satkerSummary[formData.satker_id]?.pagu_gaji
+            ? satkerSummary[formData.satker_id].pagu_gaji
+            : 0;
+    const paguBarang =
+        formData.satker_id && satkerSummary[formData.satker_id]?.pagu_barang
+            ? satkerSummary[formData.satker_id].pagu_barang
+            : 0;
+    const paguModal =
+        formData.satker_id && satkerSummary[formData.satker_id]?.pagu_modal
+            ? satkerSummary[formData.satker_id].pagu_modal
+            : 0;
+
+    const blokirGaji =
+        formData.satker_id && satkerSummary[formData.satker_id]?.blokir_gaji
+            ? satkerSummary[formData.satker_id].blokir_gaji
+            : 0;
+    const blokirBarang =
+        formData.satker_id && satkerSummary[formData.satker_id]?.blokir_barang
+            ? satkerSummary[formData.satker_id].blokir_barang
+            : 0;
+    const blokirModal =
+        formData.satker_id && satkerSummary[formData.satker_id]?.blokir_modal
+            ? satkerSummary[formData.satker_id].blokir_modal
+            : 0;
+
+    const paguGajiEfektif = paguGaji - blokirGaji;
+    const paguBarangEfektif = paguBarang - blokirBarang;
+    const paguModalEfektif = paguModal - blokirModal;
+
     const totalInput =
         (Number(formData.belanja_gaji) || 0) +
         (Number(formData.belanja_barang) || 0) +
         (Number(formData.belanja_modal) || 0);
-
-    // Cek apakah jebol?
     const isOverbudget = formData.satker_id && totalInput > sisaPagu;
+
+    const getTargetTW = (bulan) => {
+        const b = parseInt(bulan);
+        if (!b || isNaN(b))
+            return { tw: "-", gaji: 0, barang: 0, modal: 0, listBulan: [] };
+        if (b <= 3)
+            return {
+                tw: "I",
+                gaji: 20,
+                barang: 15,
+                modal: 10,
+                listBulan: [1, 2, 3],
+            };
+        if (b <= 6)
+            return {
+                tw: "II",
+                gaji: 50,
+                barang: 50,
+                modal: 40,
+                listBulan: [1, 2, 3, 4, 5, 6],
+            };
+        if (b <= 9)
+            return {
+                tw: "III",
+                gaji: 75,
+                barang: 70,
+                modal: 70,
+                listBulan: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+            };
+        return {
+            tw: "IV",
+            gaji: 95,
+            barang: 90,
+            modal: 90,
+            listBulan: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        };
+    };
+    const targetTW = getTargetTW(formData.bulan);
+
+    let kumRpdGajiTW = 0,
+        kumRpdBarangTW = 0,
+        kumRpdModalTW = 0;
+    let kumRpdGajiTotal = 0,
+        kumRpdBarangTotal = 0,
+        kumRpdModalTotal = 0;
+
+    if (formData.satker_id && satkerSummary[formData.satker_id]) {
+        const bulananData = satkerSummary[formData.satker_id].bulanan;
+
+        for (let i = 1; i <= 12; i++) {
+            kumRpdGajiTotal += bulananData[i]?.rpd_detail?.gaji || 0;
+            kumRpdBarangTotal += bulananData[i]?.rpd_detail?.barang || 0;
+            kumRpdModalTotal += bulananData[i]?.rpd_detail?.modal || 0;
+        }
+
+        targetTW.listBulan?.forEach((m) => {
+            kumRpdGajiTW += bulananData[m]?.rpd_detail?.gaji || 0;
+            kumRpdBarangTW += bulananData[m]?.rpd_detail?.barang || 0;
+            kumRpdModalTW += bulananData[m]?.rpd_detail?.modal || 0;
+        });
+    }
+
+    const proyGajiTW = kumRpdGajiTW + (Number(formData.belanja_gaji) || 0);
+    const proyBarangTW =
+        kumRpdBarangTW + (Number(formData.belanja_barang) || 0);
+    const proyModalTW = kumRpdModalTW + (Number(formData.belanja_modal) || 0);
+
+    const targetGaji = paguGaji * (targetTW.gaji / 100);
+    const targetBarang = paguBarang * (targetTW.barang / 100);
+    const targetModal = paguModal * (targetTW.modal / 100);
+
+    const defGaji = Math.max(0, targetGaji - proyGajiTW);
+    const defBarang = Math.max(0, targetBarang - proyBarangTW);
+    const defModal = Math.max(0, targetModal - proyModalTW);
+
+    const sisaEfektifGaji = Math.max(0, paguGajiEfektif - kumRpdGajiTotal);
+    const sisaEfektifBarang = Math.max(
+        0,
+        paguBarangEfektif - kumRpdBarangTotal,
+    );
+    const sisaEfektifModal = Math.max(0, paguModalEfektif - kumRpdModalTotal);
+
+    const isGajiImpossible = defGaji > 0 && defGaji > sisaEfektifGaji;
+    const isBarangImpossible = defBarang > 0 && defBarang > sisaEfektifBarang;
+    const isModalImpossible = defModal > 0 && defModal > sisaEfektifModal;
+    const isAnyImpossible =
+        isGajiImpossible || isBarangImpossible || isModalImpossible;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isOverbudget)
+            return setErrorMsg("Total RPD melebih Sisa Pagu Keseluruhan!");
 
-        if (isOverbudget) {
-            setErrorMsg(
-                `Total RPD melebih Sisa Pagu! Kurangi nominal sebesar ${formatCurrency(totalInput - sisaPagu)}`,
+        if (Number(formData.belanja_gaji) > sisaEfektifGaji)
+            return setErrorMsg(
+                `Input Gaji melebihi Sisa Pagu Gaji (${formatCurrency(sisaEfektifGaji)})`,
             );
-            return;
-        }
-
-        // Jika bukan Setjen, pastikan kirim nilai gaji 0
-        const payload = {
-            ...formData,
-            belanja_gaji: isSetjen ? formData.belanja_gaji : 0,
-        };
+        if (Number(formData.belanja_barang) > sisaEfektifBarang)
+            return setErrorMsg(
+                `Input Barang melebihi Sisa Pagu Barang (${formatCurrency(sisaEfektifBarang)})`,
+            );
+        if (Number(formData.belanja_modal) > sisaEfektifModal)
+            return setErrorMsg(
+                `Input Modal melebihi Sisa Pagu Modal (${formatCurrency(sisaEfektifModal)})`,
+            );
 
         setIsSubmitting(true);
         setErrorMsg("");
         try {
-            const response = await axios.post("/api/transaksi/rpd", payload);
+            const response = await axios.post("/api/transaksi/rpd", {
+                ...formData,
+                belanja_gaji: isSetjen ? formData.belanja_gaji : 0,
+            });
             setFormData({
                 satker_id: "",
                 tahun: defaultTahun,
@@ -165,14 +282,12 @@ export default function AddRpdModal({
                     </button>
                 </div>
 
-                <div className="p-6 overflow-y-auto flex-1">
+                <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
                     {errorMsg && (
                         <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-100">
                             {errorMsg}
                         </div>
                     )}
-
-                    {/* Boks Peringatan Overbudget */}
                     {isOverbudget && (
                         <div className="mb-6 p-4 bg-rose-50 border-l-4 border-rose-500 rounded-r-xl flex items-start gap-3">
                             <AlertCircle className="w-5 h-5 text-rose-500 flex-shrink-0" />
@@ -206,7 +321,7 @@ export default function AddRpdModal({
                                     value={formData.satker_id}
                                     onChange={handleChange}
                                     required
-                                    className="w-full border-gray-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full border-gray-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-800"
                                 >
                                     <option value="">-- Pilih Satker --</option>
                                     {satkers.map((s) => (
@@ -215,26 +330,13 @@ export default function AddRpdModal({
                                         </option>
                                     ))}
                                 </select>
-
-                                {/* Notifikasi khusus Satker Non-Setjen */}
                                 {formData.satker_id && !isSetjen && (
                                     <p className="text-xs font-bold text-amber-600 mt-2 flex items-center gap-1">
                                         <Lock size={12} />{" "}
                                         <span>
                                             Info: Satker ini bukan DIPA Setjen.
-                                            Kolom Belanja Gaji (51) dikunci
-                                            otomatis (0).
+                                            Kolom Gaji (51) dikunci (0).
                                         </span>
-                                    </p>
-                                )}
-
-                                {/* Indikator Sisa Pagu Muncul Disini */}
-                                {formData.satker_id && (
-                                    <p
-                                        className={`text-xs font-bold mt-2 flex justify-between ${sisaPagu <= 0 ? "text-red-500" : "text-emerald-600"}`}
-                                    >
-                                        <span>Status Pagu Tersedia:</span>
-                                        <span>{formatCurrency(sisaPagu)}</span>
                                     </p>
                                 )}
                             </div>
@@ -260,7 +362,7 @@ export default function AddRpdModal({
                                     value={formData.bulan}
                                     onChange={handleChange}
                                     required
-                                    className="w-full border-gray-300 rounded-xl p-2.5 text-sm"
+                                    className="w-full border-gray-300 rounded-xl p-2.5 text-sm font-bold text-slate-700"
                                 >
                                     {namaBulan.map((b, i) => (
                                         <option key={i + 1} value={i + 1}>
@@ -269,35 +371,265 @@ export default function AddRpdModal({
                                     ))}
                                 </select>
                             </div>
+
+                            {formData.satker_id && (
+                                <div className="md:col-span-3 mt-2 bg-gradient-to-r from-slate-50 to-blue-50/50 border border-blue-100 p-5 rounded-xl shadow-sm">
+                                    <div className="flex justify-between items-center border-b border-blue-100 pb-2 mb-3">
+                                        <h4 className="text-[11px] font-black text-blue-800 flex items-center gap-1.5 uppercase tracking-widest">
+                                            <Calculator
+                                                size={14}
+                                                className="text-blue-600"
+                                            />{" "}
+                                            Monitor Target Kumulatif TW{" "}
+                                            {targetTW.tw}
+                                        </h4>
+                                    </div>
+
+                                    {isAnyImpossible && (
+                                        <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[10px] flex items-start gap-3 shadow-sm">
+                                            <AlertTriangle
+                                                size={18}
+                                                className="flex-shrink-0 mt-0.5 text-amber-500"
+                                            />
+                                            <p className="leading-relaxed">
+                                                <span className="block text-xs font-black mb-1 uppercase tracking-widest text-amber-900">
+                                                    ⚠️ TARGET IKPA TIDAK DAPAT
+                                                    TERCAPAI
+                                                </span>
+                                                Sisa dompet (Pagu Efektif) Anda
+                                                tidak cukup untuk memenuhi
+                                                Target Kemenkeu akibat adanya
+                                                Pagu Blokir. <br />
+                                                Status akan tetap merah (
+                                                <strong className="text-rose-600">
+                                                    KURANG
+                                                </strong>
+                                                ), namun Anda{" "}
+                                                <strong>
+                                                    hanya dapat menginput
+                                                    maksimal sebesar sisa uang
+                                                    yang tertera di stempel
+                                                    merah.
+                                                </strong>
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        <div
+                                            className={`p-3 rounded-xl border shadow-sm flex flex-col justify-between relative overflow-hidden ${!isSetjen ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white border-blue-100"}`}
+                                        >
+                                            <div className="absolute top-0 right-0 p-2 opacity-5">
+                                                <Target size={40} />
+                                            </div>
+                                            <div className="text-center border-b border-slate-50 pb-2">
+                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
+                                                    51 - Pegawai
+                                                </span>
+                                                <div className="text-[9px] font-bold text-slate-400">
+                                                    TARGET ({targetTW.gaji}%)
+                                                </div>
+                                                <div className="text-sm font-black text-blue-700">
+                                                    {formatCurrency(targetGaji)}
+                                                </div>
+                                            </div>
+                                            <div className="text-center pt-2 bg-slate-50 rounded-lg py-2 mt-1 min-h-[50px] flex flex-col justify-center">
+                                                <div className="text-[8px] font-bold text-slate-500 mb-0.5">
+                                                    SISA TARGET TW {targetTW.tw}
+                                                </div>
+                                                {defGaji > 0 ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <div className="text-[11px] font-black text-rose-600 animate-pulse">
+                                                            KURANG: <br />
+                                                            {formatCurrency(
+                                                                defGaji,
+                                                            )}
+                                                        </div>
+                                                        {isGajiImpossible && (
+                                                            <div className="mt-1.5 px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded font-bold uppercase text-center leading-tight">
+                                                                {sisaEfektifGaji <=
+                                                                0
+                                                                    ? "PAGU HABIS / BLOKIR"
+                                                                    : `Maks diinput: ${formatCurrency(sisaEfektifGaji)}`}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs font-black text-emerald-600 flex justify-center items-center gap-1">
+                                                        <CheckCircle
+                                                            size={12}
+                                                        />{" "}
+                                                        AMAN
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-3 rounded-xl border border-blue-100 shadow-sm flex flex-col justify-between relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 p-2 opacity-5">
+                                                <Target size={40} />
+                                            </div>
+                                            <div className="text-center border-b border-slate-50 pb-2">
+                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
+                                                    52 - Barang
+                                                </span>
+                                                <div className="text-[9px] font-bold text-slate-400">
+                                                    TARGET ({targetTW.barang}%)
+                                                </div>
+                                                <div className="text-sm font-black text-blue-700">
+                                                    {formatCurrency(
+                                                        targetBarang,
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="text-center pt-2 bg-slate-50 rounded-lg py-2 mt-1 min-h-[50px] flex flex-col justify-center">
+                                                <div className="text-[8px] font-bold text-slate-500 mb-0.5">
+                                                    SISA TARGET TW {targetTW.tw}
+                                                </div>
+                                                {defBarang > 0 ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <div className="text-[11px] font-black text-rose-600 animate-pulse">
+                                                            KURANG: <br />
+                                                            {formatCurrency(
+                                                                defBarang,
+                                                            )}
+                                                        </div>
+                                                        {isBarangImpossible && (
+                                                            <div className="mt-1.5 px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded font-bold uppercase text-center leading-tight">
+                                                                {sisaEfektifBarang <=
+                                                                0
+                                                                    ? "PAGU HABIS / BLOKIR"
+                                                                    : `Maks diinput: ${formatCurrency(sisaEfektifBarang)}`}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs font-black text-emerald-600 flex justify-center items-center gap-1">
+                                                        <CheckCircle
+                                                            size={12}
+                                                        />{" "}
+                                                        AMAN
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-3 rounded-xl border border-blue-100 shadow-sm flex flex-col justify-between relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 p-2 opacity-5">
+                                                <Target size={40} />
+                                            </div>
+                                            <div className="text-center border-b border-slate-50 pb-2">
+                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
+                                                    53 - Modal
+                                                </span>
+                                                <div className="text-[9px] font-bold text-slate-400">
+                                                    TARGET ({targetTW.modal}%)
+                                                </div>
+                                                <div className="text-sm font-black text-blue-700">
+                                                    {formatCurrency(
+                                                        targetModal,
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="text-center pt-2 bg-slate-50 rounded-lg py-2 mt-1 min-h-[50px] flex flex-col justify-center">
+                                                <div className="text-[8px] font-bold text-slate-500 mb-0.5">
+                                                    SISA TARGET TW {targetTW.tw}
+                                                </div>
+                                                {defModal > 0 ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <div className="text-[11px] font-black text-rose-600 animate-pulse">
+                                                            KURANG: <br />
+                                                            {formatCurrency(
+                                                                defModal,
+                                                            )}
+                                                        </div>
+                                                        {isModalImpossible && (
+                                                            <div className="mt-1.5 px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded font-bold uppercase text-center leading-tight">
+                                                                {sisaEfektifModal <=
+                                                                0
+                                                                    ? "PAGU HABIS / BLOKIR"
+                                                                    : `Maks diinput: ${formatCurrency(sisaEfektifModal)}`}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs font-black text-emerald-600 flex justify-center items-center gap-1">
+                                                        <CheckCircle
+                                                            size={12}
+                                                        />{" "}
+                                                        AMAN
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
+
+                        {formData.satker_id && (
+                            <div
+                                className={`p-4 rounded-xl border flex justify-between items-center shadow-sm ${sisaPagu <= 0 ? "bg-red-50 border-red-200 text-red-600" : "bg-emerald-50 border-emerald-300 text-emerald-800"}`}
+                            >
+                                <p className="text-sm font-black flex flex-col sm:flex-row justify-between w-full">
+                                    <span>
+                                        Status Pagu Tersedia (Sisa Anggaran
+                                        Efektif Keseluruhan):
+                                    </span>
+                                    <span>{formatCurrency(sisaPagu)}</span>
+                                </p>
+                            </div>
+                        )}
 
                         <div className="space-y-4">
                             {["gaji", "barang", "modal"].map((jenis) => {
-                                // Jika jenis adalah 'gaji' dan satker BUKAN Setjen, maka disable inputan
                                 const isDisabled =
                                     jenis === "gaji" &&
                                     formData.satker_id &&
                                     !isSetjen;
+                                const maxInput =
+                                    jenis === "gaji"
+                                        ? sisaEfektifGaji
+                                        : jenis === "barang"
+                                          ? sisaEfektifBarang
+                                          : sisaEfektifModal;
+                                const isInputLocked =
+                                    maxInput <= 0 && formData.satker_id;
 
                                 return (
                                     <div
                                         key={jenis}
                                         className="flex flex-col sm:flex-row gap-2 sm:items-center"
                                     >
-                                        <label
-                                            className={`sm:w-1/3 text-sm font-bold capitalize text-gray-700 flex items-center gap-1.5 ${isDisabled ? "text-gray-400" : ""}`}
-                                        >
-                                            Rencana {jenis}{" "}
-                                            {isDisabled && (
-                                                <Lock
-                                                    size={14}
-                                                    className="text-amber-500"
-                                                />
-                                            )}
-                                        </label>
+                                        <div className="sm:w-1/3 flex flex-col">
+                                            <label
+                                                className={`text-sm font-bold capitalize flex items-center gap-1.5 ${isDisabled || isInputLocked ? "text-gray-400" : "text-gray-700"}`}
+                                            >
+                                                Rencana {jenis}
+                                                {(isDisabled ||
+                                                    isInputLocked) && (
+                                                    <Lock
+                                                        size={14}
+                                                        className="text-amber-500"
+                                                    />
+                                                )}
+                                            </label>
+                                            {/* 🔥 INI DIA UI UX TAMBAHAN YANG KAMU MINTA 🔥 */}
+                                            {formData.satker_id &&
+                                                !isDisabled && (
+                                                    <span
+                                                        className={`text-[10px] font-bold mt-0.5 ${isInputLocked ? "text-red-400" : "text-indigo-500"}`}
+                                                    >
+                                                        Maks:{" "}
+                                                        {formatCurrency(
+                                                            maxInput,
+                                                        )}
+                                                    </span>
+                                                )}
+                                        </div>
                                         <div className="relative sm:w-2/3">
                                             <span
-                                                className={`absolute left-3 top-2.5 font-bold ${isDisabled ? "text-gray-300" : "text-gray-500"}`}
+                                                className={`absolute left-3 top-2.5 font-bold ${isDisabled || isInputLocked ? "text-gray-300" : "text-gray-500"}`}
                                             >
                                                 Rp
                                             </span>
@@ -305,7 +637,7 @@ export default function AddRpdModal({
                                                 type="number"
                                                 name={`belanja_${jenis}`}
                                                 value={
-                                                    isDisabled
+                                                    isDisabled || isInputLocked
                                                         ? "0"
                                                         : formData[
                                                               `belanja_${jenis}`
@@ -313,9 +645,12 @@ export default function AddRpdModal({
                                                 }
                                                 onChange={handleChange}
                                                 required
-                                                disabled={isDisabled}
+                                                disabled={
+                                                    isDisabled || isInputLocked
+                                                }
                                                 min="0"
-                                                className={`w-full pl-10 border-gray-300 rounded-xl p-2.5 font-mono text-sm focus:ring-2 focus:ring-indigo-500 ${isDisabled ? "bg-gray-100 text-gray-400 cursor-not-allowed" : ""}`}
+                                                max={maxInput}
+                                                className={`w-full pl-10 border-gray-300 rounded-xl p-2.5 font-mono font-bold text-sm focus:ring-2 focus:ring-indigo-500 ${isDisabled || isInputLocked ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "text-indigo-900 bg-indigo-50/10"}`}
                                             />
                                         </div>
                                     </div>
@@ -364,6 +699,7 @@ export default function AddRpdModal({
                     </div>
                 </div>
             </div>
+            <style>{`.custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }`}</style>
         </div>
     );
 }

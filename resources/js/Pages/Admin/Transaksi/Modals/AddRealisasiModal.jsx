@@ -9,6 +9,11 @@ import {
     Receipt,
     AlertCircle,
     AlertTriangle,
+    Calculator,
+    Info,
+    Target,
+    CheckCircle,
+    Lock,
 } from "lucide-react";
 
 export default function AddRealisasiModal({
@@ -18,7 +23,7 @@ export default function AddRealisasiModal({
     satkers,
     defaultTahun,
     satkerSummary,
-    localAuth, // 🔥 TANGKAP LOCAL AUTH DARI INDEX
+    localAuth,
 }) {
     const [formData, setFormData] = useState({
         satker_id: "",
@@ -33,15 +38,19 @@ export default function AddRealisasiModal({
     const [errorMsg, setErrorMsg] = useState("");
     const [showConfirm, setShowConfirm] = useState(false);
 
-    // =====================================================================
-    // 🔥 CEK OTORISASI DIPA SETJEN UNTUK BELANJA GAJI (51)
-    // =====================================================================
-    const selectedSatkerData = satkers.find(
-        (s) => s.id === parseInt(formData.satker_id),
-    );
-    const isSetjen = selectedSatkerData?.kode_satker === "692028";
+    // 🔥 HAPUS EARLY RETURN DARI SINI, PINDAHKAN KE BAWAH SEMUA HOOKS! 🔥
 
-    // Jika ganti satker ke non-setjen, otomatis ubah rincian gaji jadi barang
+    const selectedSatkerData = satkers?.find(
+        (s) => s.id === parseInt(formData.satker_id || 0),
+    );
+    const namaSatkerUpper = (
+        selectedSatkerData?.nama_satker || ""
+    ).toUpperCase();
+    const isSetjen =
+        namaSatkerUpper.includes("SETJEN") ||
+        namaSatkerUpper.includes("SEKRETARIAT JENDERAL") ||
+        selectedSatkerData?.kode_satker === "692028";
+
     useEffect(() => {
         if (!isSetjen) {
             setRincian((prev) =>
@@ -54,7 +63,6 @@ export default function AddRealisasiModal({
         }
     }, [formData.satker_id, isSetjen]);
 
-    // Set Default Satker untuk User Biasa (Bukan Admin)
     useEffect(() => {
         if (
             localAuth &&
@@ -65,11 +73,17 @@ export default function AddRealisasiModal({
             const mySatker = satkers.find(
                 (s) => s.kode_satker === localAuth.kode_satker,
             );
-            if (mySatker) {
+            if (mySatker)
                 setFormData((prev) => ({ ...prev, satker_id: mySatker.id }));
-            }
         }
     }, [localAuth, satkers, formData.satker_id]);
+
+    const formatCurrency = (amount) =>
+        new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0,
+        }).format(amount);
 
     const totalRealisasi = useMemo(
         () =>
@@ -80,31 +94,55 @@ export default function AddRealisasiModal({
         [rincian],
     );
 
-    const formatCurrency = (amount) =>
-        new Intl.NumberFormat("id-ID", {
-            style: "currency",
-            currency: "IDR",
-            minimumFractionDigits: 0,
-        }).format(amount);
+    const inputGaji = useMemo(
+        () =>
+            rincian.reduce(
+                (tot, item) =>
+                    item.jenis_belanja === "gaji"
+                        ? tot + (Number(item.nominal) || 0)
+                        : tot,
+                0,
+            ),
+        [rincian],
+    );
+    const inputBarang = useMemo(
+        () =>
+            rincian.reduce(
+                (tot, item) =>
+                    item.jenis_belanja === "barang"
+                        ? tot + (Number(item.nominal) || 0)
+                        : tot,
+                0,
+            ),
+        [rincian],
+    );
+    const inputModal = useMemo(
+        () =>
+            rincian.reduce(
+                (tot, item) =>
+                    item.jenis_belanja === "modal"
+                        ? tot + (Number(item.nominal) || 0)
+                        : tot,
+                0,
+            ),
+        [rincian],
+    );
 
-    // --- LOGIKA SISA PAGU & RPD (DINAMIS BULANAN) ---
     const targetBulan = formData.bulan;
 
     const rpdBulanIni =
-        formData.satker_id && satkerSummary[formData.satker_id]?.bulanan
+        formData.satker_id && satkerSummary?.[formData.satker_id]?.bulanan
             ? satkerSummary[formData.satker_id].bulanan[targetBulan]?.rpd || 0
             : 0;
-
     const realBulanIni =
-        formData.satker_id && satkerSummary[formData.satker_id]?.bulanan
+        formData.satker_id && satkerSummary?.[formData.satker_id]?.bulanan
             ? satkerSummary[formData.satker_id].bulanan[targetBulan]
                   ?.realisasi || 0
             : 0;
 
-    // 🔥 AMBIL DATA DETAIL RPD (51, 52, 53) DARI SUMMARY UNTUK DITAMPILKAN
     const rpdDetail =
         formData.satker_id &&
-        satkerSummary[formData.satker_id]?.bulanan[targetBulan]?.rpd_detail
+        satkerSummary?.[formData.satker_id]?.bulanan[targetBulan]?.rpd_detail
             ? satkerSummary[formData.satker_id].bulanan[targetBulan].rpd_detail
             : { gaji: 0, barang: 0, modal: 0 };
 
@@ -112,11 +150,40 @@ export default function AddRealisasiModal({
     const sisaRpdDinamis = sisaRpdAwal - totalRealisasi;
 
     const sisaPagu =
-        formData.satker_id && satkerSummary[formData.satker_id]
+        formData.satker_id && satkerSummary?.[formData.satker_id]
             ? satkerSummary[formData.satker_id].sisa_pagu_realisasi
             : 0;
-
     const isOverbudget = formData.satker_id && totalRealisasi > sisaPagu;
+
+    const paguGaji =
+        formData.satker_id && satkerSummary?.[formData.satker_id]?.pagu_gaji
+            ? satkerSummary[formData.satker_id].pagu_gaji
+            : 0;
+    const paguBarang =
+        formData.satker_id && satkerSummary?.[formData.satker_id]?.pagu_barang
+            ? satkerSummary[formData.satker_id].pagu_barang
+            : 0;
+    const paguModal =
+        formData.satker_id && satkerSummary?.[formData.satker_id]?.pagu_modal
+            ? satkerSummary[formData.satker_id].pagu_modal
+            : 0;
+
+    const blokirGaji =
+        formData.satker_id && satkerSummary?.[formData.satker_id]?.blokir_gaji
+            ? satkerSummary[formData.satker_id].blokir_gaji
+            : 0;
+    const blokirBarang =
+        formData.satker_id && satkerSummary?.[formData.satker_id]?.blokir_barang
+            ? satkerSummary[formData.satker_id].blokir_barang
+            : 0;
+    const blokirModal =
+        formData.satker_id && satkerSummary?.[formData.satker_id]?.blokir_modal
+            ? satkerSummary[formData.satker_id].blokir_modal
+            : 0;
+
+    const paguGajiEfektif = paguGaji - blokirGaji;
+    const paguBarangEfektif = paguBarang - blokirBarang;
+    const paguModalEfektif = paguModal - blokirModal;
 
     const getTriwulan = (bln) => {
         if (bln <= 3) return { tw: "I", target: "20%" };
@@ -126,6 +193,96 @@ export default function AddRealisasiModal({
     };
     const currentTW = getTriwulan(formData.bulan);
 
+    const getTargetTW = (bulan) => {
+        const b = parseInt(bulan);
+        if (!b || isNaN(b))
+            return { tw: "-", gaji: 0, barang: 0, modal: 0, listBulan: [] };
+        if (b <= 3)
+            return {
+                tw: "I",
+                gaji: 20,
+                barang: 15,
+                modal: 10,
+                listBulan: [1, 2, 3],
+            };
+        if (b <= 6)
+            return {
+                tw: "II",
+                gaji: 50,
+                barang: 50,
+                modal: 40,
+                listBulan: [1, 2, 3, 4, 5, 6],
+            };
+        if (b <= 9)
+            return {
+                tw: "III",
+                gaji: 75,
+                barang: 70,
+                modal: 70,
+                listBulan: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+            };
+        return {
+            tw: "IV",
+            gaji: 95,
+            barang: 90,
+            modal: 90,
+            listBulan: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        };
+    };
+    const targetKemenkeu = getTargetTW(formData.bulan);
+
+    let kumRealGajiTW = 0,
+        kumRealBarangTW = 0,
+        kumRealModalTW = 0;
+    let kumRealGajiTotal = 0,
+        kumRealBarangTotal = 0,
+        kumRealModalTotal = 0;
+
+    if (formData.satker_id && satkerSummary?.[formData.satker_id]) {
+        const bulananData = satkerSummary[formData.satker_id].bulanan;
+
+        for (let i = 1; i <= 12; i++) {
+            kumRealGajiTotal += bulananData[i]?.real_detail?.gaji || 0;
+            kumRealBarangTotal += bulananData[i]?.real_detail?.barang || 0;
+            kumRealModalTotal += bulananData[i]?.real_detail?.modal || 0;
+        }
+
+        targetKemenkeu.listBulan?.forEach((m) => {
+            kumRealGajiTW += bulananData[m]?.real_detail?.gaji || 0;
+            kumRealBarangTW += bulananData[m]?.real_detail?.barang || 0;
+            kumRealModalTW += bulananData[m]?.real_detail?.modal || 0;
+        });
+    }
+
+    const proyGaji = kumRealGajiTW + inputGaji;
+    const proyBarang = kumRealBarangTW + inputBarang;
+    const proyModal = kumRealModalTW + inputModal;
+
+    const targetRpGaji = paguGaji * (targetKemenkeu.gaji / 100);
+    const targetRpBarang = paguBarang * (targetKemenkeu.barang / 100);
+    const targetRpModal = paguModal * (targetKemenkeu.modal / 100);
+
+    const defGaji = Math.max(0, targetRpGaji - proyGaji);
+    const defBarang = Math.max(0, targetRpBarang - proyBarang);
+    const defModal = Math.max(0, targetRpModal - proyModal);
+
+    const sisaEfektifGaji = Math.max(0, paguGajiEfektif - kumRealGajiTotal);
+    const sisaEfektifBarang = Math.max(
+        0,
+        paguBarangEfektif - kumRealBarangTotal,
+    );
+    const sisaEfektifModal = Math.max(0, paguModalEfektif - kumRealModalTotal);
+
+    const isGajiImpossible =
+        defGaji > 0 && defGaji > sisaEfektifGaji - inputGaji;
+    const isBarangImpossible =
+        defBarang > 0 && defBarang > sisaEfektifBarang - inputBarang;
+    const isModalImpossible =
+        defModal > 0 && defModal > sisaEfektifModal - inputModal;
+    const isAnyImpossible =
+        isGajiImpossible || isBarangImpossible || isModalImpossible;
+
+    // 🔥 POSISI BARU YANG AMAN: PENAHAN CRASH DI BAWAH SEMUA HOOKS 🔥
     if (!isOpen) return null;
 
     const handleAddRow = () =>
@@ -138,30 +295,41 @@ export default function AddRealisasiModal({
                 nominal: "",
             },
         ]);
-
     const handleRemoveRow = (id) =>
         rincian.length > 1 &&
         setRincian(rincian.filter((item) => item.id !== id));
 
-    const handleRincianChange = (id, field, value) =>
+    const handleRincianChange = (id, field, value) => {
+        if (field === "jenis_belanja" && value === "gaji" && !isSetjen) return;
         setRincian(
             rincian.map((item) =>
                 item.id === id ? { ...item, [field]: value } : item,
             ),
         );
+    };
 
     const handleFormChange = (e) =>
         setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
     const handleSubmit = async (e, forceSubmit = false) => {
         if (e) e.preventDefault();
-
-        if (isOverbudget) {
-            setErrorMsg(
-                `Gagal: Total Realisasi melebihi Batas Pagu Negara sebesar ${formatCurrency(totalRealisasi - sisaPagu)}`,
+        if (isOverbudget)
+            return setErrorMsg(
+                `Gagal: Total Realisasi melebihi Batas Pagu Keseluruhan!`,
             );
-            return;
-        }
+
+        if (inputGaji > sisaEfektifGaji)
+            return setErrorMsg(
+                `Input Gaji melebihi Sisa Pagu Gaji (${formatCurrency(sisaEfektifGaji)})`,
+            );
+        if (inputBarang > sisaEfektifBarang)
+            return setErrorMsg(
+                `Input Barang melebihi Sisa Pagu Barang (${formatCurrency(sisaEfektifBarang)})`,
+            );
+        if (inputModal > sisaEfektifModal)
+            return setErrorMsg(
+                `Input Modal melebihi Sisa Pagu Modal (${formatCurrency(sisaEfektifModal)})`,
+            );
 
         const isRincianValid = rincian.every(
             (item) =>
@@ -169,17 +337,12 @@ export default function AddRealisasiModal({
                 item.nominal !== "" &&
                 Number(item.nominal) > 0,
         );
-        if (!isRincianValid) {
-            setErrorMsg(
+        if (!isRincianValid)
+            return setErrorMsg(
                 "Lengkapi semua rincian pengeluaran (Uraian & Nominal tidak boleh kosong).",
             );
-            return;
-        }
 
-        if (sisaRpdDinamis < 0 && !forceSubmit) {
-            setShowConfirm(true);
-            return;
-        }
+        if (sisaRpdDinamis < 0 && !forceSubmit) return setShowConfirm(true);
 
         setIsSubmitting(true);
         setErrorMsg("");
@@ -237,7 +400,6 @@ export default function AddRealisasiModal({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden border border-gray-100 flex flex-col max-h-[90vh] relative">
-                {/* --- OVERLAY POP-UP KONFIRMASI DEVIASI --- */}
                 {showConfirm && (
                     <div className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
                         <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center animate-in zoom-in-95 duration-200">
@@ -282,7 +444,7 @@ export default function AddRealisasiModal({
 
                 <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-slate-50/50 shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                        <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
                             <Receipt size={24} />
                         </div>
                         <div>
@@ -335,9 +497,9 @@ export default function AddRealisasiModal({
                                         {namaBulan[formData.bulan - 1]}
                                     </h4>
                                     <p className="text-sm text-amber-700 mt-1">
-                                        Realisasi Anda melebihi rencana (RPD)
-                                        pada bulan ini. Ini dapat menurunkan
-                                        nilai IKPA Halaman III DIPA.
+                                        Realisasi Anda melebihi batas RPD yang
+                                        direncanakan. Ini dapat menurunkan nilai
+                                        IKPA Halaman III DIPA.
                                     </p>
                                 </div>
                             </div>
@@ -354,6 +516,7 @@ export default function AddRealisasiModal({
                                     Identitas Laporan
                                 </h3>
                             </div>
+
                             <div className="md:col-span-3">
                                 <label className="block text-sm font-bold text-gray-700 mb-2">
                                     Satuan Kerja{" "}
@@ -364,8 +527,8 @@ export default function AddRealisasiModal({
                                     value={formData.satker_id}
                                     onChange={handleFormChange}
                                     required
-                                    disabled={localAuth?.role !== "admin"} // Lock dropdown jika bukan admin
-                                    className="w-full border-gray-300 rounded-xl shadow-sm py-2.5 px-3 border focus:ring-2 focus:ring-blue-500 text-sm bg-gray-50 disabled:opacity-70"
+                                    disabled={localAuth?.role !== "admin"}
+                                    className="w-full border-gray-300 rounded-xl shadow-sm py-2.5 px-3 border focus:ring-2 focus:ring-blue-500 text-sm bg-gray-50 disabled:opacity-70 font-bold text-blue-800"
                                 >
                                     <option value="">-- Pilih Satker --</option>
                                     {satkers.map((s) => (
@@ -376,9 +539,9 @@ export default function AddRealisasiModal({
                                 </select>
 
                                 {formData.satker_id && (
-                                    <div className="mt-3 p-3 bg-blue-50/50 border border-blue-100 rounded-lg transition-all">
+                                    <div className="mt-3 p-3 bg-emerald-50/50 border border-emerald-100 rounded-lg transition-all">
                                         <p
-                                            className={`text-xs font-bold flex justify-between ${sisaRpdDinamis < 0 ? "text-amber-600" : "text-blue-700"}`}
+                                            className={`text-xs font-bold flex justify-between ${sisaRpdDinamis < 0 ? "text-amber-600" : "text-emerald-700"}`}
                                         >
                                             <span>
                                                 Sisa RPD Keseluruhan{" "}
@@ -391,6 +554,7 @@ export default function AddRealisasiModal({
                                     </div>
                                 )}
                             </div>
+
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2">
                                     Tahun{" "}
@@ -416,7 +580,7 @@ export default function AddRealisasiModal({
                                     value={formData.bulan}
                                     onChange={handleFormChange}
                                     required
-                                    className="w-full border-gray-300 rounded-xl shadow-sm py-2.5 px-3 border focus:ring-2 focus:ring-blue-500 text-sm bg-gray-50"
+                                    className="w-full border-gray-300 rounded-xl shadow-sm py-2.5 px-3 border focus:ring-2 focus:ring-blue-500 text-sm bg-gray-50 font-bold text-slate-700"
                                 >
                                     {namaBulan.map((bulan, index) => (
                                         <option
@@ -429,11 +593,228 @@ export default function AddRealisasiModal({
                                 </select>
                                 <div className="mt-2 inline-block px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-md">
                                     <span className="text-[10px] font-extrabold text-indigo-700 uppercase tracking-wider">
-                                        Triwulan {currentTW.tw} • Target:{" "}
+                                        Triwulan {currentTW.tw} • Target IKPA:{" "}
                                         {currentTW.target}
                                     </span>
                                 </div>
                             </div>
+
+                            {formData.satker_id && (
+                                <div className="md:col-span-3 mt-4 bg-gradient-to-r from-slate-50 to-emerald-50/50 border border-emerald-100 p-5 rounded-xl shadow-sm">
+                                    <div className="flex justify-between items-center border-b border-emerald-100 pb-2 mb-3">
+                                        <h4 className="text-[11px] font-black text-emerald-800 flex items-center gap-1.5 uppercase tracking-widest">
+                                            <Calculator
+                                                size={14}
+                                                className="text-emerald-600"
+                                            />{" "}
+                                            Target Minimal Realisasi (IKPA
+                                            Penyerapan TW {targetKemenkeu.tw})
+                                        </h4>
+                                    </div>
+
+                                    {isAnyImpossible && (
+                                        <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[10px] flex items-start gap-3 shadow-sm">
+                                            <AlertTriangle
+                                                size={18}
+                                                className="flex-shrink-0 mt-0.5 text-amber-500"
+                                            />
+                                            <p className="leading-relaxed">
+                                                <span className="block text-xs font-black mb-1 uppercase tracking-widest text-amber-900">
+                                                    ⚠️ TARGET IKPA TIDAK DAPAT
+                                                    TERCAPAI
+                                                </span>
+                                                Sisa dompet (Pagu Efektif) Anda
+                                                tidak cukup untuk memenuhi
+                                                Target Kemenkeu akibat adanya
+                                                Pagu Blokir. <br />
+                                                Status akan tetap merah (
+                                                <strong className="text-rose-600">
+                                                    KURANG
+                                                </strong>
+                                                ), namun Anda{" "}
+                                                <strong>
+                                                    hanya dapat menginput
+                                                    maksimal sebesar sisa uang
+                                                    yang tertera di stempel
+                                                    merah.
+                                                </strong>
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        <div
+                                            className={`p-3 rounded-xl border shadow-sm flex flex-col justify-between relative overflow-hidden ${!isSetjen ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white border-emerald-100"}`}
+                                        >
+                                            <div className="absolute top-0 right-0 p-2 opacity-5">
+                                                <Target size={40} />
+                                            </div>
+                                            <div className="text-center border-b border-slate-50 pb-2">
+                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
+                                                    51 - Pegawai
+                                                </span>
+                                                <div className="text-[9px] font-bold text-slate-400">
+                                                    TARGET KUMULATIF (
+                                                    {targetKemenkeu.gaji}%)
+                                                </div>
+                                                <div className="text-sm font-black text-emerald-700">
+                                                    {formatCurrency(
+                                                        targetRpGaji,
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="text-center pt-2 bg-slate-50 rounded-lg py-2 mt-1 min-h-[50px] flex flex-col justify-center">
+                                                <div className="text-[8px] font-bold text-slate-500 mb-0.5">
+                                                    MINIMAL HARUS DIISI
+                                                </div>
+                                                {defGaji > 0 ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <div className="text-[11px] font-black text-rose-600 animate-pulse">
+                                                            KURANG: <br />
+                                                            {formatCurrency(
+                                                                defGaji,
+                                                            )}
+                                                        </div>
+                                                        {isGajiImpossible && (
+                                                            <div className="mt-1.5 px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded font-bold uppercase text-center leading-tight">
+                                                                {sisaEfektifGaji <=
+                                                                0
+                                                                    ? "PAGU HABIS / BLOKIR"
+                                                                    : `Maks diinput: ${formatCurrency(sisaEfektifGaji)}`}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs font-black text-emerald-600 flex justify-center items-center gap-1">
+                                                        <CheckCircle
+                                                            size={12}
+                                                        />{" "}
+                                                        AMAN
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-3 rounded-xl border border-emerald-100 shadow-sm flex flex-col justify-between relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 p-2 opacity-5">
+                                                <Target size={40} />
+                                            </div>
+                                            <div className="text-center border-b border-slate-50 pb-2">
+                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
+                                                    52 - Barang
+                                                </span>
+                                                <div className="text-[9px] font-bold text-slate-400">
+                                                    TARGET KUMULATIF (
+                                                    {targetKemenkeu.barang}%)
+                                                </div>
+                                                <div className="text-sm font-black text-emerald-700">
+                                                    {formatCurrency(
+                                                        targetRpBarang,
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="text-center pt-2 bg-slate-50 rounded-lg py-2 mt-1 min-h-[50px] flex flex-col justify-center">
+                                                <div className="text-[8px] font-bold text-slate-500 mb-0.5">
+                                                    MINIMAL HARUS DIISI
+                                                </div>
+                                                {defBarang > 0 ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <div className="text-[11px] font-black text-rose-600 animate-pulse">
+                                                            KURANG: <br />
+                                                            {formatCurrency(
+                                                                defBarang,
+                                                            )}
+                                                        </div>
+                                                        {isBarangImpossible && (
+                                                            <div className="mt-1.5 px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded font-bold uppercase text-center leading-tight">
+                                                                {sisaEfektifBarang <=
+                                                                0
+                                                                    ? "PAGU HABIS / BLOKIR"
+                                                                    : `Maks diinput: ${formatCurrency(sisaEfektifBarang)}`}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs font-black text-emerald-600 flex justify-center items-center gap-1">
+                                                        <CheckCircle
+                                                            size={12}
+                                                        />{" "}
+                                                        AMAN
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-3 rounded-xl border border-emerald-100 shadow-sm flex flex-col justify-between relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 p-2 opacity-5">
+                                                <Target size={40} />
+                                            </div>
+                                            <div className="text-center border-b border-slate-50 pb-2">
+                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
+                                                    53 - Modal
+                                                </span>
+                                                <div className="text-[9px] font-bold text-slate-400">
+                                                    TARGET KUMULATIF (
+                                                    {targetKemenkeu.modal}%)
+                                                </div>
+                                                <div className="text-sm font-black text-emerald-700">
+                                                    {formatCurrency(
+                                                        targetRpModal,
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="text-center pt-2 bg-slate-50 rounded-lg py-2 mt-1 min-h-[50px] flex flex-col justify-center">
+                                                <div className="text-[8px] font-bold text-slate-500 mb-0.5">
+                                                    MINIMAL HARUS DIISI
+                                                </div>
+                                                {defModal > 0 ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <div className="text-[11px] font-black text-rose-600 animate-pulse">
+                                                            KURANG: <br />
+                                                            {formatCurrency(
+                                                                defModal,
+                                                            )}
+                                                        </div>
+                                                        {isModalImpossible && (
+                                                            <div className="mt-1.5 px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded font-bold uppercase text-center leading-tight">
+                                                                {sisaEfektifModal <=
+                                                                0
+                                                                    ? "PAGU HABIS / BLOKIR"
+                                                                    : `Maks diinput: ${formatCurrency(sisaEfektifModal)}`}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs font-black text-emerald-600 flex justify-center items-center gap-1">
+                                                        <CheckCircle
+                                                            size={12}
+                                                        />{" "}
+                                                        AMAN
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3.5 flex items-start gap-1.5 text-[9px] font-bold text-slate-400 bg-white p-2 rounded-lg border border-slate-100">
+                                        <Info
+                                            size={12}
+                                            className="flex-shrink-0 mt-0.5 text-emerald-400"
+                                        />
+                                        <p>
+                                            Target realisasi berjalan secara{" "}
+                                            <strong className="text-rose-500">
+                                                real-time
+                                            </strong>{" "}
+                                            sesuai rincian di bawah. Jika nilai
+                                            kekurangan terlunasi, status berubah{" "}
+                                            <strong className="text-emerald-500">
+                                                AMAN
+                                            </strong>{" "}
+                                            (IKPA Maksimal).
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="bg-white p-5 rounded-xl border border-blue-100 shadow-sm relative">
@@ -442,7 +823,7 @@ export default function AddRealisasiModal({
                                     Rincian Pengeluaran
                                 </h3>
                                 <div className="text-sm font-extrabold text-gray-800 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-                                    Total:{" "}
+                                    Total Input:{" "}
                                     <span
                                         className={
                                             sisaRpdDinamis < 0
@@ -455,135 +836,208 @@ export default function AddRealisasiModal({
                                 </div>
                             </div>
 
-                            {/* 🔥 FITUR BARU: INFO BATAS RPD PER JENIS BELANJA */}
+                            {/* 🔥 INFO BATAS MAKSIMAL RPD & PAGU EFEKTIF (LIVE UPDATE) 🔥 */}
                             {formData.satker_id && (
-                                <div className="mb-5 grid grid-cols-3 gap-3">
-                                    <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl border border-emerald-100 flex flex-col items-center justify-center">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-70">
-                                            Batas RPD 51
-                                        </p>
-                                        <p className="font-mono text-sm font-bold mt-1">
-                                            {formatCurrency(rpdDetail.gaji)}
-                                        </p>
-                                    </div>
-                                    <div className="bg-blue-50 text-blue-700 p-3 rounded-xl border border-blue-100 flex flex-col items-center justify-center">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-70">
-                                            Batas RPD 52
-                                        </p>
-                                        <p className="font-mono text-sm font-bold mt-1">
-                                            {formatCurrency(rpdDetail.barang)}
-                                        </p>
-                                    </div>
-                                    <div className="bg-purple-50 text-purple-700 p-3 rounded-xl border border-purple-100 flex flex-col items-center justify-center">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-70">
-                                            Batas RPD 53
-                                        </p>
-                                        <p className="font-mono text-sm font-bold mt-1">
-                                            {formatCurrency(rpdDetail.modal)}
-                                        </p>
-                                    </div>
+                                <div className="mb-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    {[
+                                        {
+                                            id: "gaji",
+                                            title: "51 - Pegawai",
+                                            sisa: sisaEfektifGaji,
+                                            rpd: rpdDetail.gaji,
+                                            terisi: inputGaji,
+                                        },
+                                        {
+                                            id: "barang",
+                                            title: "52 - Barang",
+                                            sisa: sisaEfektifBarang,
+                                            rpd: rpdDetail.barang,
+                                            terisi: inputBarang,
+                                        },
+                                        {
+                                            id: "modal",
+                                            title: "53 - Modal",
+                                            sisa: sisaEfektifModal,
+                                            rpd: rpdDetail.modal,
+                                            terisi: inputModal,
+                                        },
+                                    ].map((k) => (
+                                        <div
+                                            key={k.title}
+                                            className={`p-3 rounded-xl border flex flex-col justify-center transition-colors ${k.sisa - k.terisi < 0 ? "bg-rose-50 border-rose-200" : "bg-slate-50 border-slate-200"}`}
+                                        >
+                                            <div className="flex justify-between items-center mb-2 border-b border-slate-200/60 pb-1.5">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                                                    {k.title}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-[9px] font-bold text-slate-500">
+                                                        Sisa Dompet (Maks Input)
+                                                    </span>
+                                                    <span
+                                                        className={`font-mono text-xs font-black ${k.sisa - k.terisi < 0 ? "text-rose-600 animate-pulse" : "text-indigo-600"}`}
+                                                    >
+                                                        Rp{" "}
+                                                        {formatCurrency(
+                                                            Math.max(
+                                                                0,
+                                                                k.sisa -
+                                                                    k.terisi,
+                                                            ),
+                                                        )}
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-[9px] font-bold text-slate-500">
+                                                        Rencana Penarikan (RPD)
+                                                    </span>
+                                                    <span className="font-mono text-[10px] font-black text-amber-600">
+                                                        Rp{" "}
+                                                        {formatCurrency(k.rpd)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
 
                             <div className="space-y-3">
-                                {rincian.map((item, index) => (
-                                    <div
-                                        key={item.id}
-                                        className="flex flex-col md:flex-row gap-3 items-start"
-                                    >
-                                        <div className="w-full md:w-1/4">
-                                            {index === 0 && (
-                                                <label className="block text-xs font-bold text-gray-500 mb-1">
-                                                    Jenis Belanja
-                                                </label>
-                                            )}
-                                            <select
-                                                value={item.jenis_belanja}
-                                                onChange={(e) =>
-                                                    handleRincianChange(
-                                                        item.id,
-                                                        "jenis_belanja",
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className="w-full border-gray-300 rounded-xl py-2.5 px-3 border focus:ring-2 focus:ring-blue-500 text-sm"
-                                            >
-                                                {/* 🔥 LOGIKA LOCK GAJI SETJEN */}
-                                                <option
-                                                    value="gaji"
-                                                    disabled={!isSetjen}
-                                                >
-                                                    51 - Gaji{" "}
-                                                    {!isSetjen &&
-                                                        "(Khusus Setjen)"}
-                                                </option>
-                                                <option value="barang">
-                                                    52 - Barang
-                                                </option>
-                                                <option value="modal">
-                                                    53 - Modal
-                                                </option>
-                                            </select>
-                                        </div>
-                                        <div className="w-full md:w-2/4">
-                                            {index === 0 && (
-                                                <label className="block text-xs font-bold text-gray-500 mb-1">
-                                                    Uraian / Keterangan
-                                                </label>
-                                            )}
-                                            <input
-                                                type="text"
-                                                placeholder="Contoh: Pembayaran Honorarium..."
-                                                value={item.uraian}
-                                                onChange={(e) =>
-                                                    handleRincianChange(
-                                                        item.id,
-                                                        "uraian",
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                required
-                                                className="w-full border-gray-300 rounded-xl py-2.5 px-3 border focus:ring-2 focus:ring-blue-500 text-sm"
-                                            />
-                                        </div>
-                                        <div className="w-full md:w-1/4">
-                                            {index === 0 && (
-                                                <label className="block text-xs font-bold text-gray-500 mb-1">
-                                                    Nominal (Rp)
-                                                </label>
-                                            )}
-                                            <div className="flex gap-2">
-                                                <input
-                                                    type="number"
-                                                    placeholder="0"
-                                                    value={item.nominal}
+                                {rincian.map((item, index) => {
+                                    // Hitung maks dompet untuk spesifik inputan ini agar tidak bablas
+                                    const maxInputItem =
+                                        item.jenis_belanja === "gaji"
+                                            ? sisaEfektifGaji -
+                                              inputGaji +
+                                              (Number(item.nominal) || 0)
+                                            : item.jenis_belanja === "barang"
+                                              ? sisaEfektifBarang -
+                                                inputBarang +
+                                                (Number(item.nominal) || 0)
+                                              : sisaEfektifModal -
+                                                inputModal +
+                                                (Number(item.nominal) || 0);
+
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            className="flex flex-col md:flex-row gap-3 items-start"
+                                        >
+                                            <div className="w-full md:w-1/4">
+                                                {index === 0 && (
+                                                    <label className="block text-xs font-bold text-gray-500 mb-1">
+                                                        Jenis Belanja
+                                                    </label>
+                                                )}
+                                                <select
+                                                    value={item.jenis_belanja}
                                                     onChange={(e) =>
                                                         handleRincianChange(
                                                             item.id,
-                                                            "nominal",
+                                                            "jenis_belanja",
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="w-full border-gray-300 rounded-xl py-2.5 px-3 border focus:ring-2 focus:ring-blue-500 text-sm"
+                                                >
+                                                    <option
+                                                        value="gaji"
+                                                        disabled={!isSetjen}
+                                                    >
+                                                        51 - Gaji{" "}
+                                                        {!isSetjen &&
+                                                            "(Khusus Setjen)"}
+                                                    </option>
+                                                    <option value="barang">
+                                                        52 - Barang
+                                                    </option>
+                                                    <option value="modal">
+                                                        53 - Modal
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            <div className="w-full md:w-2/4">
+                                                {index === 0 && (
+                                                    <label className="block text-xs font-bold text-gray-500 mb-1">
+                                                        Uraian / Keterangan
+                                                    </label>
+                                                )}
+                                                <input
+                                                    type="text"
+                                                    placeholder="Contoh: Pembayaran Honorarium..."
+                                                    value={item.uraian}
+                                                    onChange={(e) =>
+                                                        handleRincianChange(
+                                                            item.id,
+                                                            "uraian",
                                                             e.target.value,
                                                         )
                                                     }
                                                     required
-                                                    min="1"
-                                                    className="w-full border-gray-300 rounded-xl py-2.5 px-3 border focus:ring-2 focus:ring-blue-500 text-sm font-mono"
+                                                    className="w-full border-gray-300 rounded-xl py-2.5 px-3 border focus:ring-2 focus:ring-blue-500 text-sm"
                                                 />
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        handleRemoveRow(item.id)
-                                                    }
-                                                    disabled={
-                                                        rincian.length === 1
-                                                    }
-                                                    className="p-2.5 text-red-400 bg-red-50 hover:bg-red-500 hover:text-white rounded-xl transition-colors disabled:opacity-30"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
+                                            </div>
+                                            <div className="w-full md:w-1/4">
+                                                {index === 0 && (
+                                                    <label className="block text-xs font-bold text-gray-500 mb-1">
+                                                        Nominal (Rp)
+                                                    </label>
+                                                )}
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0"
+                                                        value={item.nominal}
+                                                        onChange={(e) =>
+                                                            handleRincianChange(
+                                                                item.id,
+                                                                "nominal",
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        required
+                                                        min="1"
+                                                        max={
+                                                            maxInputItem > 0
+                                                                ? maxInputItem
+                                                                : undefined
+                                                        }
+                                                        className="w-full border-gray-300 rounded-xl py-2.5 px-3 border focus:ring-2 focus:ring-blue-500 text-sm font-mono font-bold text-slate-700"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            handleRemoveRow(
+                                                                item.id,
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            rincian.length === 1
+                                                        }
+                                                        className="p-2.5 text-red-400 bg-red-50 hover:bg-red-500 hover:text-white rounded-xl transition-colors disabled:opacity-30"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </div>
+                                                {formData.satker_id && (
+                                                    <p
+                                                        className={`text-[9px] font-bold mt-1 ml-1 ${maxInputItem < Number(item.nominal) ? "text-rose-500 animate-pulse" : "text-indigo-500"}`}
+                                                    >
+                                                        Maks: Rp{" "}
+                                                        {formatCurrency(
+                                                            Math.max(
+                                                                0,
+                                                                maxInputItem,
+                                                            ),
+                                                        )}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                             <button
                                 type="button"
@@ -608,7 +1062,7 @@ export default function AddRealisasiModal({
                         type="submit"
                         form="addRealisasiForm"
                         disabled={isSubmitting || isOverbudget}
-                        className={`flex items-center gap-2 px-8 py-2.5 rounded-xl font-bold text-white transition-all shadow-md ${isSubmitting || isOverbudget ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+                        className={`flex items-center gap-2 px-8 py-2.5 rounded-xl font-bold text-white transition-all shadow-md ${isSubmitting || isOverbudget ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 hover:-translate-y-0.5"}`}
                     >
                         {isSubmitting ? (
                             <Loader2 className="w-5 h-5 animate-spin" />

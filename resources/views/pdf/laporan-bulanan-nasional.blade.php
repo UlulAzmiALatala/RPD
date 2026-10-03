@@ -26,6 +26,7 @@
         .bg-gray-dark { background-color: #1f2937; color: #fff; }
         .bg-gray-light { background-color: #f3f4f6; color: #000; }
         .bg-gold { background-color: #f59e0b; color: #fff; }
+        .bg-purple { background-color: #4c1d95; color: #fff; } /* 🔥 Warna Khusus RO */
         .highlight-poin { background-color: #fef3c7; color: #b45309; font-size: 10px; font-weight: bold; }
         
         .text-left { text-align: left; }
@@ -52,7 +53,7 @@
     </div>
 
     <div class="judul-laporan">
-        <h3>REKAPITULASI KINERJA PELAKSANAAN ANGGARAN (IKPA) LINTAS SATKER</h3>
+        <h3>REKAPITULASI KINERJA PELAKSANAAN ANGGARAN (SIRA) LINTAS SATKER</h3>
     </div>
 
     <div class="header-info">
@@ -67,12 +68,17 @@
                 <th rowspan="2" style="width: 7%;">Pagu Efektif (Rp)</th>
                 <th rowspan="2" style="width: 7%;">Total RPD (Rp)</th>
                 <th rowspan="2" style="width: 7%;">Total Realisasi (Rp)</th>
-                <th rowspan="2" style="width: 7%;">Deviasi Nominal (Rp)</th>
-                <th rowspan="2" style="width: 6%;">% Serap</th>
-                <th rowspan="2" style="width: 7%;">Deviasi Tertimbang</th>
+                <th rowspan="2" style="width: 6%;">Deviasi Nominal (Rp)</th>
+                <th rowspan="2" style="width: 5%;">% Serap</th>
+                <th rowspan="2" style="width: 6%;">Deviasi Tertimbang</th>
                 <th colspan="3" class="bg-blue">Status Target Kemenkeu (TW {{ $tw_aktif }})</th>
                 <th rowspan="2" style="width: 6%;">Nilai IKPA<br><span style="font-size: 6px; font-weight: normal;">(Hal. III DIPA)</span></th>
-                <th rowspan="2" class="bg-gold" style="width: 7%;">TOTAL POIN SIRA<br><span style="font-size: 6px; font-weight: normal;">(Maksimal 30)</span></th>
+                
+                <!-- 🔥 KOLOM BARU CAPAIAN RO 🔥 -->
+                <th rowspan="2" class="bg-purple" style="width: 6%;">Capaian RO<br><span style="font-size: 6px; font-weight: normal;">(Maks 100)</span></th>
+                
+                <!-- 🔥 MAKSIMAL DIUBAH KE 55 🔥 -->
+                <th rowspan="2" class="bg-gold" style="width: 7%;">TOTAL POIN SIRA<br><span style="font-size: 6px; font-weight: normal;">(Maks 55)</span></th>
             </tr>
             <tr class="bg-gray-dark">
                 <th style="width: 5%;">51</th>
@@ -116,6 +122,11 @@
                 <!-- Nilai IKPA -->
                 <td class="font-bold bg-gray-light" style="font-size: 9px; color: {{ is_numeric($row['nilai_ikpa']) && $row['nilai_ikpa'] >= 90 ? '#065f46' : '#9f1239' }};">
                     {{ is_numeric($row['nilai_ikpa']) ? number_format($row['nilai_ikpa'], 2, ',', '.') : '-' }}
+                </td>
+
+                <!-- 🔥 DATA CAPAIAN RO 🔥 -->
+                <td class="font-bold text-center" style="font-size: 9px; color: #4c1d95; background-color: #f5f3ff;">
+                    {{ number_format($row['evaluasi_tw']['poin']['nilai_ro'] ?? 0, 2, ',', '.') }}
                 </td>
 
                 <!-- TOTAL POIN SIRA -->

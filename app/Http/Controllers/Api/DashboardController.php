@@ -8,6 +8,8 @@ use App\Models\RencanaPenarikan;
 use App\Models\Realisasi;
 use App\Models\Anggaran;
 use App\Models\ActivityLog;
+use App\Models\RincianOutput;   // 🔥 IMPORT MODEL RO
+use App\Models\RealisasiOutput; // 🔥 IMPORT MODEL REALISASI RO
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -89,7 +91,7 @@ class DashboardController extends Controller
                     $pagu51 += $paguGajiSatker;
                     $pagu52 += $paguBarangSatker;
                     $pagu53 += $paguModalSatker;
-                    $totalAnggaran += $anggaran->pagu_efektif; // Menggunakan pagu efektif asli
+                    $totalAnggaran += $anggaran->pagu_efektif;
                 }
             }
 
@@ -102,7 +104,6 @@ class DashboardController extends Controller
             $grafik = [];
             $namaBulan = ["", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
-            // Mode Nasional (Semua Satker): Tampilkan perbandingan antar Satker
             if (empty($selectedSatkerId) && $isAdmin) {
                 foreach ($satkers as $satker) {
                     $rpdSatkerTw = $semuaRpd->where('satker_id', $satker->id)->whereBetween('bulan', [$bulanAwal, $bulanMaksimal])->sum(function ($q) {
@@ -120,7 +121,6 @@ class DashboardController extends Controller
                     ];
                 }
             } else {
-                // Mode Spesifik Satker: Tampilkan rincian komponen per bulan di TW tersebut
                 for ($i = $bulanAwal; $i <= $bulanMaksimal; $i++) {
                     $rpdBulan = $semuaRpd->where('bulan', $i);
                     $realBulan = $semuaRealisasi->where('bulan', $i);
@@ -168,20 +168,13 @@ class DashboardController extends Controller
                     $rpdSatker = $rpdBulanIni->where('satker_id', $satker->id)->first();
                     $realSatker = $realisasiBulanIni->where('satker_id', $satker->id)->first();
 
-                    $r51 = $isSetjen ? ($rpdSatker ? $rpdSatker->belanja_gaji : 0) : 0;
-                    $r52 = $rpdSatker ? $rpdSatker->belanja_barang : 0;
-                    $r53 = $rpdSatker ? $rpdSatker->belanja_modal : 0;
+                    $r51_tot += $isSetjen ? ($rpdSatker ? $rpdSatker->belanja_gaji : 0) : 0;
+                    $r52_tot += $rpdSatker ? $rpdSatker->belanja_barang : 0;
+                    $r53_tot += $rpdSatker ? $rpdSatker->belanja_modal : 0;
 
-                    $p51 = $isSetjen ? ($realSatker ? $realSatker->belanja_gaji : 0) : 0;
-                    $p52 = $realSatker ? $realSatker->belanja_barang : 0;
-                    $p53 = $realSatker ? $realSatker->belanja_modal : 0;
-
-                    $r51_tot += $r51;
-                    $r52_tot += $r52;
-                    $r53_tot += $r53;
-                    $p51_tot += $p51;
-                    $p52_tot += $p52;
-                    $p53_tot += $p53;
+                    $p51_tot += $isSetjen ? ($realSatker ? $realSatker->belanja_gaji : 0) : 0;
+                    $p52_tot += $realSatker ? $realSatker->belanja_barang : 0;
+                    $p53_tot += $realSatker ? $realSatker->belanja_modal : 0;
                 }
 
                 $totRpdBulan = $r51_tot + $r52_tot + $r53_tot;
@@ -220,7 +213,7 @@ class DashboardController extends Controller
             }
 
             // =========================================================
-            // 4. RINCIAN DATA TOTAL TW & POIN SIRA
+            // 4. RINCIAN DATA TOTAL TW & POIN SIRA (SUPER SIRA 55 POINTS)
             // =========================================================
             $rpdsFiltered = $semuaRpd->where('bulan', '<=', $bulanMaksimal);
             $realisasisFiltered = $semuaRealisasi->where('bulan', '<=', $bulanMaksimal);
@@ -248,15 +241,15 @@ class DashboardController extends Controller
             $totalRealisasiTerfilter = $realisasi51 + $realisasi52 + $realisasi53;
             $persentaseRealisasiDashboard = $totalAnggaran > 0 ? round(($totalRealisasiTerfilter / $totalAnggaran) * 100, 2) : 0;
 
-            $persenSerap51 = $pagu51 > 0 ? ($realisasi51 / $pagu51) * 100 : 0;
-            $persenSerap52 = $pagu52 > 0 ? ($realisasi52 / $pagu52) * 100 : 0;
-            $persenSerap53 = $pagu53 > 0 ? ($realisasi53 / $pagu53) * 100 : 0;
+            // Gembok Max 100%
+            $persenSerap51 = $pagu51 > 0 ? min(($realisasi51 / $pagu51) * 100, 100) : 0;
+            $persenSerap52 = $pagu52 > 0 ? min(($realisasi52 / $pagu52) * 100, 100) : 0;
+            $persenSerap53 = $pagu53 > 0 ? min(($realisasi53 / $pagu53) * 100, 100) : 0;
 
             $target51 = $this->getTargetKemenkeu($tw, '51');
             $target52 = $this->getTargetKemenkeu($tw, '52');
             $target53 = $this->getTargetKemenkeu($tw, '53');
 
-            // --- PERHITUNGAN NILAI KINERJA PENYERAPAN UNTUK DASHBOARD ---
             $targetNominal51 = $pagu51 * ($target51 / 100);
             $targetNominal52 = $pagu52 * ($target52 / 100);
             $targetNominal53 = $pagu53 * ($target53 / 100);
@@ -273,11 +266,31 @@ class DashboardController extends Controller
                 $nilai_penyerapan = 100;
             }
 
+            // Hitung Agregat Capaian RO untuk Dashboard Utama
+            $allRoIds = RincianOutput::whereIn('satker_id', $satkerIds)->where('tahun', $tahun)->pluck('id');
+            $allRealOutputs = RealisasiOutput::whereIn('rincian_output_id', $allRoIds)->where('bulan', '<=', $bulanMaksimal)->get();
+            $allRincianOutputs = RincianOutput::whereIn('satker_id', $satkerIds)->where('tahun', $tahun)->get();
+
+            $total_pc_global = 0;
+            $jumlah_ro_global = $allRincianOutputs->count();
+            $nilai_ro_global = 0;
+
+            if ($jumlah_ro_global > 0) {
+                foreach ($allRincianOutputs as $roItem) {
+                    $volKum = $allRealOutputs->where('rincian_output_id', $roItem->id)->sum('realisasi_volume');
+                    $pcItem = $roItem->target_volume > 0 ? ($volKum / $roItem->target_volume) * 100 : 0;
+                    $total_pc_global += min($pcItem, 100);
+                }
+                $nilai_ro_global = $total_pc_global / $jumlah_ro_global;
+            }
+
+            // KALKULASI TOTAL POIN SIRA GLOBAL (10% + 20% + 25%) = 55 POIN
             $tertimbang_hal_iii = round(($ikpaGlobalBerjalan * 10) / 100, 2);
             $tertimbang_penyerapan = round(($nilai_penyerapan * 20) / 100, 2);
-            $total_poin_sira = round($tertimbang_hal_iii + $tertimbang_penyerapan, 2);
+            $tertimbang_ro = round(($nilai_ro_global * 25) / 100, 2);
 
-            // Analisis TW Kemenkeu
+            $total_poin_sira = round($tertimbang_hal_iii + $tertimbang_penyerapan + $tertimbang_ro, 2);
+
             $analisis_tw = [
                 '51' => [
                     'target_persen' => $pagu51 > 0 ? $target51 : 0,
@@ -297,16 +310,18 @@ class DashboardController extends Controller
                 'poin' => [
                     'ikpa_hal_iii' => round($ikpaGlobalBerjalan, 2),
                     'nilai_penyerapan' => round($nilai_penyerapan, 2),
+                    'nilai_ro' => round($nilai_ro_global, 2),
                     'tertimbang_hal_iii' => $tertimbang_hal_iii,
                     'tertimbang_penyerapan' => $tertimbang_penyerapan,
-                    'total_poin' => $total_poin_sira
+                    'tertimbang_ro' => $tertimbang_ro,
+                    'total_poin' => $total_poin_sira // Max 55
                 ]
             ];
 
             // =========================================================
-            // 5. TABEL LEADERBOARD SATKER (KINI DIURUTKAN BERDASARKAN POIN SIRA)
+            // 5. TABEL LEADERBOARD SATKER (DENGAN 55 POIN SIRA)
             // =========================================================
-            $tabelSatker = $satkers->map(function ($satker) use ($bulanMaksimal, $semuaRealisasi, $semuaRpd, $tw) {
+            $tabelSatker = $satkers->map(function ($satker) use ($bulanMaksimal, $semuaRealisasi, $semuaRpd, $tw, $tahun) {
                 $paguSatker = 0;
                 $p51 = 0;
                 $p52 = 0;
@@ -373,7 +388,6 @@ class DashboardController extends Controller
 
                     if (($rG + $rB + $rM) > 0 || ($pG + $pB + $pM) > 0) {
                         $blnData++;
-
                         $hitungP = function ($rV, $pV) {
                             $d = abs($rV - $pV);
                             if ($rV <= 0) return $pV > 0 ? 100 : 0;
@@ -398,8 +412,26 @@ class DashboardController extends Controller
                     if ($rataDev > 5) $ikpaSatker = max(0, 100 - $rataDev);
                 }
 
-                // Kalkulasi Total Poin SIRA
-                $poin_sira = round(($ikpaSatker * 10 / 100) + ($nilai_penyerapan * 20 / 100), 2);
+                // Kalkulasi Nilai RO per Satker
+                $satkerRos = RincianOutput::where('satker_id', $satker->id)->where('tahun', $tahun)->get();
+                $satkerRoIds = $satkerRos->pluck('id');
+                $satkerRealOutputs = RealisasiOutput::whereIn('rincian_output_id', $satkerRoIds)->where('bulan', '<=', $bulanMaksimal)->get();
+
+                $total_pc_satker = 0;
+                $jumlah_ro_satker = $satkerRos->count();
+                $nilai_ro_satker = 0;
+
+                if ($jumlah_ro_satker > 0) {
+                    foreach ($satkerRos as $sRo) {
+                        $volKumSatker = $satkerRealOutputs->where('rincian_output_id', $sRo->id)->sum('realisasi_volume');
+                        $pcSatker = $sRo->target_volume > 0 ? ($volKumSatker / $sRo->target_volume) * 100 : 0;
+                        $total_pc_satker += min($pcSatker, 100);
+                    }
+                    $nilai_ro_satker = $total_pc_satker / $jumlah_ro_satker;
+                }
+
+                // Kalkulasi Total Poin SIRA Satker (Max 55)
+                $poin_sira = round(($ikpaSatker * 10 / 100) + ($nilai_penyerapan * 20 / 100) + ($nilai_ro_satker * 25 / 100), 2);
                 $persenSerap = $paguSatker > 0 ? round(($realisasiSatker / $paguSatker) * 100, 2) : 0;
 
                 return [
@@ -409,7 +441,7 @@ class DashboardController extends Controller
                     'total_pagu' => $paguSatker,
                     'total_realisasi' => $realisasiSatker,
                     'persen_serap' => $persenSerap,
-                    'poin_sira' => $poin_sira // <-- Dipakai untuk ranking
+                    'poin_sira' => $poin_sira // <-- Dipakai untuk ranking 55 poin
                 ];
             });
 
@@ -417,7 +449,6 @@ class DashboardController extends Controller
             $bottomSatker = [];
             $miniCCTV = [];
             if ($isAdmin) {
-                // Diurutkan berdasarkan POIN SIRA Tertinggi
                 $sortedSatker = collect($tabelSatker)->sortByDesc('poin_sira')->values();
                 $topSatker = $sortedSatker->take(3)->values()->toArray();
                 $bottomSatker = $sortedSatker->filter(function ($s) {
@@ -490,7 +521,6 @@ class DashboardController extends Controller
             'summary' => $data['summary'],
             'analisis_tw' => $data['analisis_tw'],
             'rincian_belanja' => $data['rincian_belanja'],
-            // Sorting kembali berdasarkan poin sira
             'satkers' => collect($data['tabel_satker'])->sortByDesc('poin_sira')->values()->all(),
             'grafik' => $data['grafik'],
             'tanggal_cetak' => date('d M Y'),

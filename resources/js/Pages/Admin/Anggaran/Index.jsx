@@ -10,6 +10,7 @@ import {
     Plus,
     CheckCircle,
     XCircle,
+    Info,
 } from "lucide-react";
 
 // Import Modals
@@ -198,6 +199,9 @@ export default function IndexAnggaran() {
                 @keyframes slideOutRight { 0% { transform: translateX(0) scale(1); opacity: 1; } 100% { transform: translateX(120%) scale(0.9); opacity: 0; } }
                 .toast-enter { animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
                 .toast-exit { animation: slideOutRight 0.4s ease-in forwards; }
+                
+                /* Tooltip Custom */
+                .group:hover .tooltip-custom { display: block; }
             `}</style>
 
             <div className="space-y-6 font-sans text-gray-600 relative overflow-hidden">
@@ -269,7 +273,7 @@ export default function IndexAnggaran() {
 
                 {/* Tabel Content */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto pb-4">
                         <table className="w-full text-left text-sm whitespace-nowrap">
                             <thead className="bg-gray-50/50 border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold">
                                 <tr>
@@ -331,19 +335,64 @@ export default function IndexAnggaran() {
                                             </td>
                                             <td className="px-6 py-4 text-right font-bold text-gray-800">
                                                 {formatCurrency(
-                                                    Number(item.belanja_gaji) +
-                                                        Number(
-                                                            item.belanja_barang,
-                                                        ) +
-                                                        Number(
-                                                            item.belanja_modal,
-                                                        ),
+                                                    item.total_pagu || 0,
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-medium text-red-500 bg-red-50/30">
-                                                {formatCurrency(
-                                                    item.pagu_blokir || 0,
-                                                )}
+                                            <td className="px-6 py-4 text-right font-medium text-red-500 bg-red-50/30 relative">
+                                                <div className="flex items-center justify-end gap-1.5 group cursor-help">
+                                                    {item.pagu_blokir > 0 && (
+                                                        <Info
+                                                            size={14}
+                                                            className="text-red-400"
+                                                        />
+                                                    )}
+                                                    {formatCurrency(
+                                                        item.pagu_blokir || 0,
+                                                    )}
+
+                                                    {/* Tooltip Rincian Blokir */}
+                                                    {item.pagu_blokir > 0 && (
+                                                        <div className="tooltip-custom hidden absolute bottom-full mb-2 right-4 bg-slate-800 text-white text-[10px] p-3 rounded-lg shadow-xl z-10 w-48 text-left">
+                                                            <p className="font-bold text-red-300 border-b border-slate-600 pb-1 mb-2">
+                                                                Rincian Blokir
+                                                            </p>
+                                                            <div className="flex justify-between mb-1">
+                                                                <span>
+                                                                    51 -
+                                                                    Pegawai:
+                                                                </span>
+                                                                <span className="font-mono">
+                                                                    {formatCurrency(
+                                                                        item.blokir_gaji ||
+                                                                            0,
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex justify-between mb-1">
+                                                                <span>
+                                                                    52 - Barang:
+                                                                </span>
+                                                                <span className="font-mono">
+                                                                    {formatCurrency(
+                                                                        item.blokir_barang ||
+                                                                            0,
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                                <span>
+                                                                    53 - Modal:
+                                                                </span>
+                                                                <span className="font-mono">
+                                                                    {formatCurrency(
+                                                                        item.blokir_modal ||
+                                                                            0,
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-right font-extrabold text-green-700 bg-green-50/30">
                                                 {formatCurrency(

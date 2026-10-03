@@ -55,9 +55,9 @@ if (rootElement) {
                     element={<IndexTransaksi />}
                 />
 
-                {/* 🔥 Route Halaman Rincian Output (RO) 🔥 */}
+                {/* 🔥 Route Halaman Rincian Output (RO) DIUBAH MENJADI input-ro 🔥 */}
                 <Route
-                    path="/dashboard/rincian-output"
+                    path="/dashboard/input-ro"
                     element={<RincianOutputIndex />}
                 />
 

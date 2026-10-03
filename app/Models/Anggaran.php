@@ -15,6 +15,9 @@ class Anggaran extends Model
         'belanja_gaji',
         'belanja_barang',
         'belanja_modal',
+        'blokir_gaji',      // 🔥 KOLOM BARU
+        'blokir_barang',    // 🔥 KOLOM BARU
+        'blokir_modal',     // 🔥 KOLOM BARU
         'total_pagu',
         'pagu_blokir',
         'pagu_efektif'
