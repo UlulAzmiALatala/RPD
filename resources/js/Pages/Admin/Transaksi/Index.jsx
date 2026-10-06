@@ -16,6 +16,9 @@ import {
     TrendingUp,
     AlertCircle,
     Filter,
+    Activity,
+    ShieldAlert,
+    Target,
 } from "lucide-react";
 
 import AddRpdModal from "./Modals/AddRpdModal";
@@ -48,6 +51,9 @@ const namaBulan = [
     "Desember",
 ];
 
+// ==========================================
+// KOMPONEN PAGINATION PREMIUM
+// ==========================================
 const Pagination = ({ meta, onPageChange, accentColor }) => {
     if (!meta || meta.total === 0) return null;
     const { current_page, last_page, from, to, total } = meta;
@@ -59,26 +65,41 @@ const Pagination = ({ meta, onPageChange, accentColor }) => {
         for (let i = start; i <= end; i++) pages.push(i);
         return pages;
     };
+
+    // Tentukan gradien berdasarkan accentColor (RPD = Indigo, Realisasi = Emerald/Blue)
+    const activeBg = accentColor.includes("indigo")
+        ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)] border-indigo-500"
+        : "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-[0_4px_12px_rgba(59,130,246,0.3)] border-blue-500";
+
     return (
-        <div className="px-6 py-4 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4 bg-white">
-            <p className="text-sm text-gray-500">
-                Menampilkan <span className="font-bold">{from || 0}</span> -{" "}
-                <span className="font-bold">{to || 0}</span> dari{" "}
-                <span className="font-bold">{total}</span>
+        <div className="px-6 py-5 border-t border-slate-100/50 flex flex-col md:flex-row items-center justify-between gap-4 bg-white/30 backdrop-blur-sm rounded-b-[2rem]">
+            <p className="text-sm text-slate-500 font-medium">
+                Menampilkan{" "}
+                <span className="font-extrabold text-slate-800">
+                    {from || 0}
+                </span>{" "}
+                -{" "}
+                <span className="font-extrabold text-slate-800">{to || 0}</span>{" "}
+                dari{" "}
+                <span className="font-extrabold text-slate-800">{total}</span>
             </p>
             <div className="flex items-center gap-2">
                 <button
                     onClick={() => onPageChange(current_page - 1)}
                     disabled={current_page === 1}
-                    className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    className="p-2 rounded-xl border border-slate-200/60 text-slate-500 hover:bg-white hover:shadow-sm disabled:opacity-40 transition-all"
                 >
-                    <ChevronLeft size={18} />
+                    <ChevronLeft size={18} strokeWidth={2.5} />
                 </button>
                 {getPageNumbers().map((page) => (
                     <button
                         key={page}
                         onClick={() => onPageChange(page)}
-                        className={`w-9 h-9 rounded-xl text-sm font-bold shadow-sm border ${current_page === page ? `${accentColor} text-white` : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                        className={`w-10 h-10 rounded-xl text-sm font-black transition-all duration-300 shadow-sm border ${
+                            current_page === page
+                                ? `${activeBg} hover:-translate-y-0.5`
+                                : "bg-white text-slate-600 border-slate-200/60 hover:bg-slate-50"
+                        }`}
                     >
                         {page}
                     </button>
@@ -86,9 +107,9 @@ const Pagination = ({ meta, onPageChange, accentColor }) => {
                 <button
                     onClick={() => onPageChange(current_page + 1)}
                     disabled={current_page === last_page}
-                    className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    className="p-2 rounded-xl border border-slate-200/60 text-slate-500 hover:bg-white hover:shadow-sm disabled:opacity-40 transition-all"
                 >
-                    <ChevronRight size={18} />
+                    <ChevronRight size={18} strokeWidth={2.5} />
                 </button>
             </div>
         </div>
@@ -111,6 +132,7 @@ export default function IndexTransaksi({ authUser }) {
     const [localAuth, setLocalAuth] = useState(authUser);
     const [summary, setSummary] = useState({ global: {}, per_satker: {} });
 
+    // State Modals
     const [isAddRpdOpen, setIsAddRpdOpen] = useState(false);
     const [isEditRpdOpen, setIsEditRpdOpen] = useState(false);
     const [isAddRealOpen, setIsAddRealOpen] = useState(false);
@@ -303,7 +325,7 @@ export default function IndexTransaksi({ authUser }) {
     const isAdmin = localAuth?.role === "admin";
 
     // =========================================================================
-    // 🔥 LOGIKA KALKULASI SUMMARY (PERBAIKAN SISA PAGU STATIS & DINAMIS 51, 52, 53)
+    // 🔥 LOGIKA KALKULASI SUMMARY
     // =========================================================================
     const getMonthsInTW = (tw) => {
         if (tw === "I") return [1, 2, 3];
@@ -324,8 +346,6 @@ export default function IndexTransaksi({ authUser }) {
         dispTotalInputTW = 0,
         dispTotalInputALL = 0,
         dispTargetIKPARp = 0;
-
-    // 🔥 VARIABEL BARU UNTUK SISA PAGU DI HEADER TABEL 🔥
     let dispSisa51 = 0,
         dispSisa52 = 0,
         dispSisa53 = 0;
@@ -339,7 +359,6 @@ export default function IndexTransaksi({ authUser }) {
             (satkerData.pagu_modal || 0) - (satkerData.blokir_modal || 0);
 
         const targetPct = getTargetTW(selectedTW);
-
         const targetKemenkeuGaji =
             satkerData.pagu_gaji * (targetPct.gaji / 100);
         const targetKemenkeuBarang =
@@ -445,22 +464,41 @@ export default function IndexTransaksi({ authUser }) {
     const isTargetAchieved = dispTotalInputTW >= dispTargetIKPARp;
 
     return (
-        <MainLayout tahun={tahun}>
+        <MainLayout authUser={authUser} tahun={tahun}>
             <style>{`
                 @keyframes slideInRight { 0% { transform: translateX(120%) scale(0.9); opacity: 0; } 100% { transform: translateX(0) scale(1); opacity: 1; } }
                 @keyframes slideOutRight { 0% { transform: translateX(0) scale(1); opacity: 1; } 100% { transform: translateX(120%) scale(0.9); opacity: 0; } }
                 .toast-enter { animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
                 .toast-exit { animation: slideOutRight 0.4s ease-in forwards; }
+                
+                .glass-card {
+                    background: rgba(255, 255, 255, 0.7);
+                    backdrop-filter: blur(16px);
+                    -webkit-backdrop-filter: blur(16px);
+                }
             `}</style>
 
-            <div className="space-y-6 font-sans text-gray-600 relative overflow-hidden">
-                {/* TOAST AREA */}
+            <div className="space-y-6 font-sans text-slate-600 relative overflow-hidden min-h-screen pb-10">
+                {/* --- AMBIENT BACKGROUND GLOW --- */}
+                <div
+                    className={`absolute top-0 left-0 w-full h-96 transition-colors duration-700 pointer-events-none -z-10 ${isRPD ? "bg-gradient-to-b from-indigo-500/10 to-transparent" : "bg-gradient-to-b from-blue-500/10 to-transparent"}`}
+                ></div>
+                <div
+                    className={`absolute top-20 right-20 w-96 h-96 rounded-full blur-[100px] transition-colors duration-700 pointer-events-none -z-10 ${isRPD ? "bg-purple-500/10" : "bg-emerald-500/10"}`}
+                ></div>
+
+                {/* --- TOAST NOTIFICATION PREMIUM --- */}
                 {toast.show && (
                     <div
-                        className={`fixed top-24 right-10 z-[100] flex items-center p-4 min-w-[320px] rounded-xl border backdrop-blur-md ${toast.isExiting ? "toast-exit" : "toast-enter"} ${toast.type === "success" ? "bg-[#0A192F]/90 border-green-500/50 text-white shadow-[0_0_20px_rgba(34,197,94,0.3)]" : "bg-[#0A192F]/90 border-red-500/50 text-white"}`}
+                        className={`fixed top-8 right-8 z-[100] flex items-center p-4 min-w-[340px] rounded-2xl border shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] backdrop-blur-xl ${toast.isExiting ? "toast-exit" : "toast-enter"} ${toast.type === "success" ? "bg-[#0A192F]/95 border-emerald-500/30" : "bg-[#0A192F]/95 border-rose-500/30"}`}
                     >
+                        <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                            <div
+                                className={`absolute -top-10 -right-10 w-32 h-32 opacity-20 blur-2xl rounded-full ${toast.type === "success" ? "bg-emerald-500" : "bg-rose-500"}`}
+                            ></div>
+                        </div>
                         <div
-                            className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full border ${toast.type === "success" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}
+                            className={`relative flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl border ${toast.type === "success" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border-rose-500/20"}`}
                         >
                             {toast.type === "success" ? (
                                 <CheckCircle className="w-6 h-6" />
@@ -468,38 +506,57 @@ export default function IndexTransaksi({ authUser }) {
                                 <XCircle className="w-6 h-6" />
                             )}
                         </div>
-                        <div className="ml-4">
+                        <div className="ml-4 relative">
                             <h4
-                                className={`text-xs font-bold tracking-widest uppercase ${toast.type === "success" ? "text-green-400" : "text-red-400"}`}
+                                className={`text-[10px] font-black tracking-widest uppercase ${toast.type === "success" ? "text-emerald-400" : "text-rose-400"}`}
                             >
-                                {toast.type === "success" ? "Sukses" : "Error"}
+                                {toast.type === "success" ? "Sukses" : "Gagal"}
                             </h4>
-                            <p className="text-sm font-medium text-gray-200 mt-0.5">
+                            <p className="text-sm font-semibold text-slate-200 mt-0.5 leading-snug">
                                 {toast.message}
                             </p>
                         </div>
                     </div>
                 )}
 
-                <div className="flex flex-col gap-4">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-                        <div>
-                            <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">
-                                Input Transaksi
-                            </h2>
-                            <p className="text-sm text-gray-500 mt-1">
-                                Kelola Rencana Penarikan Dana (RPD) & Realisasi
-                                Anggaran.
-                            </p>
+                {/* --- HEADER & CONTROL PANEL (GLASSMORPHISM) --- */}
+                <div className="glass-card p-6 md:p-8 rounded-[2rem] shadow-sm border border-white/60 relative overflow-hidden z-10 flex flex-col gap-6">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div className="flex items-center gap-4">
+                            <div
+                                className={`p-3.5 text-white rounded-2xl shadow-lg transition-colors duration-500 ${isRPD ? "bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-indigo-500/30" : "bg-gradient-to-br from-blue-500 to-blue-600 shadow-blue-500/30"}`}
+                            >
+                                {isRPD ? (
+                                    <CalendarRange
+                                        size={28}
+                                        strokeWidth={2.5}
+                                    />
+                                ) : (
+                                    <Receipt size={28} strokeWidth={2.5} />
+                                )}
+                            </div>
+                            <div>
+                                <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+                                    Ledger Transaksi
+                                </h2>
+                                <p className="text-sm text-slate-500 font-medium mt-1 flex items-center gap-2">
+                                    Kelola Rencana Penarikan Dana (RPD) &
+                                    Realisasi Anggaran.
+                                </p>
+                            </div>
                         </div>
 
-                        {/* 🔥 NAVIGASI TAB TRIWULAN (TW) 🔥 */}
-                        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 text-xs font-bold">
+                        {/* NAVIGASI TAB TRIWULAN (PILL STYLE) */}
+                        <div className="flex bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 text-xs font-bold shadow-inner">
                             {["ALL", "I", "II", "III", "IV"].map((tw) => (
                                 <button
                                     key={tw}
                                     onClick={() => setSelectedTW(tw)}
-                                    className={`px-4 py-2 rounded-lg transition-all ${selectedTW === tw ? "bg-gray-800 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}
+                                    className={`px-5 py-2.5 rounded-xl transition-all duration-300 ${
+                                        selectedTW === tw
+                                            ? "bg-white text-slate-800 shadow-[0_2px_8px_rgba(0,0,0,0.1)] scale-105 border border-slate-100"
+                                            : "text-slate-500 hover:bg-slate-200/50"
+                                    }`}
                                 >
                                     {tw === "ALL" ? "Setahun" : `TW ${tw}`}
                                 </button>
@@ -507,33 +564,47 @@ export default function IndexTransaksi({ authUser }) {
                         </div>
                     </div>
 
-                    <div className="flex flex-col xl:flex-row justify-between items-center gap-4 bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
-                        <div className="flex w-full xl:w-auto bg-gray-50 p-1 rounded-xl border border-gray-200">
+                    <div className="h-px w-full bg-slate-200/60 my-2"></div>
+
+                    <div className="flex flex-col xl:flex-row justify-between items-center gap-5">
+                        {/* TOGGLE RPD VS REALISASI (SEGMENTED CONTROL) */}
+                        <div className="flex w-full xl:w-auto bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 shadow-inner relative">
                             <button
                                 onClick={() => {
                                     setActiveTab("rpd");
                                     setCurrentPage(1);
                                 }}
-                                className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm transition-all ${isRPD ? "bg-white text-indigo-600 shadow-sm border border-gray-200" : "text-gray-500 hover:text-gray-700"}`}
+                                className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold text-sm transition-all duration-300 z-10 ${
+                                    isRPD
+                                        ? "text-indigo-600 shadow-[0_4px_12px_rgba(99,102,241,0.15)] bg-white border border-indigo-100 scale-105"
+                                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+                                }`}
                             >
-                                <CalendarRange size={16} /> RPD
+                                <CalendarRange size={18} strokeWidth={2.5} />{" "}
+                                RPD Halaman III
                             </button>
                             <button
                                 onClick={() => {
                                     setActiveTab("realisasi");
                                     setCurrentPage(1);
                                 }}
-                                className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm transition-all ${!isRPD ? "bg-white text-blue-600 shadow-sm border border-gray-200" : "text-gray-500 hover:text-gray-700"}`}
+                                className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold text-sm transition-all duration-300 z-10 ${
+                                    !isRPD
+                                        ? "text-blue-600 shadow-[0_4px_12px_rgba(59,130,246,0.15)] bg-white border border-blue-100 scale-105"
+                                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+                                }`}
                             >
-                                <Receipt size={16} /> Realisasi
+                                <Receipt size={18} strokeWidth={2.5} /> Aktual
+                                Realisasi
                             </button>
                         </div>
 
+                        {/* FILTER & SEARCH */}
                         <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto">
                             {isAdmin && (
                                 <div className="relative w-full md:w-56">
-                                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                        <Filter className="w-4 h-4 text-gray-400" />
+                                    <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                                        <Filter className="w-4 h-4 text-slate-400" />
                                     </div>
                                     <select
                                         value={selectedSatker}
@@ -541,7 +612,7 @@ export default function IndexTransaksi({ authUser }) {
                                             setSelectedSatker(e.target.value);
                                             setCurrentPage(1);
                                         }}
-                                        className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-700 appearance-none cursor-pointer"
+                                        className="w-full pl-10 pr-4 py-3 bg-white/80 border border-slate-200/80 rounded-2xl focus:ring-4 focus:ring-slate-200/50 text-sm font-bold text-slate-700 appearance-none cursor-pointer shadow-sm outline-none transition-all"
                                     >
                                         <option value="">
                                             Semua Satker (Global)
@@ -557,8 +628,8 @@ export default function IndexTransaksi({ authUser }) {
                             )}
 
                             <div className="relative w-full md:w-56">
-                                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                    <Search className="w-4 h-4 text-gray-400" />
+                                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                                    <Search className="w-4 h-4 text-slate-400" />
                                 </div>
                                 <input
                                     type="text"
@@ -568,7 +639,7 @@ export default function IndexTransaksi({ authUser }) {
                                         setSearchTerm(e.target.value);
                                         setCurrentPage(1);
                                     }}
-                                    className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm"
+                                    className="w-full pl-10 pr-4 py-3 bg-white/80 border border-slate-200/80 rounded-2xl focus:ring-4 focus:ring-slate-200/50 text-sm font-semibold shadow-sm outline-none transition-all placeholder:font-normal"
                                 />
                             </div>
 
@@ -578,99 +649,111 @@ export default function IndexTransaksi({ authUser }) {
                                         ? setIsAddRpdOpen(true)
                                         : setIsAddRealOpen(true)
                                 }
-                                className={`flex items-center justify-center gap-2 px-5 py-2.5 ${accentColor} text-white font-bold rounded-xl shadow-md hover:opacity-90 transition-all w-full md:w-auto`}
+                                className={`flex items-center justify-center gap-2 px-6 py-3 text-white font-bold rounded-2xl shadow-lg transition-all duration-300 w-full md:w-auto hover:-translate-y-1 ${
+                                    isRPD
+                                        ? "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/30 hover:shadow-indigo-500/40"
+                                        : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/30 hover:shadow-blue-500/40"
+                                }`}
                             >
-                                <Plus size={18} /> Tambah
+                                <Plus size={18} strokeWidth={2.5} /> Tambah Data
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* 🔥 CARD SUMMARY 🔥 */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center">
-                            <Wallet size={24} />
+                {/* 🔥 CARD SUMMARY (DYNAMIC GLOW) 🔥 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 relative z-10">
+                    <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all flex items-center gap-5 group">
+                        <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300">
+                            <Wallet size={26} strokeWidth={2} />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                 {!isAdmin || selectedSatker
                                     ? "Pagu Efektif Satker"
                                     : "Total Pagu Efektif"}
                             </p>
-                            <h3 className="text-lg font-extrabold text-gray-900 mt-0.5">
+                            <h3 className="text-xl font-black text-slate-800 mt-1 tracking-tight">
                                 {formatCurrency(dispPagu)}
                             </h3>
                         </div>
                     </div>
 
-                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
+                    <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all flex items-center gap-5 group">
                         <div
-                            className={`w-12 h-12 rounded-xl flex items-center justify-center ${isRPD ? "bg-indigo-50 text-indigo-500" : "bg-blue-50 text-blue-500"}`}
+                            className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300 ${isRPD ? "bg-indigo-50 text-indigo-500" : "bg-blue-50 text-blue-500"}`}
                         >
-                            <TrendingUp size={24} />
+                            <TrendingUp size={26} strokeWidth={2} />
                         </div>
                         <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                Total {isRPD ? "RPD" : "Realisasi"}{" "}
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                Total Input {isRPD ? "RPD" : "Realisasi"}{" "}
                                 {selectedTW !== "ALL"
                                     ? `(TW ${selectedTW})`
                                     : "(Setahun)"}
                             </p>
-                            <h3 className="text-lg font-extrabold text-gray-900 mt-0.5">
+                            <h3 className="text-xl font-black text-slate-800 mt-1 tracking-tight">
                                 {formatCurrency(dispTotalInputTW)}
                             </h3>
                         </div>
                     </div>
 
-                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
+                    <div
+                        className={`bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-slate-100 transition-all flex items-center gap-5 group ${dispSisaReal < 0 ? "shadow-[0_0_30px_rgba(225,29,72,0.15)] border-rose-200" : "shadow-sm hover:shadow-lg"}`}
+                    >
                         <div
-                            className={`w-12 h-12 rounded-xl flex items-center justify-center ${dispSisaReal < 0 ? "bg-rose-50 text-rose-500" : "bg-amber-50 text-amber-500"}`}
+                            className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300 ${dispSisaReal < 0 ? "bg-rose-100 text-rose-600" : "bg-emerald-50 text-emerald-500"}`}
                         >
-                            <AlertCircle size={24} />
+                            {dispSisaReal < 0 ? (
+                                <ShieldAlert size={26} strokeWidth={2} />
+                            ) : (
+                                <AlertCircle size={26} strokeWidth={2} />
+                            )}
                         </div>
                         <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex flex-col">
-                                <span>Sisa Dompet Pagu Efektif</span>
+                            <p
+                                className={`text-[10px] font-black uppercase tracking-widest ${dispSisaReal < 0 ? "text-rose-400" : "text-slate-400"}`}
+                            >
+                                Sisa Dompet Pagu
                             </p>
                             <h3
-                                className={`text-lg font-extrabold mt-0.5 ${dispSisaReal < 0 ? "text-rose-600" : "text-gray-900"}`}
+                                className={`text-xl font-black mt-1 tracking-tight ${dispSisaReal < 0 ? "text-rose-600" : "text-slate-800"}`}
                             >
                                 {formatCurrency(dispSisaReal)}
                             </h3>
                         </div>
                     </div>
 
-                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-center relative overflow-hidden">
-                        <div className="flex justify-between items-center mb-2">
+                    <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all flex flex-col justify-center relative overflow-hidden">
+                        <div className="flex justify-between items-center mb-3">
                             <div>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     Serapan {isRPD ? "RPD" : "Realisasi"}{" "}
                                     {selectedTW !== "ALL" && `TW ${selectedTW}`}
                                 </p>
                                 {!isRPD && (
-                                    <p className="text-[10px] font-extrabold text-indigo-500 mt-0.5 tracking-wide">
-                                        TARGET KEMENKEU
+                                    <p className="text-[9px] font-extrabold text-blue-500 mt-0.5 tracking-widest flex items-center gap-1">
+                                        <Target size={10} /> TARGET KEMENKEU
                                     </p>
                                 )}
                             </div>
                             <div className="text-right">
                                 <span
-                                    className={`text-sm font-extrabold px-2 py-1 rounded-md ${!isRPD && !isTargetAchieved ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}
+                                    className={`text-sm font-black px-2.5 py-1 rounded-lg shadow-sm ${!isRPD && !isTargetAchieved ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}
                                 >
                                     {dispPersen.toFixed(1)}%
                                 </span>
                             </div>
                         </div>
-                        <div className="w-full bg-gray-100 rounded-full h-2 mt-1 relative">
+                        <div className="w-full bg-slate-200/80 rounded-full h-2.5 mt-1 relative shadow-inner overflow-hidden">
                             {!isRPD && (
                                 <div
-                                    className="absolute top-0 bottom-0 border-r-2 border-indigo-400 z-10"
+                                    className="absolute top-0 bottom-0 border-r-2 border-slate-800 z-10 shadow-[0_0_5px_rgba(0,0,0,0.5)]"
                                     style={{ left: "100%" }}
                                 ></div>
                             )}
                             <div
-                                className={`h-2 rounded-full transition-all duration-1000 ${!isRPD && !isTargetAchieved ? "bg-rose-500" : "bg-emerald-500"}`}
+                                className={`h-full rounded-full transition-all duration-1000 ${!isRPD && !isTargetAchieved ? "bg-gradient-to-r from-rose-400 to-rose-500 shadow-[0_0_10px_rgba(225,29,72,0.8)]" : "bg-gradient-to-r from-emerald-400 to-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"}`}
                                 style={{
                                     width: `${Math.min(dispPersen, 100)}%`,
                                 }}
@@ -678,103 +761,115 @@ export default function IndexTransaksi({ authUser }) {
                         </div>
                         {!isRPD && (
                             <p
-                                className={`text-[10px] font-bold mt-2 text-right ${isTargetAchieved ? "text-emerald-600" : "text-rose-500"}`}
+                                className={`text-[10px] font-black mt-3 text-right flex items-center justify-end gap-1 ${isTargetAchieved ? "text-emerald-600" : "text-rose-500"}`}
                             >
-                                {isTargetAchieved
-                                    ? `✅ Memenuhi Target (${formatCurrency(dispTargetIKPARp)})`
-                                    : `⚠️ Kurang ${formatCurrency(dispTargetIKPARp - dispTotalInputTW)}`}
+                                {isTargetAchieved ? (
+                                    <>
+                                        <CheckCircle size={12} /> Memenuhi
+                                        Target (
+                                        {formatCurrency(dispTargetIKPARp)})
+                                    </>
+                                ) : (
+                                    <>
+                                        <XCircle size={12} /> Kurang{" "}
+                                        {formatCurrency(
+                                            dispTargetIKPARp - dispTotalInputTW,
+                                        )}
+                                    </>
+                                )}
                             </p>
                         )}
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                {/* 🔥 TABEL LEDGER FUTURISTIK 🔥 */}
+                <div className="glass-card rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 overflow-hidden relative z-10">
+                    <div className="p-5 border-b border-slate-100 bg-slate-50/50 backdrop-blur-sm flex justify-between items-center">
                         <h3
-                            className={`text-sm font-extrabold flex items-center gap-2 ${textAccent}`}
+                            className={`text-sm font-black flex items-center gap-2 ${textAccent} uppercase tracking-widest`}
                         >
                             {isRPD ? (
-                                <CalendarRange size={18} />
+                                <CalendarRange size={20} strokeWidth={2.5} />
                             ) : (
-                                <Receipt size={18} />
-                            )}{" "}
+                                <Receipt size={20} strokeWidth={2.5} />
+                            )}
                             Daftar{" "}
                             {isRPD
                                 ? "Rencana Penarikan Dana (RPD)"
                                 : "Realisasi Pengeluaran"}
                             {selectedTW !== "ALL" && (
-                                <span className="ml-2 px-2 py-0.5 bg-gray-800 text-white rounded text-[10px]">
+                                <span className="ml-2 px-2.5 py-1 bg-slate-800 text-white rounded-lg text-[9px] shadow-sm">
                                     Filter: TW {selectedTW}
                                 </span>
                             )}
                         </h3>
                     </div>
+
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm whitespace-nowrap">
                             <thead
-                                className={`${lightBg} border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold`}
+                                className={`${lightBg} border-b border-slate-100 text-[10px] uppercase text-slate-500 font-black tracking-widest`}
                             >
                                 <tr>
-                                    <th className="px-6 py-4 align-top">
+                                    <th className="px-6 py-5 align-top">
                                         Bulan
                                     </th>
-                                    <th className="px-6 py-4 align-top">
+                                    <th className="px-6 py-5 align-top">
                                         Satuan Kerja
                                     </th>
-                                    {/* 🔥 PILAR UX BARU: SISA PAGU DI HEADER TABEL 🔥 */}
-                                    <th className="px-6 py-4 text-right align-top">
-                                        <div className="mb-1">
-                                            Belanja Gaji (51)
+                                    <th className="px-6 py-5 text-right align-top">
+                                        <div className="mb-2 text-slate-700">
+                                            Belanja Pegawai (51)
                                         </div>
                                         <div
-                                            className={`text-[9px] mt-1 font-bold tracking-wider inline-block px-2 py-0.5 rounded shadow-sm ${dispSisa51 < 0 ? "bg-rose-100 text-rose-600" : "bg-white text-emerald-600 border border-emerald-100"}`}
+                                            className={`text-[9px] font-bold tracking-wider inline-block px-2.5 py-1 rounded-lg shadow-sm border ${dispSisa51 < 0 ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-white text-emerald-600 border-emerald-100"}`}
                                         >
                                             Sisa: {formatCurrency(dispSisa51)}
                                         </div>
                                     </th>
-                                    <th className="px-6 py-4 text-right align-top">
-                                        <div className="mb-1">
+                                    <th className="px-6 py-5 text-right align-top">
+                                        <div className="mb-2 text-slate-700">
                                             Belanja Barang (52)
                                         </div>
                                         <div
-                                            className={`text-[9px] mt-1 font-bold tracking-wider inline-block px-2 py-0.5 rounded shadow-sm ${dispSisa52 < 0 ? "bg-rose-100 text-rose-600" : "bg-white text-emerald-600 border border-emerald-100"}`}
+                                            className={`text-[9px] font-bold tracking-wider inline-block px-2.5 py-1 rounded-lg shadow-sm border ${dispSisa52 < 0 ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-white text-emerald-600 border-emerald-100"}`}
                                         >
                                             Sisa: {formatCurrency(dispSisa52)}
                                         </div>
                                     </th>
-                                    <th className="px-6 py-4 text-right align-top">
-                                        <div className="mb-1">
+                                    <th className="px-6 py-5 text-right align-top">
+                                        <div className="mb-2 text-slate-700">
                                             Belanja Modal (53)
                                         </div>
                                         <div
-                                            className={`text-[9px] mt-1 font-bold tracking-wider inline-block px-2 py-0.5 rounded shadow-sm ${dispSisa53 < 0 ? "bg-rose-100 text-rose-600" : "bg-white text-emerald-600 border border-emerald-100"}`}
+                                            className={`text-[9px] font-bold tracking-wider inline-block px-2.5 py-1 rounded-lg shadow-sm border ${dispSisa53 < 0 ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-white text-emerald-600 border-emerald-100"}`}
                                         >
                                             Sisa: {formatCurrency(dispSisa53)}
                                         </div>
                                     </th>
                                     <th
-                                        className={`px-6 py-4 text-right align-top ${textAccent}`}
+                                        className={`px-6 py-5 text-right align-top ${textAccent}`}
                                     >
                                         Total Transaksi
                                     </th>
-                                    <th className="px-6 py-4 text-center align-top">
+                                    <th className="px-6 py-5 text-center align-top">
                                         Status
                                     </th>
-                                    <th className="px-6 py-4 text-center align-top">
+                                    <th className="px-6 py-5 text-center align-top">
                                         Aksi
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-50">
+                            <tbody className="divide-y divide-slate-50">
                                 {loading ? (
                                     <tr>
                                         <td
                                             colSpan="8"
-                                            className="px-6 py-12 text-center"
+                                            className="px-6 py-20 text-center"
                                         >
-                                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-                                            <p className="mt-2 text-sm text-gray-400">
-                                                Memuat data...
+                                            <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent shadow-md"></div>
+                                            <p className="mt-4 text-sm font-bold text-slate-400 tracking-wider">
+                                                MENGAMBIL DATA LEDGER...
                                             </p>
                                         </td>
                                     </tr>
@@ -782,9 +877,29 @@ export default function IndexTransaksi({ authUser }) {
                                     <tr>
                                         <td
                                             colSpan="8"
-                                            className="px-6 py-12 text-center text-gray-400 italic"
+                                            className="px-6 py-20 text-center"
                                         >
-                                            Belum ada data transaksi ditemukan.
+                                            <div className="w-20 h-20 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                                                {isRPD ? (
+                                                    <CalendarRange
+                                                        size={32}
+                                                        className="text-slate-400"
+                                                    />
+                                                ) : (
+                                                    <Receipt
+                                                        size={32}
+                                                        className="text-slate-400"
+                                                    />
+                                                )}
+                                            </div>
+                                            <p className="text-base font-bold text-slate-500">
+                                                Belum ada data transaksi
+                                                ditemukan.
+                                            </p>
+                                            <p className="text-sm text-slate-400 mt-1">
+                                                Ganti filter triwulan atau klik
+                                                tombol Tambah Data.
+                                            </p>
                                         </td>
                                     </tr>
                                 ) : (
@@ -796,49 +911,49 @@ export default function IndexTransaksi({ authUser }) {
                                         return (
                                             <tr
                                                 key={item.id}
-                                                className="hover:bg-gray-50/50 transition-colors group"
+                                                className="hover:bg-slate-50/80 transition-colors duration-200 group"
                                             >
-                                                <td className="px-6 py-4 font-bold text-gray-900">
+                                                <td className="px-6 py-5 font-black text-slate-800 text-base">
                                                     {namaBulan[item.bulan]}
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="font-bold text-gray-900">
+                                                <td className="px-6 py-5">
+                                                    <div className="font-extrabold text-slate-800 text-sm max-w-[200px] truncate">
                                                         {
                                                             item.satker
                                                                 ?.nama_satker
                                                         }
                                                     </div>
-                                                    <div className="text-xs text-gray-500">
+                                                    <div className="text-[10px] font-black tracking-widest text-slate-400 uppercase mt-1">
                                                         {
                                                             item.satker
                                                                 ?.kode_satker
                                                         }
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-right font-medium">
+                                                <td className="px-6 py-5 text-right font-bold text-slate-600">
                                                     {formatCurrency(
                                                         item.belanja_gaji,
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 text-right font-medium">
+                                                <td className="px-6 py-5 text-right font-bold text-slate-600">
                                                     {formatCurrency(
                                                         item.belanja_barang,
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 text-right font-medium">
+                                                <td className="px-6 py-5 text-right font-bold text-slate-600">
                                                     {formatCurrency(
                                                         item.belanja_modal,
                                                     )}
                                                 </td>
                                                 <td
-                                                    className={`px-6 py-4 text-right font-extrabold ${lightBg} ${textAccent}`}
+                                                    className={`px-6 py-5 text-right font-black text-base ${lightBg} ${textAccent}`}
                                                 >
                                                     {formatCurrency(total)}
                                                 </td>
-                                                <td className="px-6 py-4 text-center">
+                                                <td className="px-6 py-5 text-center">
                                                     {item.status ===
                                                         "approved" && (
-                                                        <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-md text-[10px] font-black uppercase">
+                                                        <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm">
                                                             Disetujui
                                                         </span>
                                                     )}
@@ -846,7 +961,7 @@ export default function IndexTransaksi({ authUser }) {
                                                         "rejected" && (
                                                         <div className="flex flex-col items-center">
                                                             <span
-                                                                className="bg-rose-100 text-rose-700 px-3 py-1 rounded-md text-[10px] font-black uppercase mb-1 cursor-help"
+                                                                className="bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest mb-1.5 shadow-sm cursor-help"
                                                                 title={
                                                                     item.catatan_revisi
                                                                 }
@@ -854,7 +969,7 @@ export default function IndexTransaksi({ authUser }) {
                                                                 Ditolak
                                                             </span>
                                                             {item.catatan_revisi && (
-                                                                <span className="text-[9px] text-rose-500 w-24 truncate">
+                                                                <span className="text-[9px] text-rose-500 w-28 truncate font-medium bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
                                                                     "
                                                                     {
                                                                         item.catatan_revisi
@@ -867,13 +982,13 @@ export default function IndexTransaksi({ authUser }) {
                                                     {(!item.status ||
                                                         item.status ===
                                                             "draft") && (
-                                                        <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-md text-[10px] font-black uppercase">
+                                                        <span className="bg-amber-100 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm">
                                                             Menunggu
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <div className="flex items-center justify-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                                                <td className="px-6 py-5 text-center">
+                                                    <div className="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-all duration-300">
                                                         {(item.status !==
                                                             "approved" ||
                                                             isAdmin) && (
@@ -891,12 +1006,15 @@ export default function IndexTransaksi({ authUser }) {
                                                                                   true,
                                                                               );
                                                                     }}
-                                                                    className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-200"
+                                                                    className="p-2 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 hover:scale-110 transition-all shadow-sm border border-indigo-100"
                                                                     title="Edit Data"
                                                                 >
                                                                     <Edit
                                                                         size={
                                                                             16
+                                                                        }
+                                                                        strokeWidth={
+                                                                            2.5
                                                                         }
                                                                     />
                                                                 </button>
@@ -909,12 +1027,15 @@ export default function IndexTransaksi({ authUser }) {
                                                                             true,
                                                                         );
                                                                     }}
-                                                                    className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 border border-red-200"
+                                                                    className="p-2 bg-white text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-rose-100"
                                                                     title="Hapus Data"
                                                                 >
                                                                     <Trash2
                                                                         size={
                                                                             16
+                                                                        }
+                                                                        strokeWidth={
+                                                                            2.5
                                                                         }
                                                                     />
                                                                 </button>
@@ -930,12 +1051,15 @@ export default function IndexTransaksi({ authUser }) {
                                                                             "approved",
                                                                         )
                                                                     }
-                                                                    className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 border border-emerald-200 ml-2"
+                                                                    className="p-2 bg-white text-emerald-500 rounded-xl hover:bg-emerald-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-emerald-100 ml-1"
                                                                     title="Setujui Data Ini"
                                                                 >
                                                                     <CheckCircle
                                                                         size={
                                                                             16
+                                                                        }
+                                                                        strokeWidth={
+                                                                            2.5
                                                                         }
                                                                     />
                                                                 </button>
@@ -952,7 +1076,7 @@ export default function IndexTransaksi({ authUser }) {
                                                                             true,
                                                                         );
                                                                     }}
-                                                                    className="p-1.5 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 border border-orange-200"
+                                                                    className="p-2 bg-white text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-amber-100"
                                                                     title={
                                                                         item.status ===
                                                                         "approved"
@@ -963,6 +1087,9 @@ export default function IndexTransaksi({ authUser }) {
                                                                     <XCircle
                                                                         size={
                                                                             16
+                                                                        }
+                                                                        strokeWidth={
+                                                                            2.5
                                                                         }
                                                                     />
                                                                 </button>

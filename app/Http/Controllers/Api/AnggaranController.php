@@ -40,10 +40,11 @@ class AnggaranController extends Controller
     // 2. Menyimpan Pagu Anggaran Baru
     public function store(Request $request)
     {
+        // 🔒 Ubah belanja_gaji menjadi nullable agar tidak crash saat frontend mengirim string kosong ("")
         $validator = Validator::make($request->all(), [
             'satker_id' => 'required|exists:satkers,id',
             'tahun' => 'required|integer',
-            'belanja_gaji' => 'required|numeric|min:0',
+            'belanja_gaji' => 'nullable|numeric|min:0',
             'belanja_barang' => 'required|numeric|min:0',
             'belanja_modal' => 'required|numeric|min:0',
             'blokir_gaji' => 'nullable|numeric|min:0',
@@ -60,12 +61,17 @@ class AnggaranController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Pagu Anggaran untuk Satker dan Tahun ini sudah ada! Gunakan fitur edit.'], 422);
         }
 
-        $belanjaGaji = $request->belanja_gaji ?: 0;
+        // 🔥 LOGIKA KEAMANAN BACKEND: CEK SETJEN
+        $satker = Satker::find($request->satker_id);
+        $namaSatkerUpper = strtoupper($satker->nama_satker ?? '');
+        $isSetjen = str_contains($namaSatkerUpper, 'SETJEN') || str_contains($namaSatkerUpper, 'SEKRETARIAT JENDERAL') || ($satker->kode_satker === '692028');
+
+        // Jika bukan Setjen, PAKSA nilai Gaji menjadi 0 secara mutlak!
+        $belanjaGaji = $isSetjen ? ($request->belanja_gaji ?: 0) : 0;
+        $blokirGaji = $isSetjen ? ($request->blokir_gaji ?: 0) : 0;
+
         $belanjaBarang = $request->belanja_barang ?: 0;
         $belanjaModal = $request->belanja_modal ?: 0;
-
-        // Tangkap Pagu Blokir Pecahan
-        $blokirGaji = $request->blokir_gaji ?: 0;
         $blokirBarang = $request->blokir_barang ?: 0;
         $blokirModal = $request->blokir_modal ?: 0;
 
@@ -92,11 +98,10 @@ class AnggaranController extends Controller
             'pagu_efektif' => $paguEfektif,
         ]);
 
-        $namaSatker = Satker::find($request->satker_id)->nama_satker ?? 'Unknown Satker';
         ActivityLog::record(
             'CREATE',
             'MASTER ANGGARAN',
-            "Menambahkan Pagu DIPA Awal Tahun {$request->tahun} untuk Satker {$namaSatker} senilai Rp " . number_format($totalPagu, 0, ',', '.')
+            "Menambahkan Pagu DIPA Awal Tahun {$request->tahun} untuk Satker {$satker->nama_satker} senilai Rp " . number_format($totalPagu, 0, ',', '.')
         );
 
         return response()->json([
@@ -114,26 +119,33 @@ class AnggaranController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Data Anggaran tidak ditemukan.'], 404);
         }
 
+        // 🔒 Ubah belanja_gaji menjadi nullable
         $validator = Validator::make($request->all(), [
-            'belanja_gaji' => 'required|numeric|min:0',
+            'belanja_gaji' => 'nullable|numeric|min:0',
             'belanja_barang' => 'required|numeric|min:0',
             'belanja_modal' => 'required|numeric|min:0',
-            'blokir_gaji' => 'required|numeric|min:0',
-            'blokir_barang' => 'required|numeric|min:0',
-            'blokir_modal' => 'required|numeric|min:0',
+            'blokir_gaji' => 'nullable|numeric|min:0',
+            'blokir_barang' => 'nullable|numeric|min:0',
+            'blokir_modal' => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
         }
 
-        $belanjaGaji = $request->belanja_gaji;
-        $belanjaBarang = $request->belanja_barang;
-        $belanjaModal = $request->belanja_modal;
+        // 🔥 LOGIKA KEAMANAN BACKEND: CEK SETJEN
+        $satker = Satker::find($anggaran->satker_id);
+        $namaSatkerUpper = strtoupper($satker->nama_satker ?? '');
+        $isSetjen = str_contains($namaSatkerUpper, 'SETJEN') || str_contains($namaSatkerUpper, 'SEKRETARIAT JENDERAL') || ($satker->kode_satker === '692028');
 
-        $blokirGaji = $request->blokir_gaji;
-        $blokirBarang = $request->blokir_barang;
-        $blokirModal = $request->blokir_modal;
+        // Jika bukan Setjen, PAKSA nilai Gaji menjadi 0 secara mutlak!
+        $belanjaGaji = $isSetjen ? ($request->belanja_gaji ?: 0) : 0;
+        $blokirGaji = $isSetjen ? ($request->blokir_gaji ?: 0) : 0;
+
+        $belanjaBarang = $request->belanja_barang ?: 0;
+        $belanjaModal = $request->belanja_modal ?: 0;
+        $blokirBarang = $request->blokir_barang ?: 0;
+        $blokirModal = $request->blokir_modal ?: 0;
 
         // Validasi Ekstra: Blokir tidak boleh lebih besar dari Pagu per belanja
         if ($blokirGaji > $belanjaGaji || $blokirBarang > $belanjaBarang || $blokirModal > $belanjaModal) {
@@ -156,11 +168,10 @@ class AnggaranController extends Controller
             'pagu_efektif' => $paguEfektif,
         ]);
 
-        $namaSatker = Satker::find($anggaran->satker_id)->nama_satker ?? 'Unknown Satker';
         ActivityLog::record(
             'UPDATE',
             'MASTER ANGGARAN',
-            "Mengubah detail Pagu DIPA Tahun {$anggaran->tahun} milik Satker {$namaSatker}. (Total Pagu Baru: Rp " . number_format($totalPagu, 0, ',', '.') . ")"
+            "Mengubah detail Pagu DIPA Tahun {$anggaran->tahun} milik Satker {$satker->nama_satker}. (Total Pagu Baru: Rp " . number_format($totalPagu, 0, ',', '.') . ")"
         );
 
         return response()->json([

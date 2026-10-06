@@ -14,6 +14,7 @@ import {
     Target,
     CheckCircle,
     Lock,
+    Wallet,
 } from "lucide-react";
 
 export default function EditRealisasiModal({
@@ -74,7 +75,6 @@ export default function EditRealisasiModal({
             ),
         [rincian],
     );
-
     const inputGaji = useMemo(
         () =>
             rincian.reduce(
@@ -148,14 +148,12 @@ export default function EditRealisasiModal({
             ? satkerSummary[formData.satker_id].bulanan[targetBulan]
                   ?.realisasi || 0
             : 0;
-
     const rpdDetail =
         formData.satker_id &&
         satkerSummary?.[formData.satker_id]?.bulanan[targetBulan]?.rpd_detail
             ? satkerSummary[formData.satker_id].bulanan[targetBulan].rpd_detail
             : { gaji: 0, barang: 0, modal: 0 };
 
-    // Uang yang lama dikembalikan dulu ke dompet sebelum dicek sisa dinamisnya
     const sisaRpdAwal = rpdBulanIni - realBulanIni + oldTotal;
     const sisaRpdDinamis = sisaRpdAwal - totalRealisasi;
 
@@ -250,8 +248,6 @@ export default function EditRealisasiModal({
 
     if (formData.satker_id && satkerSummary?.[formData.satker_id]) {
         const bulananData = satkerSummary[formData.satker_id].bulanan;
-
-        // ABAIKAN BULAN INI KARENA SEDANG DIEDIT (UANG MASUK DOMPET SEMENTARA)
         for (let i = 1; i <= 12; i++) {
             if (i !== parseInt(formData.bulan)) {
                 kumRealGajiTotal += bulananData[i]?.real_detail?.gaji || 0;
@@ -259,7 +255,6 @@ export default function EditRealisasiModal({
                 kumRealModalTotal += bulananData[i]?.real_detail?.modal || 0;
             }
         }
-
         targetKemenkeu.listBulan?.forEach((m) => {
             if (m !== parseInt(formData.bulan)) {
                 kumRealGajiTW += bulananData[m]?.real_detail?.gaji || 0;
@@ -297,7 +292,6 @@ export default function EditRealisasiModal({
     const isAnyImpossible =
         isGajiImpossible || isBarangImpossible || isModalImpossible;
 
-    // 🔥 POSISI PALING AMAN PENAHAN CRASH REACT (DI BAWAH SEMUA HOOKS) 🔥
     if (!isOpen) return null;
 
     const handleAddRow = () =>
@@ -313,7 +307,6 @@ export default function EditRealisasiModal({
     const handleRemoveRow = (id) =>
         rincian.length > 1 &&
         setRincian(rincian.filter((item) => item.id !== id));
-
     const handleRincianChange = (id, field, value) => {
         if (field === "jenis_belanja" && value === "gaji" && !isSetjen) return;
         setRincian(
@@ -329,7 +322,6 @@ export default function EditRealisasiModal({
             return setErrorMsg(
                 `Total Realisasi melebihi Batas Pagu Keseluruhan!`,
             );
-
         if (inputGaji > sisaEfektifGaji)
             return setErrorMsg(
                 `Total Input Gaji melebihi Sisa Pagu Gaji (${formatCurrency(sisaEfektifGaji)})`,
@@ -353,7 +345,6 @@ export default function EditRealisasiModal({
             return setErrorMsg(
                 "Lengkapi semua rincian pengeluaran (Uraian & Nominal tidak boleh kosong).",
             );
-
         if (sisaRpdDinamis < 0 && !forceSubmit) return setShowConfirm(true);
 
         setIsSubmitting(true);
@@ -391,32 +382,36 @@ export default function EditRealisasiModal({
     ];
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden border border-gray-100 flex flex-col max-h-[90vh] relative">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-[#0B1120]/80 backdrop-blur-md transition-all duration-300">
+            <div
+                className={`bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] w-full max-w-5xl overflow-hidden border flex flex-col max-h-[95vh] animate-in zoom-in-95 fade-in duration-300 transition-colors relative ${isOverbudget ? "border-rose-400 shadow-[0_0_40px_rgba(225,29,72,0.2)]" : "border-white"}`}
+            >
+                {/* 🛡️ PREMIUM CONFIRMATION OVERLAY (DEVIASI RPD) */}
                 {showConfirm && (
-                    <div className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
-                        <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center animate-in zoom-in-95 duration-200">
-                            <div className="w-16 h-16 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <AlertTriangle size={32} />
+                    <div className="absolute inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md rounded-[2.5rem]">
+                        <div className="bg-white rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.3)] p-8 max-w-md w-full text-center animate-in zoom-in-95 duration-300 border border-amber-200 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-400 to-orange-500"></div>
+                            <div className="w-20 h-20 bg-amber-100/50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner">
+                                <AlertTriangle size={40} strokeWidth={2} />
                             </div>
-                            <h3 className="text-lg font-extrabold text-gray-900 mb-2">
+                            <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">
                                 Konfirmasi Deviasi RPD
                             </h3>
-                            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+                            <p className="text-sm text-slate-500 mb-8 leading-relaxed">
                                 Total update realisasi ini{" "}
                                 <strong>
-                                    melebihi rencana bulan{" "}
+                                    melebihi rencana (RPD) bulan{" "}
                                     {namaBulan[formData.bulan - 1]}
                                 </strong>
                                 . Hal ini dapat menurunkan nilai{" "}
-                                <strong>IKPA Halaman III DIPA</strong>. Apakah
-                                Anda yakin ingin tetap mengubahnya?
+                                <strong>IKPA Halaman III DIPA</strong>. Yakin
+                                ingin mengubahnya?
                             </p>
                             <div className="flex gap-3 justify-center">
                                 <button
                                     type="button"
                                     onClick={() => setShowConfirm(false)}
-                                    className="px-5 py-2.5 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors w-full"
+                                    className="flex-1 px-5 py-3.5 rounded-2xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
                                 >
                                     Batal
                                 </button>
@@ -426,7 +421,7 @@ export default function EditRealisasiModal({
                                         setShowConfirm(false);
                                         handleSubmit(null, true);
                                     }}
-                                    className="px-5 py-2.5 rounded-xl font-bold text-white bg-amber-500 hover:bg-amber-600 transition-colors shadow-md w-full"
+                                    className="flex-1 px-5 py-3.5 rounded-2xl font-bold text-white bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 transition-all shadow-[0_8px_16px_rgba(245,158,11,0.25)] hover:shadow-[0_8px_20px_rgba(245,158,11,0.4)] hover:-translate-y-0.5"
                                 >
                                     Ya, Update
                                 </button>
@@ -435,60 +430,78 @@ export default function EditRealisasiModal({
                     </div>
                 )}
 
-                <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-slate-50/50 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-amber-100 text-amber-600 rounded-lg">
-                            <Edit3 size={24} />
+                {/* HEADER (AMBER THEME) */}
+                <div className="flex justify-between items-center p-6 md:p-8 border-b border-slate-100/60 bg-slate-50/30 shrink-0 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+                    <div className="flex items-center gap-4 relative z-10">
+                        <div className="p-3 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-2xl shadow-[0_8px_16px_rgba(245,158,11,0.2)]">
+                            <Edit3 size={26} strokeWidth={2.5} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-extrabold text-gray-900">
-                                Edit Data Realisasi
+                            <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+                                Edit Realisasi
                             </h2>
-                            <p className="text-sm text-gray-500 mt-1">
-                                Perbarui rincian pengeluaran dana satker.
+                            <p className="text-sm font-medium text-slate-500 mt-0.5">
+                                Perbarui rincian pengeluaran dana aktual Satuan
+                                Kerja.
                             </p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                        className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors relative z-10"
                     >
-                        <X size={20} />
+                        <X size={20} strokeWidth={2.5} />
                     </button>
                 </div>
 
-                <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50/30 flex-1">
+                {/* BODY */}
+                <div className="p-6 md:p-8 overflow-y-auto flex-1 custom-scrollbar bg-white/50 relative">
                     {errorMsg && (
-                        <div className="mb-4 p-4 bg-red-50 text-red-700 border border-red-200 rounded-xl text-sm font-medium">
-                            {errorMsg}
-                        </div>
-                    )}
-
-                    {isOverbudget && (
-                        <div className="mb-6 p-4 bg-rose-50 border-l-4 border-rose-500 rounded-r-xl flex items-start gap-3">
-                            <AlertCircle className="w-5 h-5 text-rose-500 flex-shrink-0" />
+                        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 animate-in slide-in-from-top-2">
+                            <AlertCircle
+                                className="text-rose-500 shrink-0 mt-0.5"
+                                size={20}
+                            />
                             <div>
                                 <h4 className="text-sm font-bold text-rose-800">
-                                    Peringatan Fatal!
+                                    Gagal Memproses
                                 </h4>
-                                <p className="text-sm text-rose-600 mt-1">
-                                    Total Realisasi melebihi Sisa Pagu Negara.
+                                <p className="text-sm text-rose-600 font-medium mt-0.5">
+                                    {errorMsg}
                                 </p>
                             </div>
                         </div>
                     )}
-
+                    {isOverbudget && (
+                        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 animate-pulse shadow-sm">
+                            <AlertTriangle className="w-5 h-5 text-rose-500 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <h4 className="text-sm font-black text-rose-800 uppercase tracking-widest">
+                                    Peringatan Fatal!
+                                </h4>
+                                <p className="text-sm text-rose-600 mt-1 font-medium">
+                                    Total Realisasi (
+                                    <span className="font-extrabold">
+                                        {formatCurrency(totalRealisasi)}
+                                    </span>
+                                    ) melebihi Sisa Pagu Negara. Anda tidak
+                                    dapat menyimpannya.
+                                </p>
+                            </div>
+                        </div>
+                    )}
                     {formData.satker_id &&
                         !isOverbudget &&
                         sisaRpdDinamis < 0 && (
-                            <div className="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-xl flex items-start gap-3">
-                                <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 shadow-sm transition-all duration-300">
+                                <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
                                 <div>
-                                    <h4 className="text-sm font-bold text-amber-800">
-                                        Perhatian: Deviasi RPD Bulan{" "}
+                                    <h4 className="text-sm font-black text-amber-800 uppercase tracking-widest">
+                                        Deviasi RPD Bulan{" "}
                                         {namaBulan[formData.bulan - 1]}
                                     </h4>
-                                    <p className="text-sm text-amber-700 mt-1">
+                                    <p className="text-sm text-amber-700 mt-1 font-medium">
                                         Realisasi Anda melebihi rencana (RPD)
                                         pada bulan ini. Ini dapat menurunkan
                                         nilai IKPA.
@@ -500,313 +513,191 @@ export default function EditRealisasiModal({
                     <form
                         id="editRealisasiForm"
                         onSubmit={handleSubmit}
-                        className="space-y-6"
+                        className="space-y-6 relative z-10"
                     >
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-5 rounded-xl border border-gray-200 shadow-sm opacity-90">
-                            <div className="md:col-span-3 pb-2 mb-2 border-b border-gray-100">
-                                <h3 className="text-xs font-black text-gray-400 uppercase tracking-wider">
-                                    Identitas Laporan (Terkunci)
-                                </h3>
-                            </div>
-
-                            <div className="md:col-span-3">
-                                <label className="block text-sm font-bold text-gray-500 mb-2">
-                                    Satuan Kerja
+                        {/* IDENTITAS LAPORAN (TERKUNCI) */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 bg-slate-50/50 p-5 rounded-[2rem] border border-dashed border-slate-200 backdrop-blur-sm">
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1 flex items-center gap-1.5">
+                                    <Lock size={10} /> Satker
                                 </label>
-                                <select
+                                <input
                                     disabled
-                                    value={formData.satker_id}
-                                    className="w-full border-gray-300 rounded-xl py-2.5 px-3 border bg-gray-100 text-gray-500 text-sm font-bold"
-                                >
-                                    <option value={formData.satker_id}>
-                                        {satkers?.find(
+                                    value={
+                                        satkers?.find(
                                             (s) => s.id === formData.satker_id,
-                                        )?.nama_satker || "Memuat..."}
-                                    </option>
-                                </select>
-                                {formData.satker_id && (
-                                    <div className="mt-3 p-3 bg-emerald-50/50 border border-emerald-100 rounded-lg">
-                                        <p
-                                            className={`text-xs font-bold flex justify-between ${sisaRpdDinamis < 0 ? "text-amber-600" : "text-emerald-700"}`}
-                                        >
-                                            <span>
-                                                Sisa RPD Keseluruhan{" "}
-                                                {namaBulan[formData.bulan - 1]}:
+                                        )?.kode_satker || ""
+                                    }
+                                    className="w-full bg-slate-100/50 border border-slate-200 rounded-2xl py-3 px-4 text-sm font-bold text-slate-500 outline-none cursor-not-allowed"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1 flex items-center gap-1.5">
+                                    <Lock size={10} /> Tahun
+                                </label>
+                                <input
+                                    disabled
+                                    value={formData.tahun}
+                                    className="w-full bg-slate-100/50 border border-slate-200 rounded-2xl py-3 px-4 text-sm font-bold text-slate-500 outline-none cursor-not-allowed"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1 flex items-center gap-1.5">
+                                    <Lock size={10} /> Bulan
+                                </label>
+                                <input
+                                    disabled
+                                    value={namaBulan[formData.bulan - 1] || ""}
+                                    className="w-full bg-slate-100/50 border border-slate-200 rounded-2xl py-3 px-4 text-sm font-bold text-slate-500 outline-none cursor-not-allowed"
+                                />
+                            </div>
+                        </div>
+
+                        {/* TARGET MINIMAL REALISASI (HUD) */}
+                        {formData.satker_id && (
+                            <div className="mt-2 bg-gradient-to-br from-indigo-50/50 to-blue-50/30 border border-indigo-100/80 p-6 rounded-[2rem] shadow-sm relative overflow-hidden">
+                                <div className="absolute right-0 top-0 w-40 h-40 bg-white/40 rounded-full blur-[40px] pointer-events-none"></div>
+                                <div className="flex justify-between items-center border-b border-indigo-200/50 pb-3 mb-4 relative z-10">
+                                    <h4 className="text-xs font-black text-indigo-800 flex items-center gap-2 uppercase tracking-widest">
+                                        <Calculator
+                                            size={16}
+                                            className="text-indigo-600"
+                                        />{" "}
+                                        Target Minimal (IKPA Penyerapan TW{" "}
+                                        {targetKemenkeu.tw})
+                                    </h4>
+                                </div>
+
+                                {isAnyImpossible && (
+                                    <div className="mb-5 px-5 py-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-[11px] flex items-start gap-3 shadow-sm relative z-10">
+                                        <AlertTriangle
+                                            size={20}
+                                            className="flex-shrink-0 mt-0.5 text-amber-500"
+                                        />
+                                        <p className="leading-relaxed font-medium">
+                                            <span className="block text-[11px] font-black mb-1 uppercase tracking-widest text-amber-900">
+                                                ⚠️ Pagu Tersedia Tidak Mencukupi
+                                                Target
                                             </span>
-                                            <span className="font-mono text-sm">
-                                                {formatCurrency(sisaRpdDinamis)}
+                                            Sisa Pagu Efektif Anda tidak cukup
+                                            untuk memenuhi Target Kemenkeu
+                                            akibat adanya{" "}
+                                            <span className="font-bold">
+                                                Pagu Blokir
                                             </span>
+                                            . Anda hanya dapat menginput
+                                            maksimal sebesar sisa uang yang
+                                            tertera.
                                         </p>
                                     </div>
                                 )}
-                            </div>
 
-                            <div>
-                                <label className="block text-sm font-bold text-gray-500 mb-2">
-                                    Tahun
-                                </label>
-                                <input
-                                    disabled
-                                    type="text"
-                                    value={formData.tahun}
-                                    className="w-full border-gray-300 rounded-xl py-2.5 px-3 border bg-gray-100 text-gray-500 text-sm font-bold"
-                                />
-                            </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-bold text-gray-500 mb-2">
-                                    Bulan
-                                </label>
-                                <input
-                                    disabled
-                                    type="text"
-                                    value={
-                                        namaBulan[formData.bulan - 1] ||
-                                        formData.bulan
-                                    }
-                                    className="w-full border-gray-300 rounded-xl py-2.5 px-3 border bg-gray-100 text-gray-500 text-sm font-bold"
-                                />
-                                <div className="mt-2 inline-block px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-md">
-                                    <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">
-                                        Triwulan {currentTW.tw} • Target IKPA:{" "}
-                                        {currentTW.target}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {formData.satker_id && (
-                                <div className="md:col-span-3 mt-4 bg-gradient-to-r from-slate-50 to-emerald-50/50 border border-emerald-100 p-5 rounded-xl shadow-sm">
-                                    <div className="flex justify-between items-center border-b border-emerald-100 pb-2 mb-3">
-                                        <h4 className="text-[11px] font-black text-emerald-800 flex items-center gap-1.5 uppercase tracking-widest">
-                                            <Calculator
-                                                size={14}
-                                                className="text-emerald-600"
-                                            />{" "}
-                                            Target Minimal Realisasi (IKPA
-                                            Penyerapan TW {targetKemenkeu.tw})
-                                        </h4>
-                                    </div>
-
-                                    {isAnyImpossible && (
-                                        <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[10px] flex items-start gap-3 shadow-sm">
-                                            <AlertTriangle
-                                                size={18}
-                                                className="flex-shrink-0 mt-0.5 text-amber-500"
-                                            />
-                                            <p className="leading-relaxed">
-                                                <span className="block text-xs font-black mb-1 uppercase tracking-widest text-amber-900">
-                                                    ⚠️ TARGET IKPA TIDAK DAPAT
-                                                    TERCAPAI
-                                                </span>
-                                                Sisa dompet (Pagu Efektif) Anda
-                                                tidak cukup untuk memenuhi
-                                                Target Kemenkeu akibat adanya
-                                                Pagu Blokir. <br />
-                                                Status akan tetap merah (
-                                                <strong className="text-rose-600">
-                                                    KURANG
-                                                </strong>
-                                                ), namun Anda{" "}
-                                                <strong>
-                                                    hanya dapat menginput
-                                                    maksimal sebesar sisa uang
-                                                    yang tertera di stempel
-                                                    merah.
-                                                </strong>
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 relative z-10">
+                                    {[
+                                        {
+                                            label: "51 - Pegawai",
+                                            target: targetKemenkeu.gaji,
+                                            valTarget: targetRpGaji,
+                                            def: defGaji,
+                                            sisa: sisaEfektifGaji,
+                                            imp: isGajiImpossible,
+                                            icon: Target,
+                                            isLocked: !isSetjen,
+                                        },
+                                        {
+                                            label: "52 - Barang",
+                                            target: targetKemenkeu.barang,
+                                            valTarget: targetRpBarang,
+                                            def: defBarang,
+                                            sisa: sisaEfektifBarang,
+                                            imp: isBarangImpossible,
+                                            icon: Target,
+                                        },
+                                        {
+                                            label: "53 - Modal",
+                                            target: targetKemenkeu.modal,
+                                            valTarget: targetRpModal,
+                                            def: defModal,
+                                            sisa: sisaEfektifModal,
+                                            imp: isModalImpossible,
+                                            icon: Target,
+                                        },
+                                    ].map((item, idx) => (
                                         <div
-                                            className={`p-3 rounded-xl border shadow-sm flex flex-col justify-between relative overflow-hidden ${!isSetjen ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white border-emerald-100"}`}
+                                            key={idx}
+                                            className={`p-4 rounded-2xl border flex flex-col justify-between relative overflow-hidden transition-all ${item.isLocked ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white/80 backdrop-blur-sm border-indigo-100 shadow-[0_4px_15px_rgba(99,102,241,0.05)] hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)]"}`}
                                         >
-                                            <div className="absolute top-0 right-0 p-2 opacity-5">
-                                                <Target size={40} />
+                                            <div className="absolute -top-4 -right-4 p-4 opacity-[0.03] rotate-12">
+                                                <item.icon size={60} />
                                             </div>
-                                            <div className="text-center border-b border-slate-50 pb-2">
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
-                                                    51 - Pegawai
+                                            <div className="text-center border-b border-slate-100 pb-3">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1 mb-1">
+                                                    {item.label}{" "}
+                                                    {item.isLocked && (
+                                                        <Lock
+                                                            size={10}
+                                                            className="text-amber-500"
+                                                        />
+                                                    )}
                                                 </span>
-                                                <div className="text-[9px] font-bold text-slate-400">
+                                                <div className="text-[9px] font-extrabold text-slate-400/80 mb-1">
                                                     TARGET KUMULATIF (
-                                                    {targetKemenkeu.gaji}%)
+                                                    {item.target}%)
                                                 </div>
-                                                <div className="text-sm font-black text-emerald-700">
+                                                <div className="text-[15px] font-black text-indigo-700">
                                                     {formatCurrency(
-                                                        targetRpGaji,
+                                                        item.valTarget,
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="text-center pt-2 bg-slate-50 rounded-lg py-2 mt-1 min-h-[50px] flex flex-col justify-center">
-                                                <div className="text-[8px] font-bold text-slate-500 mb-0.5">
+                                            <div
+                                                className={`text-center pt-3 mt-1 min-h-[60px] flex flex-col justify-center rounded-xl ${item.def > 0 ? "bg-rose-50/50" : "bg-emerald-50/50"}`}
+                                            >
+                                                <div className="text-[8px] font-bold text-slate-500 mb-1 uppercase tracking-widest">
                                                     MINIMAL HARUS DIISI
                                                 </div>
-                                                {defGaji > 0 ? (
+                                                {item.def > 0 ? (
                                                     <div className="flex flex-col items-center">
-                                                        <div className="text-[11px] font-black text-rose-600 animate-pulse">
-                                                            KURANG: <br />
+                                                        <div className="text-[12px] font-black text-rose-600 tracking-tight">
                                                             {formatCurrency(
-                                                                defGaji,
+                                                                item.def,
                                                             )}
                                                         </div>
-                                                        {isGajiImpossible && (
-                                                            <div className="mt-1.5 px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded font-bold uppercase text-center leading-tight">
-                                                                {sisaEfektifGaji <=
-                                                                0
-                                                                    ? "PAGU HABIS / BLOKIR"
-                                                                    : `Maks diinput: ${formatCurrency(sisaEfektifGaji)}`}
+                                                        {item.imp && (
+                                                            <div className="mt-2 px-2.5 py-1 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded-lg font-bold uppercase text-center leading-tight shadow-sm">
+                                                                {item.sisa <= 0
+                                                                    ? "PAGU HABIS"
+                                                                    : `Maks: ${formatCurrency(item.sisa)}`}
                                                             </div>
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <div className="text-xs font-black text-emerald-600 flex justify-center items-center gap-1">
+                                                    <div className="text-[11px] font-black text-emerald-600 flex justify-center items-center gap-1.5">
                                                         <CheckCircle
-                                                            size={12}
+                                                            size={14}
+                                                            strokeWidth={2.5}
                                                         />{" "}
                                                         AMAN
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
-
-                                        <div className="bg-white p-3 rounded-xl border border-emerald-100 shadow-sm flex flex-col justify-between relative overflow-hidden">
-                                            <div className="absolute top-0 right-0 p-2 opacity-5">
-                                                <Target size={40} />
-                                            </div>
-                                            <div className="text-center border-b border-slate-50 pb-2">
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
-                                                    52 - Barang
-                                                </span>
-                                                <div className="text-[9px] font-bold text-slate-400">
-                                                    TARGET KUMULATIF (
-                                                    {targetKemenkeu.barang}%)
-                                                </div>
-                                                <div className="text-sm font-black text-emerald-700">
-                                                    {formatCurrency(
-                                                        targetRpBarang,
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="text-center pt-2 bg-slate-50 rounded-lg py-2 mt-1 min-h-[50px] flex flex-col justify-center">
-                                                <div className="text-[8px] font-bold text-slate-500 mb-0.5">
-                                                    MINIMAL HARUS DIISI
-                                                </div>
-                                                {defBarang > 0 ? (
-                                                    <div className="flex flex-col items-center">
-                                                        <div className="text-[11px] font-black text-rose-600 animate-pulse">
-                                                            KURANG: <br />
-                                                            {formatCurrency(
-                                                                defBarang,
-                                                            )}
-                                                        </div>
-                                                        {isBarangImpossible && (
-                                                            <div className="mt-1.5 px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded font-bold uppercase text-center leading-tight">
-                                                                {sisaEfektifBarang <=
-                                                                0
-                                                                    ? "PAGU HABIS / BLOKIR"
-                                                                    : `Maks diinput: ${formatCurrency(sisaEfektifBarang)}`}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-xs font-black text-emerald-600 flex justify-center items-center gap-1">
-                                                        <CheckCircle
-                                                            size={12}
-                                                        />{" "}
-                                                        AMAN
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-white p-3 rounded-xl border border-emerald-100 shadow-sm flex flex-col justify-between relative overflow-hidden">
-                                            <div className="absolute top-0 right-0 p-2 opacity-5">
-                                                <Target size={40} />
-                                            </div>
-                                            <div className="text-center border-b border-slate-50 pb-2">
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
-                                                    53 - Modal
-                                                </span>
-                                                <div className="text-[9px] font-bold text-slate-400">
-                                                    TARGET KUMULATIF (
-                                                    {targetKemenkeu.modal}%)
-                                                </div>
-                                                <div className="text-sm font-black text-emerald-700">
-                                                    {formatCurrency(
-                                                        targetRpModal,
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="text-center pt-2 bg-slate-50 rounded-lg py-2 mt-1 min-h-[50px] flex flex-col justify-center">
-                                                <div className="text-[8px] font-bold text-slate-500 mb-0.5">
-                                                    MINIMAL HARUS DIISI
-                                                </div>
-                                                {defModal > 0 ? (
-                                                    <div className="flex flex-col items-center">
-                                                        <div className="text-[11px] font-black text-rose-600 animate-pulse">
-                                                            KURANG: <br />
-                                                            {formatCurrency(
-                                                                defModal,
-                                                            )}
-                                                        </div>
-                                                        {isModalImpossible && (
-                                                            <div className="mt-1.5 px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded font-bold uppercase text-center leading-tight">
-                                                                {sisaEfektifModal <=
-                                                                0
-                                                                    ? "PAGU HABIS / BLOKIR"
-                                                                    : `Maks diinput: ${formatCurrency(sisaEfektifModal)}`}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-xs font-black text-emerald-600 flex justify-center items-center gap-1">
-                                                        <CheckCircle
-                                                            size={12}
-                                                        />{" "}
-                                                        AMAN
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="mt-3.5 flex items-start gap-1.5 text-[9px] font-bold text-slate-400 bg-white p-2 rounded-lg border border-slate-100">
-                                        <Info
-                                            size={12}
-                                            className="flex-shrink-0 mt-0.5 text-emerald-400"
-                                        />
-                                        <p>
-                                            Target realisasi berjalan secara{" "}
-                                            <strong className="text-rose-500">
-                                                real-time
-                                            </strong>{" "}
-                                            sesuai rincian di bawah. Jika nilai
-                                            kekurangan terlunasi, status berubah{" "}
-                                            <strong className="text-emerald-500">
-                                                AMAN
-                                            </strong>{" "}
-                                            (IKPA Maksimal).
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="bg-white p-5 rounded-xl border border-amber-100 shadow-sm relative">
-                            <div className="flex justify-between items-center pb-3 mb-4 border-b border-gray-100">
-                                <h3 className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                                    Rincian Pengeluaran
-                                </h3>
-                                <div className="text-sm font-extrabold text-gray-800 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100">
-                                    Total Input:{" "}
-                                    <span className="text-amber-600">
-                                        {formatCurrency(totalRealisasi)}
-                                    </span>
+                                    ))}
                                 </div>
                             </div>
+                        )}
 
-                            {/* 🔥 INFO BATAS MAKSIMAL RPD & PAGU EFEKTIF (LIVE UPDATE) 🔥 */}
+                        {/* RINCIAN PENGELUARAN DINAMIS */}
+                        <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-amber-100 shadow-sm relative">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 mb-5 border-b border-slate-100 gap-4">
+                                <h3 className="text-sm font-black text-amber-600 uppercase tracking-widest flex items-center gap-2">
+                                    <Receipt size={18} /> Rincian Transaksi
+                                </h3>
+                            </div>
+
+                            {/* LIVE DOMPET CARDS */}
                             {formData.satker_id && (
-                                <div className="mb-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {[
                                         {
                                             id: "gaji",
@@ -814,6 +705,7 @@ export default function EditRealisasiModal({
                                             sisa: sisaEfektifGaji,
                                             rpd: rpdDetail.gaji,
                                             terisi: inputGaji,
+                                            isLocked: !isSetjen,
                                         },
                                         {
                                             id: "barang",
@@ -832,22 +724,27 @@ export default function EditRealisasiModal({
                                     ].map((k) => (
                                         <div
                                             key={k.title}
-                                            className={`p-3 rounded-xl border flex flex-col justify-center transition-colors ${k.sisa - k.terisi < 0 ? "bg-rose-50 border-rose-200" : "bg-slate-50 border-slate-200"}`}
+                                            className={`p-4 rounded-[1.5rem] border flex flex-col justify-center transition-all ${k.isLocked ? "bg-slate-100 border-slate-200 opacity-60" : k.sisa - k.terisi < 0 ? "bg-rose-50 border-rose-200 shadow-sm" : "bg-slate-50/80 border-slate-200/80"}`}
                                         >
-                                            <div className="flex justify-between items-center mb-2 border-b border-slate-200/60 pb-1.5">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
-                                                    {k.title}
+                                            <div className="flex justify-between items-center mb-2.5 border-b border-slate-200/60 pb-2">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+                                                    {k.title}{" "}
+                                                    {k.isLocked && (
+                                                        <Lock
+                                                            size={12}
+                                                            className="text-amber-500"
+                                                        />
+                                                    )}
                                                 </span>
                                             </div>
-                                            <div className="space-y-1.5">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-[9px] font-bold text-slate-500">
-                                                        Sisa Dompet (Maks Input)
+                                            <div className="space-y-2">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-bold text-slate-400 mb-0.5 uppercase tracking-widest">
+                                                        Sisa Dompet (Maks)
                                                     </span>
                                                     <span
-                                                        className={`font-mono text-xs font-black ${k.sisa - k.terisi < 0 ? "text-rose-600 animate-pulse" : "text-indigo-600"}`}
+                                                        className={`font-mono text-sm font-black ${k.isLocked ? "text-slate-400" : k.sisa - k.terisi < 0 ? "text-rose-600 animate-pulse" : "text-emerald-600"}`}
                                                     >
-                                                        Rp{" "}
                                                         {formatCurrency(
                                                             Math.max(
                                                                 0,
@@ -857,12 +754,13 @@ export default function EditRealisasiModal({
                                                         )}
                                                     </span>
                                                 </div>
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-[9px] font-bold text-slate-500">
-                                                        Rencana Penarikan (RPD)
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-bold text-slate-400 mb-0.5 uppercase tracking-widest">
+                                                        RPD Terencana
                                                     </span>
-                                                    <span className="font-mono text-[10px] font-black text-amber-600">
-                                                        Rp{" "}
+                                                    <span
+                                                        className={`font-mono text-[11px] font-bold ${k.isLocked ? "text-slate-400" : "text-amber-600"}`}
+                                                    >
                                                         {formatCurrency(k.rpd)}
                                                     </span>
                                                 </div>
@@ -872,9 +770,9 @@ export default function EditRealisasiModal({
                                 </div>
                             )}
 
-                            <div className="space-y-3">
+                            {/* DYNAMIC ROWS */}
+                            <div className="space-y-4">
                                 {rincian.map((item, index) => {
-                                    // Hitung maks dompet untuk spesifik inputan ini agar tidak bablas
                                     const maxInputItem =
                                         item.jenis_belanja === "gaji"
                                             ? sisaEfektifGaji -
@@ -887,15 +785,14 @@ export default function EditRealisasiModal({
                                               : sisaEfektifModal -
                                                 inputModal +
                                                 (Number(item.nominal) || 0);
-
                                     return (
                                         <div
                                             key={item.id}
-                                            className="flex flex-col md:flex-row gap-3 items-start"
+                                            className="flex flex-col md:flex-row gap-3 items-start p-4 bg-slate-50 rounded-[1.5rem] border border-slate-200/60 hover:border-amber-200 transition-colors group"
                                         >
                                             <div className="w-full md:w-1/4">
                                                 {index === 0 && (
-                                                    <label className="block text-xs font-bold text-gray-500 mb-1">
+                                                    <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
                                                         Jenis Belanja
                                                     </label>
                                                 )}
@@ -908,7 +805,7 @@ export default function EditRealisasiModal({
                                                             e.target.value,
                                                         )
                                                     }
-                                                    className="w-full border-gray-300 rounded-xl py-2.5 px-3 border focus:ring-2 focus:ring-amber-500 text-sm"
+                                                    className="w-full border-slate-200 rounded-2xl py-3 px-4 shadow-sm focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 text-sm font-bold text-slate-700 outline-none appearance-none cursor-pointer"
                                                 >
                                                     <option
                                                         value="gaji"
@@ -916,7 +813,7 @@ export default function EditRealisasiModal({
                                                     >
                                                         51 - Gaji{" "}
                                                         {!isSetjen &&
-                                                            "(Khusus Setjen)"}
+                                                            "(Setjen)"}
                                                     </option>
                                                     <option value="barang">
                                                         52 - Barang
@@ -928,12 +825,13 @@ export default function EditRealisasiModal({
                                             </div>
                                             <div className="w-full md:w-2/4">
                                                 {index === 0 && (
-                                                    <label className="block text-xs font-bold text-gray-500 mb-1">
-                                                        Uraian / Keterangan
+                                                    <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                                                        Uraian Transaksi
                                                     </label>
                                                 )}
                                                 <input
                                                     type="text"
+                                                    placeholder="Contoh: Pembayaran Honorarium..."
                                                     value={item.uraian}
                                                     onChange={(e) =>
                                                         handleRincianChange(
@@ -943,18 +841,24 @@ export default function EditRealisasiModal({
                                                         )
                                                     }
                                                     required
-                                                    className="w-full border-gray-300 rounded-xl py-2.5 px-3 border focus:ring-2 focus:ring-amber-500 text-sm"
+                                                    className="w-full border-slate-200 rounded-2xl py-3 px-4 shadow-sm focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 text-sm font-semibold outline-none placeholder:font-normal"
                                                 />
                                             </div>
                                             <div className="w-full md:w-1/4">
                                                 {index === 0 && (
-                                                    <label className="block text-xs font-bold text-gray-500 mb-1">
-                                                        Nominal (Rp)
+                                                    <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                                                        Nominal
                                                     </label>
                                                 )}
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-2 relative">
+                                                    <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                                                        <span className="font-black text-sm text-slate-400">
+                                                            Rp
+                                                        </span>
+                                                    </div>
                                                     <input
                                                         type="number"
+                                                        placeholder="0"
                                                         value={item.nominal}
                                                         onChange={(e) =>
                                                             handleRincianChange(
@@ -970,7 +874,7 @@ export default function EditRealisasiModal({
                                                                 ? maxInputItem
                                                                 : undefined
                                                         }
-                                                        className="w-full border-gray-300 rounded-xl py-2.5 px-3 border focus:ring-2 focus:ring-amber-500 text-sm font-mono font-bold text-slate-700"
+                                                        className="w-full pl-11 pr-3 border-slate-200 rounded-2xl py-3 shadow-sm focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 text-sm font-mono font-bold text-slate-800 outline-none"
                                                     />
                                                     <button
                                                         type="button"
@@ -982,16 +886,19 @@ export default function EditRealisasiModal({
                                                         disabled={
                                                             rincian.length === 1
                                                         }
-                                                        className="p-2.5 text-red-400 bg-red-50 hover:bg-red-500 hover:text-white rounded-xl transition-colors disabled:opacity-30"
+                                                        className="p-3 text-rose-400 bg-white border border-rose-100 hover:bg-rose-500 hover:text-white hover:border-rose-500 rounded-2xl transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-rose-400"
                                                     >
-                                                        <Trash2 size={18} />
+                                                        <Trash2
+                                                            size={18}
+                                                            strokeWidth={2.5}
+                                                        />
                                                     </button>
                                                 </div>
                                                 {formData.satker_id && (
                                                     <p
-                                                        className={`text-[9px] font-bold mt-1 ml-1 ${maxInputItem < Number(item.nominal) ? "text-rose-500 animate-pulse" : "text-indigo-500"}`}
+                                                        className={`text-[9px] font-bold mt-1.5 ml-2 ${maxInputItem < Number(item.nominal) ? "text-rose-500 animate-pulse" : "text-indigo-500"}`}
                                                     >
-                                                        Maks: Rp{" "}
+                                                        Maks:{" "}
                                                         {formatCurrency(
                                                             Math.max(
                                                                 0,
@@ -1008,35 +915,49 @@ export default function EditRealisasiModal({
                             <button
                                 type="button"
                                 onClick={handleAddRow}
-                                className="mt-4 flex items-center justify-center w-full gap-2 py-3 border-2 border-dashed border-amber-200 text-amber-500 font-bold rounded-xl hover:bg-amber-50 hover:border-amber-400 transition-colors"
+                                className="mt-5 flex items-center justify-center w-full gap-2 py-3.5 border-2 border-dashed border-amber-200 text-amber-600 font-bold rounded-2xl hover:bg-amber-50 hover:border-amber-400 transition-all outline-none"
                             >
-                                <Plus size={18} /> Tambah Item Pengeluaran
+                                <Plus size={18} strokeWidth={2.5} /> Tambah
+                                Baris Pengeluaran
                             </button>
                         </div>
                     </form>
                 </div>
 
-                <div className="p-6 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="px-6 py-2.5 rounded-xl font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 transition-colors"
-                    >
-                        Batal
-                    </button>
-                    <button
-                        type="submit"
-                        form="editRealisasiForm"
-                        disabled={isSubmitting || isOverbudget}
-                        className={`flex items-center gap-2 px-8 py-2.5 rounded-xl font-bold text-white transition-all shadow-md ${isSubmitting || isOverbudget ? "bg-amber-400 cursor-not-allowed" : "bg-amber-500 hover:bg-amber-600 hover:shadow-lg"}`}
-                    >
-                        {isSubmitting ? (
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                            <Save className="w-5 h-5" />
-                        )}{" "}
-                        Update Realisasi
-                    </button>
+                {/* FOOTER */}
+                <div className="p-6 md:px-8 border-t border-slate-100 bg-white flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0 relative z-20">
+                    <div className="flex flex-col w-full sm:w-auto text-center sm:text-left">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            Total Update Realisasi
+                        </span>
+                        <span
+                            className={`text-2xl font-black tracking-tight ${isOverbudget ? "text-rose-500 animate-pulse" : "text-slate-800"}`}
+                        >
+                            {formatCurrency(totalRealisasi)}
+                        </span>
+                    </div>
+                    <div className="flex gap-3 w-full sm:w-auto">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 sm:flex-none px-6 py-3.5 rounded-2xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors outline-none"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            form="editRealisasiForm"
+                            disabled={isSubmitting || isOverbudget}
+                            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl font-bold text-white transition-all duration-300 outline-none ${isSubmitting || isOverbudget ? "bg-slate-400 cursor-not-allowed shadow-none" : "bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-[0_8px_16px_rgba(245,158,11,0.25)] hover:shadow-[0_8px_20px_rgba(245,158,11,0.4)] hover:-translate-y-0.5"}`}
+                        >
+                            {isSubmitting ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                                <Save className="w-5 h-5" strokeWidth={2.5} />
+                            )}{" "}
+                            Update Realisasi
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

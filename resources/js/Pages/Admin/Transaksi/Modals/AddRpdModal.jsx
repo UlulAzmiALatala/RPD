@@ -12,6 +12,8 @@ import {
     Info,
     CheckCircle,
     AlertTriangle,
+    Sparkles,
+    Wallet,
 } from "lucide-react";
 
 export default function AddRpdModal({
@@ -74,7 +76,6 @@ export default function AddRpdModal({
         formData.satker_id && satkerSummary[formData.satker_id]
             ? satkerSummary[formData.satker_id].sisa_pagu_rpd
             : 0;
-
     const paguGaji =
         formData.satker_id && satkerSummary[formData.satker_id]?.pagu_gaji
             ? satkerSummary[formData.satker_id].pagu_gaji
@@ -87,7 +88,6 @@ export default function AddRpdModal({
         formData.satker_id && satkerSummary[formData.satker_id]?.pagu_modal
             ? satkerSummary[formData.satker_id].pagu_modal
             : 0;
-
     const blokirGaji =
         formData.satker_id && satkerSummary[formData.satker_id]?.blokir_gaji
             ? satkerSummary[formData.satker_id].blokir_gaji
@@ -158,13 +158,11 @@ export default function AddRpdModal({
 
     if (formData.satker_id && satkerSummary[formData.satker_id]) {
         const bulananData = satkerSummary[formData.satker_id].bulanan;
-
         for (let i = 1; i <= 12; i++) {
             kumRpdGajiTotal += bulananData[i]?.rpd_detail?.gaji || 0;
             kumRpdBarangTotal += bulananData[i]?.rpd_detail?.barang || 0;
             kumRpdModalTotal += bulananData[i]?.rpd_detail?.modal || 0;
         }
-
         targetTW.listBulan?.forEach((m) => {
             kumRpdGajiTW += bulananData[m]?.rpd_detail?.gaji || 0;
             kumRpdBarangTW += bulananData[m]?.rpd_detail?.barang || 0;
@@ -202,7 +200,6 @@ export default function AddRpdModal({
         e.preventDefault();
         if (isOverbudget)
             return setErrorMsg("Total RPD melebih Sisa Pagu Keseluruhan!");
-
         if (Number(formData.belanja_gaji) > sisaEfektifGaji)
             return setErrorMsg(
                 `Input Gaji melebihi Sisa Pagu Gaji (${formatCurrency(sisaEfektifGaji)})`,
@@ -258,46 +255,62 @@ export default function AddRpdModal({
     ];
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-slate-50/50 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
-                            <CalendarRange size={24} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-[#0B1120]/80 backdrop-blur-md transition-all duration-300">
+            <div
+                className={`bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] w-full max-w-3xl overflow-hidden border flex flex-col max-h-[95vh] animate-in zoom-in-95 fade-in duration-300 transition-colors ${isOverbudget ? "border-rose-400 shadow-[0_0_40px_rgba(225,29,72,0.2)]" : "border-white"}`}
+            >
+                {/* HEADER */}
+                <div className="flex justify-between items-center p-6 md:p-8 border-b border-slate-100/60 bg-slate-50/30 shrink-0 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+                    <div className="flex items-center gap-4 relative z-10">
+                        <div className="p-3 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-2xl shadow-[0_8px_16px_rgba(99,102,241,0.2)]">
+                            <CalendarRange size={26} strokeWidth={2.5} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-extrabold text-gray-900">
-                                Tambah RPD
+                            <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+                                Ajukan RPD Baru
                             </h2>
-                            <p className="text-sm text-gray-500">
-                                Input Rencana Penarikan Dana.
+                            <p className="text-sm font-medium text-slate-500 mt-0.5">
+                                Input Rencana Penarikan Dana Halaman III DIPA.
                             </p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 text-gray-400 hover:text-red-500 rounded-xl"
+                        className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors relative z-10"
                     >
-                        <X size={20} />
+                        <X size={20} strokeWidth={2.5} />
                     </button>
                 </div>
 
-                <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+                {/* BODY */}
+                <div className="p-6 md:p-8 overflow-y-auto flex-1 custom-scrollbar bg-white/50 relative">
                     {errorMsg && (
-                        <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-100">
-                            {errorMsg}
+                        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 animate-in slide-in-from-top-2">
+                            <AlertCircle
+                                className="text-rose-500 shrink-0 mt-0.5"
+                                size={20}
+                            />
+                            <div>
+                                <h4 className="text-sm font-bold text-rose-800">
+                                    Gagal Memproses
+                                </h4>
+                                <p className="text-sm text-rose-600 font-medium mt-0.5">
+                                    {errorMsg}
+                                </p>
+                            </div>
                         </div>
                     )}
                     {isOverbudget && (
-                        <div className="mb-6 p-4 bg-rose-50 border-l-4 border-rose-500 rounded-r-xl flex items-start gap-3">
-                            <AlertCircle className="w-5 h-5 text-rose-500 flex-shrink-0" />
+                        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 animate-pulse shadow-sm">
+                            <AlertTriangle className="w-5 h-5 text-rose-500 flex-shrink-0 mt-0.5" />
                             <div>
-                                <h4 className="text-sm font-bold text-rose-800">
+                                <h4 className="text-sm font-black text-rose-800 uppercase tracking-widest">
                                     Peringatan Overbudget!
                                 </h4>
-                                <p className="text-sm text-rose-600 mt-1">
+                                <p className="text-sm text-rose-600 mt-1 font-medium">
                                     Total RPD Anda (
-                                    <span className="font-bold">
+                                    <span className="font-extrabold">
                                         {formatCurrency(totalInput)}
                                     </span>
                                     ) melebihi Sisa Pagu yang tersedia.
@@ -309,21 +322,24 @@ export default function AddRpdModal({
                     <form
                         id="addRpdForm"
                         onSubmit={handleSubmit}
-                        className="space-y-6"
+                        className="space-y-6 relative z-10"
                     >
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-indigo-50/30 p-5 rounded-xl border border-indigo-100">
-                            <div className="md:col-span-3">
-                                <label className="block text-sm font-bold text-gray-700 mb-2">
-                                    Pilih Satuan Kerja
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-5 bg-slate-50/80 p-5 rounded-[2rem] border border-slate-200/60 shadow-inner backdrop-blur-sm">
+                            <div className="md:col-span-2">
+                                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                                    Pilih Satuan Kerja{" "}
+                                    <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     name="satker_id"
                                     value={formData.satker_id}
                                     onChange={handleChange}
                                     required
-                                    className="w-full border-gray-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-800"
+                                    className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-sm font-bold text-slate-700 shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none appearance-none cursor-pointer transition-all"
                                 >
-                                    <option value="">-- Pilih Satker --</option>
+                                    <option value="" disabled>
+                                        -- Pilih Satker --
+                                    </option>
                                     {satkers.map((s) => (
                                         <option key={s.id} value={s.id}>
                                             {s.kode_satker} - {s.nama_satker}
@@ -331,18 +347,17 @@ export default function AddRpdModal({
                                     ))}
                                 </select>
                                 {formData.satker_id && !isSetjen && (
-                                    <p className="text-xs font-bold text-amber-600 mt-2 flex items-center gap-1">
-                                        <Lock size={12} />{" "}
-                                        <span>
-                                            Info: Satker ini bukan DIPA Setjen.
-                                            Kolom Gaji (51) dikunci (0).
-                                        </span>
+                                    <p className="text-[10px] font-bold text-amber-600 mt-2 flex items-center gap-1.5 ml-1">
+                                        <Lock size={12} strokeWidth={3} />{" "}
+                                        Satker Non-Setjen. Kolom Pegawai (51)
+                                        dikunci.
                                     </p>
                                 )}
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">
-                                    Tahun
+                                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                                    Tahun{" "}
+                                    <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="number"
@@ -350,19 +365,20 @@ export default function AddRpdModal({
                                     value={formData.tahun}
                                     onChange={handleChange}
                                     required
-                                    className="w-full border-gray-300 rounded-xl p-2.5 text-sm"
+                                    className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-sm font-bold text-slate-700 shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                                 />
                             </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-bold text-gray-700 mb-1">
-                                    Bulan Rencana
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                                    Bulan{" "}
+                                    <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     name="bulan"
                                     value={formData.bulan}
                                     onChange={handleChange}
                                     required
-                                    className="w-full border-gray-300 rounded-xl p-2.5 text-sm font-bold text-slate-700"
+                                    className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-sm font-bold text-slate-700 shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none appearance-none cursor-pointer transition-all"
                                 >
                                     {namaBulan.map((b, i) => (
                                         <option key={i + 1} value={i + 1}>
@@ -371,217 +387,171 @@ export default function AddRpdModal({
                                     ))}
                                 </select>
                             </div>
-
-                            {formData.satker_id && (
-                                <div className="md:col-span-3 mt-2 bg-gradient-to-r from-slate-50 to-blue-50/50 border border-blue-100 p-5 rounded-xl shadow-sm">
-                                    <div className="flex justify-between items-center border-b border-blue-100 pb-2 mb-3">
-                                        <h4 className="text-[11px] font-black text-blue-800 flex items-center gap-1.5 uppercase tracking-widest">
-                                            <Calculator
-                                                size={14}
-                                                className="text-blue-600"
-                                            />{" "}
-                                            Monitor Target Kumulatif TW{" "}
-                                            {targetTW.tw}
-                                        </h4>
-                                    </div>
-
-                                    {isAnyImpossible && (
-                                        <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[10px] flex items-start gap-3 shadow-sm">
-                                            <AlertTriangle
-                                                size={18}
-                                                className="flex-shrink-0 mt-0.5 text-amber-500"
-                                            />
-                                            <p className="leading-relaxed">
-                                                <span className="block text-xs font-black mb-1 uppercase tracking-widest text-amber-900">
-                                                    ⚠️ TARGET IKPA TIDAK DAPAT
-                                                    TERCAPAI
-                                                </span>
-                                                Sisa dompet (Pagu Efektif) Anda
-                                                tidak cukup untuk memenuhi
-                                                Target Kemenkeu akibat adanya
-                                                Pagu Blokir. <br />
-                                                Status akan tetap merah (
-                                                <strong className="text-rose-600">
-                                                    KURANG
-                                                </strong>
-                                                ), namun Anda{" "}
-                                                <strong>
-                                                    hanya dapat menginput
-                                                    maksimal sebesar sisa uang
-                                                    yang tertera di stempel
-                                                    merah.
-                                                </strong>
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        <div
-                                            className={`p-3 rounded-xl border shadow-sm flex flex-col justify-between relative overflow-hidden ${!isSetjen ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white border-blue-100"}`}
-                                        >
-                                            <div className="absolute top-0 right-0 p-2 opacity-5">
-                                                <Target size={40} />
-                                            </div>
-                                            <div className="text-center border-b border-slate-50 pb-2">
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
-                                                    51 - Pegawai
-                                                </span>
-                                                <div className="text-[9px] font-bold text-slate-400">
-                                                    TARGET ({targetTW.gaji}%)
-                                                </div>
-                                                <div className="text-sm font-black text-blue-700">
-                                                    {formatCurrency(targetGaji)}
-                                                </div>
-                                            </div>
-                                            <div className="text-center pt-2 bg-slate-50 rounded-lg py-2 mt-1 min-h-[50px] flex flex-col justify-center">
-                                                <div className="text-[8px] font-bold text-slate-500 mb-0.5">
-                                                    SISA TARGET TW {targetTW.tw}
-                                                </div>
-                                                {defGaji > 0 ? (
-                                                    <div className="flex flex-col items-center">
-                                                        <div className="text-[11px] font-black text-rose-600 animate-pulse">
-                                                            KURANG: <br />
-                                                            {formatCurrency(
-                                                                defGaji,
-                                                            )}
-                                                        </div>
-                                                        {isGajiImpossible && (
-                                                            <div className="mt-1.5 px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded font-bold uppercase text-center leading-tight">
-                                                                {sisaEfektifGaji <=
-                                                                0
-                                                                    ? "PAGU HABIS / BLOKIR"
-                                                                    : `Maks diinput: ${formatCurrency(sisaEfektifGaji)}`}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-xs font-black text-emerald-600 flex justify-center items-center gap-1">
-                                                        <CheckCircle
-                                                            size={12}
-                                                        />{" "}
-                                                        AMAN
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-white p-3 rounded-xl border border-blue-100 shadow-sm flex flex-col justify-between relative overflow-hidden">
-                                            <div className="absolute top-0 right-0 p-2 opacity-5">
-                                                <Target size={40} />
-                                            </div>
-                                            <div className="text-center border-b border-slate-50 pb-2">
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
-                                                    52 - Barang
-                                                </span>
-                                                <div className="text-[9px] font-bold text-slate-400">
-                                                    TARGET ({targetTW.barang}%)
-                                                </div>
-                                                <div className="text-sm font-black text-blue-700">
-                                                    {formatCurrency(
-                                                        targetBarang,
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="text-center pt-2 bg-slate-50 rounded-lg py-2 mt-1 min-h-[50px] flex flex-col justify-center">
-                                                <div className="text-[8px] font-bold text-slate-500 mb-0.5">
-                                                    SISA TARGET TW {targetTW.tw}
-                                                </div>
-                                                {defBarang > 0 ? (
-                                                    <div className="flex flex-col items-center">
-                                                        <div className="text-[11px] font-black text-rose-600 animate-pulse">
-                                                            KURANG: <br />
-                                                            {formatCurrency(
-                                                                defBarang,
-                                                            )}
-                                                        </div>
-                                                        {isBarangImpossible && (
-                                                            <div className="mt-1.5 px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded font-bold uppercase text-center leading-tight">
-                                                                {sisaEfektifBarang <=
-                                                                0
-                                                                    ? "PAGU HABIS / BLOKIR"
-                                                                    : `Maks diinput: ${formatCurrency(sisaEfektifBarang)}`}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-xs font-black text-emerald-600 flex justify-center items-center gap-1">
-                                                        <CheckCircle
-                                                            size={12}
-                                                        />{" "}
-                                                        AMAN
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-white p-3 rounded-xl border border-blue-100 shadow-sm flex flex-col justify-between relative overflow-hidden">
-                                            <div className="absolute top-0 right-0 p-2 opacity-5">
-                                                <Target size={40} />
-                                            </div>
-                                            <div className="text-center border-b border-slate-50 pb-2">
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
-                                                    53 - Modal
-                                                </span>
-                                                <div className="text-[9px] font-bold text-slate-400">
-                                                    TARGET ({targetTW.modal}%)
-                                                </div>
-                                                <div className="text-sm font-black text-blue-700">
-                                                    {formatCurrency(
-                                                        targetModal,
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="text-center pt-2 bg-slate-50 rounded-lg py-2 mt-1 min-h-[50px] flex flex-col justify-center">
-                                                <div className="text-[8px] font-bold text-slate-500 mb-0.5">
-                                                    SISA TARGET TW {targetTW.tw}
-                                                </div>
-                                                {defModal > 0 ? (
-                                                    <div className="flex flex-col items-center">
-                                                        <div className="text-[11px] font-black text-rose-600 animate-pulse">
-                                                            KURANG: <br />
-                                                            {formatCurrency(
-                                                                defModal,
-                                                            )}
-                                                        </div>
-                                                        {isModalImpossible && (
-                                                            <div className="mt-1.5 px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded font-bold uppercase text-center leading-tight">
-                                                                {sisaEfektifModal <=
-                                                                0
-                                                                    ? "PAGU HABIS / BLOKIR"
-                                                                    : `Maks diinput: ${formatCurrency(sisaEfektifModal)}`}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-xs font-black text-emerald-600 flex justify-center items-center gap-1">
-                                                        <CheckCircle
-                                                            size={12}
-                                                        />{" "}
-                                                        AMAN
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         {formData.satker_id && (
-                            <div
-                                className={`p-4 rounded-xl border flex justify-between items-center shadow-sm ${sisaPagu <= 0 ? "bg-red-50 border-red-200 text-red-600" : "bg-emerald-50 border-emerald-300 text-emerald-800"}`}
-                            >
-                                <p className="text-sm font-black flex flex-col sm:flex-row justify-between w-full">
-                                    <span>
-                                        Status Pagu Tersedia (Sisa Anggaran
-                                        Efektif Keseluruhan):
-                                    </span>
-                                    <span>{formatCurrency(sisaPagu)}</span>
-                                </p>
+                            <div className="mt-2 bg-gradient-to-br from-indigo-50/50 to-blue-50/30 border border-indigo-100/80 p-6 rounded-[2rem] shadow-sm relative overflow-hidden">
+                                <div className="absolute right-0 top-0 w-40 h-40 bg-white/40 rounded-full blur-[40px] pointer-events-none"></div>
+                                <div className="flex justify-between items-center border-b border-indigo-200/50 pb-3 mb-4 relative z-10">
+                                    <h4 className="text-xs font-black text-indigo-800 flex items-center gap-2 uppercase tracking-widest">
+                                        <Calculator
+                                            size={16}
+                                            className="text-indigo-600"
+                                        />{" "}
+                                        Analitik Target Kumulatif TW{" "}
+                                        {targetTW.tw}
+                                    </h4>
+                                </div>
+
+                                {isAnyImpossible && (
+                                    <div className="mb-5 px-5 py-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-[11px] flex items-start gap-3 shadow-sm relative z-10">
+                                        <AlertTriangle
+                                            size={20}
+                                            className="flex-shrink-0 mt-0.5 text-amber-500"
+                                        />
+                                        <p className="leading-relaxed font-medium">
+                                            <span className="block text-[11px] font-black mb-1 uppercase tracking-widest text-amber-900">
+                                                ⚠️ Pagu Tersedia Tidak Mencukupi
+                                                Target
+                                            </span>
+                                            Sisa Pagu Efektif Anda tidak cukup
+                                            untuk memenuhi Target Kemenkeu
+                                            akibat adanya{" "}
+                                            <span className="font-bold">
+                                                Pagu Blokir
+                                            </span>
+                                            . Status akan tetap merah, namun
+                                            Anda{" "}
+                                            <strong className="text-rose-600">
+                                                hanya dapat menginput maksimal
+                                                sebesar sisa pagu efektif yang
+                                                tertera.
+                                            </strong>
+                                        </p>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 relative z-10">
+                                    {[
+                                        {
+                                            label: "51 - Pegawai",
+                                            target: targetTW.gaji,
+                                            valTarget: targetGaji,
+                                            def: defGaji,
+                                            sisa: sisaEfektifGaji,
+                                            imp: isGajiImpossible,
+                                            icon: Target,
+                                            isLocked: !isSetjen,
+                                        },
+                                        {
+                                            label: "52 - Barang",
+                                            target: targetTW.barang,
+                                            valTarget: targetBarang,
+                                            def: defBarang,
+                                            sisa: sisaEfektifBarang,
+                                            imp: isBarangImpossible,
+                                            icon: Target,
+                                        },
+                                        {
+                                            label: "53 - Modal",
+                                            target: targetTW.modal,
+                                            valTarget: targetModal,
+                                            def: defModal,
+                                            sisa: sisaEfektifModal,
+                                            imp: isModalImpossible,
+                                            icon: Target,
+                                        },
+                                    ].map((item, idx) => (
+                                        <div
+                                            key={idx}
+                                            className={`p-4 rounded-2xl border flex flex-col justify-between relative overflow-hidden transition-all ${item.isLocked ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white/80 backdrop-blur-sm border-indigo-100 shadow-[0_4px_15px_rgba(99,102,241,0.05)] hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)]"}`}
+                                        >
+                                            <div className="absolute -top-4 -right-4 p-4 opacity-[0.03] rotate-12">
+                                                <item.icon size={60} />
+                                            </div>
+                                            <div className="text-center border-b border-slate-100 pb-3">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                                                    {item.label}
+                                                </span>
+                                                <div className="text-[9px] font-extrabold text-slate-400/80 mb-1">
+                                                    TARGET ({item.target}%)
+                                                </div>
+                                                <div className="text-[15px] font-black text-indigo-700">
+                                                    {formatCurrency(
+                                                        item.valTarget,
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div
+                                                className={`text-center pt-3 mt-1 min-h-[60px] flex flex-col justify-center rounded-xl ${item.def > 0 ? "bg-rose-50/50" : "bg-emerald-50/50"}`}
+                                            >
+                                                <div className="text-[8px] font-bold text-slate-500 mb-1 uppercase tracking-widest">
+                                                    Kekurangan TW {targetTW.tw}
+                                                </div>
+                                                {item.def > 0 ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <div className="text-[12px] font-black text-rose-600 tracking-tight">
+                                                            {formatCurrency(
+                                                                item.def,
+                                                            )}
+                                                        </div>
+                                                        {item.imp && (
+                                                            <div className="mt-2 px-2.5 py-1 bg-rose-100 text-rose-700 border border-rose-200 text-[8px] rounded-lg font-bold uppercase text-center leading-tight shadow-sm">
+                                                                {item.sisa <= 0
+                                                                    ? "PAGU HABIS/BLOKIR"
+                                                                    : `Maks: ${formatCurrency(item.sisa)}`}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-[11px] font-black text-emerald-600 flex justify-center items-center gap-1.5">
+                                                        <CheckCircle
+                                                            size={14}
+                                                            strokeWidth={2.5}
+                                                        />{" "}
+                                                        AMAN
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
-                        <div className="space-y-4">
+                        {/* 🔥 BANNER INFORMASI DOMPET UTAMA 🔥 */}
+                        {formData.satker_id && (
+                            <div
+                                className={`p-5 mt-2 rounded-[1.5rem] border flex flex-col sm:flex-row justify-between items-center shadow-sm relative overflow-hidden transition-all ${sisaPagu <= 0 ? "bg-rose-50 border-rose-200" : "bg-emerald-50/80 border-emerald-200"}`}
+                            >
+                                <div className="absolute right-0 top-0 w-32 h-32 bg-white/40 rounded-full blur-[30px] pointer-events-none"></div>
+                                <div className="relative z-10 flex items-center gap-4">
+                                    <div
+                                        className={`p-3 rounded-2xl shadow-inner ${sisaPagu <= 0 ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"}`}
+                                    >
+                                        <Wallet size={24} strokeWidth={2.5} />
+                                    </div>
+                                    <div>
+                                        <p
+                                            className={`text-[11px] font-black uppercase tracking-widest ${sisaPagu <= 0 ? "text-rose-500" : "text-emerald-600"}`}
+                                        >
+                                            Status Dompet Utama
+                                        </p>
+                                        <p className="text-sm font-bold text-slate-700 mt-0.5">
+                                            Sisa Pagu Efektif Keseluruhan
+                                            (Termasuk Input Saat Ini)
+                                        </p>
+                                    </div>
+                                </div>
+                                <div
+                                    className={`text-2xl font-black relative z-10 mt-4 sm:mt-0 tracking-tight ${sisaPagu <= 0 ? "text-rose-600 animate-pulse" : "text-emerald-700"}`}
+                                >
+                                    {formatCurrency(sisaPagu)}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="space-y-4 pt-2">
                             {["gaji", "barang", "modal"].map((jenis) => {
                                 const isDisabled =
                                     jenis === "gaji" &&
@@ -599,13 +569,13 @@ export default function AddRpdModal({
                                 return (
                                     <div
                                         key={jenis}
-                                        className="flex flex-col sm:flex-row gap-2 sm:items-center"
+                                        className="flex flex-col sm:flex-row gap-3 sm:items-center p-3 rounded-[1.5rem] hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100"
                                     >
-                                        <div className="sm:w-1/3 flex flex-col">
+                                        <div className="sm:w-1/3 flex flex-col px-2">
                                             <label
-                                                className={`text-sm font-bold capitalize flex items-center gap-1.5 ${isDisabled || isInputLocked ? "text-gray-400" : "text-gray-700"}`}
+                                                className={`text-[13px] font-extrabold capitalize flex items-center gap-2 ${isDisabled || isInputLocked ? "text-slate-400" : "text-slate-700"}`}
                                             >
-                                                Rencana {jenis}
+                                                Rencana {jenis}{" "}
                                                 {(isDisabled ||
                                                     isInputLocked) && (
                                                     <Lock
@@ -614,11 +584,10 @@ export default function AddRpdModal({
                                                     />
                                                 )}
                                             </label>
-                                            {/* 🔥 INI DIA UI UX TAMBAHAN YANG KAMU MINTA 🔥 */}
                                             {formData.satker_id &&
                                                 !isDisabled && (
                                                     <span
-                                                        className={`text-[10px] font-bold mt-0.5 ${isInputLocked ? "text-red-400" : "text-indigo-500"}`}
+                                                        className={`text-[10px] font-bold mt-1 ${isInputLocked ? "text-rose-400" : "text-indigo-500"}`}
                                                     >
                                                         Maks:{" "}
                                                         {formatCurrency(
@@ -628,11 +597,13 @@ export default function AddRpdModal({
                                                 )}
                                         </div>
                                         <div className="relative sm:w-2/3">
-                                            <span
-                                                className={`absolute left-3 top-2.5 font-bold ${isDisabled || isInputLocked ? "text-gray-300" : "text-gray-500"}`}
-                                            >
-                                                Rp
-                                            </span>
+                                            <div className="absolute inset-y-0 left-0 flex items-center pl-5 pointer-events-none">
+                                                <span
+                                                    className={`font-black text-sm ${isDisabled || isInputLocked ? "text-slate-300" : "text-slate-400"}`}
+                                                >
+                                                    Rp
+                                                </span>
+                                            </div>
                                             <input
                                                 type="number"
                                                 name={`belanja_${jenis}`}
@@ -650,7 +621,8 @@ export default function AddRpdModal({
                                                 }
                                                 min="0"
                                                 max={maxInput}
-                                                className={`w-full pl-10 border-gray-300 rounded-xl p-2.5 font-mono font-bold text-sm focus:ring-2 focus:ring-indigo-500 ${isDisabled || isInputLocked ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "text-indigo-900 bg-indigo-50/10"}`}
+                                                className={`w-full pl-12 pr-5 py-3.5 border-slate-200/80 rounded-2xl font-mono font-bold text-[15px] focus:ring-4 focus:border-indigo-500 transition-all outline-none shadow-sm ${isDisabled || isInputLocked ? "bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200" : "text-slate-800 bg-white hover:border-indigo-300 focus:ring-indigo-500/10"}`}
+                                                placeholder="0"
                                             />
                                         </div>
                                     </div>
@@ -660,24 +632,23 @@ export default function AddRpdModal({
                     </form>
                 </div>
 
-                <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
-                    <div className="text-sm font-extrabold text-gray-500">
-                        Total Input:{" "}
+                {/* FOOTER */}
+                <div className="p-6 md:px-8 border-t border-slate-100 bg-white flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0 relative z-20">
+                    <div className="flex flex-col w-full sm:w-auto text-center sm:text-left">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            Total RPD Diajukan
+                        </span>
                         <span
-                            className={
-                                isOverbudget
-                                    ? "text-red-500"
-                                    : "text-indigo-600"
-                            }
+                            className={`text-2xl font-black tracking-tight ${isOverbudget ? "text-rose-500 animate-pulse" : "text-indigo-600"}`}
                         >
                             {formatCurrency(totalInput)}
                         </span>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 w-full sm:w-auto">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-6 py-2.5 rounded-xl font-bold text-gray-600 bg-white border border-gray-300"
+                            className="flex-1 sm:flex-none px-6 py-3.5 rounded-2xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors outline-none"
                         >
                             Batal
                         </button>
@@ -687,19 +658,18 @@ export default function AddRpdModal({
                             disabled={
                                 isSubmitting || isOverbudget || sisaPagu <= 0
                             }
-                            className={`flex items-center gap-2 px-8 py-2.5 rounded-xl font-bold text-white transition-all ${isSubmitting || isOverbudget || sisaPagu <= 0 ? "bg-gray-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700 shadow-md"}`}
+                            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl font-bold text-white transition-all duration-300 outline-none ${isSubmitting || isOverbudget || sisaPagu <= 0 ? "bg-slate-400 cursor-not-allowed shadow-none" : "bg-indigo-600 hover:bg-indigo-700 shadow-[0_8px_16px_rgba(99,102,241,0.25)] hover:shadow-[0_8px_20px_rgba(99,102,241,0.4)] hover:-translate-y-0.5"}`}
                         >
                             {isSubmitting ? (
                                 <Loader2 className="animate-spin w-5 h-5" />
                             ) : (
-                                <Save className="w-5 h-5" />
+                                <Save className="w-5 h-5" strokeWidth={2.5} />
                             )}{" "}
-                            Simpan
+                            Simpan RPD
                         </button>
                     </div>
                 </div>
             </div>
-            <style>{`.custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }`}</style>
         </div>
     );
 }

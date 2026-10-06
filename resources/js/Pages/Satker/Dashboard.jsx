@@ -2,19 +2,27 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
     Wallet,
-    Activity,
-    Target,
+    CalendarRange,
+    Receipt,
+    Award,
+    Building2,
     TrendingUp,
     PlusCircle,
-    Receipt,
     PieChart,
-    CalendarRange,
-    Award,
-    Star,
-    CheckCircle2,
-    XCircle,
     Info,
     X,
+    Target,
+    CheckCircle2,
+    XCircle,
+    Star,
+    Sparkles,
+    Activity,
+    Clock,
+    Zap,
+    ChevronDown,
+    FileText,
+    Trophy,
+    AlertTriangle,
 } from "lucide-react";
 import {
     BarChart,
@@ -31,17 +39,25 @@ export default function DashboardSatker({ authUser }) {
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [tahun, setTahun] = useState(new Date().getFullYear().toString());
-    const [selectedTW, setSelectedTW] = useState("ALL");
+
+    // --- STATE FILTER ---
+    const currentMonth = new Date().getMonth() + 1;
+    const initialTW =
+        currentMonth <= 3
+            ? "I"
+            : currentMonth <= 6
+              ? "II"
+              : currentMonth <= 9
+                ? "III"
+                : "IV";
+    const [selectedTW, setSelectedTW] = useState(initialTW);
 
     // --- STATE INSIGHT POPUP ---
     const [showInsightPopup, setShowInsightPopup] = useState(false);
 
     useEffect(() => {
         setLoading(true);
-        const queryParams = new URLSearchParams({
-            tahun,
-            tw: selectedTW === "ALL" ? "" : selectedTW,
-        });
+        const queryParams = new URLSearchParams({ tahun, tw: selectedTW });
 
         axios
             .get(`/api/dashboard-data?${queryParams.toString()}`)
@@ -84,623 +100,870 @@ export default function DashboardSatker({ authUser }) {
     };
 
     const formatDecimal = (value) => {
-        if (typeof value === "number") {
+        if (typeof value === "number")
             return new Intl.NumberFormat("id-ID", {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
             }).format(value);
-        }
-        return value;
+        return value || "0,00";
     };
 
     const generateInsight = () => {
         if (!dashboardData) return null;
-        const twText = `Triwulan ${dashboardData.tw_aktif}`;
-        const kesehatan = dashboardData.summary.status_kesehatan;
-        const poin = dashboardData.analisis_tw?.poin?.total_poin || 0;
+        const poin = dashboardData.analisis_tw.poin.total_poin;
+        const serap = dashboardData.summary.persentase_realisasi;
 
-        if (kesehatan === "Sangat Baik" || kesehatan === "Baik") {
+        if (dashboardData.summary.total_anggaran === 0) {
+            return {
+                type: "warning",
+                title: "Belum Ada Pagu Anggaran",
+                text: `Sistem mendeteksi bahwa Satker Anda belum memiliki Pagu Anggaran pada Tahun ${tahun}. Seluruh kalkulasi IKPA, Penyerapan, dan Poin SIRA secara otomatis dikunci di angka 0 hingga pagu disalurkan.`,
+                glow: "shadow-[0_0_60px_rgba(245,158,11,0.4)]",
+                border: "border-amber-500/50",
+            };
+        }
+
+        if (poin >= 45) {
             return {
                 type: "success",
-                title: "Kinerja Satker Optimal!",
-                text: `Luar biasa! Kinerja pelaksanaan anggaran Anda meraih Poin SIRA sebesar ${formatDecimal(poin)}/30 (IKPA: ${dashboardData.summary.ikpa}) pada ${twText}. Pertahankan ritme penyerapan ini!`,
+                title: "Kinerja Eksekusi Brilian!",
+                text: `Luar biasa! Performa anggaran Satker Anda sangat memuaskan di TW ${selectedTW}. Dengan Poin SIRA mencapai ${formatDecimal(poin)}/55, serapan menyentuh ${serap}%, dan IKPA ${dashboardData.summary.ikpa}, Anda berada di jalur juara!`,
+                glow: "shadow-[0_0_60px_rgba(16,185,129,0.4)]",
+                border: "border-emerald-500/50",
+            };
+        } else if (poin >= 35) {
+            return {
+                type: "warning",
+                title: "Potensi Kehilangan Poin",
+                text: `Kinerja anggaran Anda cukup stabil (SIRA: ${formatDecimal(poin)}/55), namun sistem mendeteksi adanya deviasi atau keterlambatan output yang menghambat nilai maksimal. Segera sinkronkan RPD dan tagihan Anda!`,
+                glow: "shadow-[0_0_60px_rgba(245,158,11,0.4)]",
+                border: "border-amber-500/50",
             };
         } else {
             return {
-                type: "warning",
-                title: "Perlu Atensi Khusus",
-                text: `Perhatian: Nilai Poin SIRA Anda saat ini (${formatDecimal(poin)}/30) berada di zona "${kesehatan}". Segera evaluasi realisasi belanja dan sesuaikan dengan Halaman III DIPA untuk mengejar target ${twText}.`,
+                type: "danger",
+                title: "Zona Kritis Anggaran!",
+                text: `WARNING! Nilai SIRA Satker Anda anjlok di angka ${formatDecimal(poin)}/55. Deviasi Halaman III DIPA, minimnya Serapan (${serap}%), atau tertundanya Capaian RO menjadi penyebab utama. Segera lakukan konsolidasi!`,
+                glow: "shadow-[0_0_60px_rgba(225,29,72,0.4)]",
+                border: "border-rose-500/50",
             };
         }
     };
 
     const insight = generateInsight();
 
-    if (loading) {
-        return (
-            <div className="flex flex-col justify-center items-center h-64 gap-4">
-                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-gray-500 font-bold text-sm animate-pulse">
-                    Menyiapkan Ruang Kerja Satker...
-                </p>
-            </div>
-        );
-    }
-
     return (
         <>
-            <div className="space-y-6 relative pb-10">
-                {/* --- AI INSIGHT POP-UP MODAL --- */}
-                {showInsightPopup && insight && (
-                    <div className="fixed top-0 left-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300 w-screen h-screen m-0">
-                        <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md relative animate-in zoom-in-95 duration-300">
-                            <button
-                                onClick={() => setShowInsightPopup(false)}
-                                className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-2 rounded-xl transition-all"
-                            >
-                                <X size={20} />
-                            </button>
-                            <div className="flex flex-col items-center text-center mt-2">
-                                <div
-                                    className={`w-20 h-20 rounded-3xl flex items-center justify-center mb-6 shadow-inner ${insight.type === "success" ? "bg-emerald-100 text-emerald-500" : "bg-amber-100 text-amber-500"}`}
-                                >
-                                    <Info size={40} />
-                                </div>
-                                <h3
-                                    className={`text-2xl font-black mb-3 ${insight.type === "success" ? "text-emerald-700" : "text-amber-700"}`}
-                                >
-                                    {insight.title}
-                                </h3>
-                                <p className="text-slate-500 font-medium leading-relaxed text-sm">
-                                    {insight.text}
+            <div className="space-y-8 text-slate-700 font-sans relative pb-12 min-h-screen">
+                {/* --- AMBIENT BACKGROUND GLOW --- */}
+                <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none -z-10"></div>
+                <div className="absolute top-20 right-20 w-96 h-96 bg-teal-500/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+
+                {/* --- HEADER DASHBOARD --- */}
+                <div className="relative flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6 bg-white/60 backdrop-blur-2xl p-8 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white">
+                    <div className="flex-1 relative z-10">
+                        <div className="flex items-center gap-5 mb-3">
+                            <div className="p-4 bg-gradient-to-br from-indigo-600 to-blue-700 text-white rounded-2xl shadow-[0_10px_20px_rgba(79,70,229,0.3)] border border-indigo-400/30">
+                                <Building2 size={32} strokeWidth={2.5} />
+                            </div>
+                            <div>
+                                <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 tracking-tight leading-tight">
+                                    Ruang Kerja Satker
+                                </h2>
+                                <p className="text-sm font-semibold text-slate-500 mt-1 flex flex-wrap items-center gap-2">
+                                    Selamat datang,{" "}
+                                    <span className="font-black text-indigo-600 tracking-wide uppercase">
+                                        {authUser?.name || "Operator"}
+                                    </span>
+                                    .
+                                    {dashboardData?.last_synced && (
+                                        <span className="ml-2 pl-2 border-l border-slate-300 text-[11px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                                            <Clock size={12} /> Updated:{" "}
+                                            {dashboardData.last_synced}
+                                        </span>
+                                    )}
                                 </p>
-                                <button
-                                    onClick={() => setShowInsightPopup(false)}
-                                    className="mt-8 px-8 py-3.5 bg-slate-900 text-white font-black rounded-xl w-full hover:bg-slate-800 transition-all shadow-lg hover:shadow-slate-500/30"
-                                >
-                                    Masuk ke Dashboard
-                                </button>
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
 
-                {/* --- HEADER & FILTER --- */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight">
-                            Dashboard Satuan Kerja
-                        </h1>
-                        <p className="text-sm text-slate-500 mt-1">
-                            Selamat datang,{" "}
-                            <span className="font-bold text-indigo-600">
-                                {authUser?.name || "Operator"}
-                            </span>
-                            . Berikut adalah ringkasan performa anggaran Anda.
-                        </p>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 text-xs font-bold">
-                            {["ALL", "I", "II", "III", "IV"].map((tw) => (
+                {/* --- FILTER BAR & QUICK ACTIONS PREMIUM --- */}
+                <div className="flex flex-col lg:flex-row gap-5">
+                    <div className="flex-1 bg-white/80 backdrop-blur-xl p-5 rounded-[2rem] shadow-sm border border-white flex flex-col md:flex-row gap-5 items-center justify-between relative z-10">
+                        <div className="flex bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 text-xs font-bold w-full lg:w-auto shadow-inner">
+                            {["I", "II", "III", "IV"].map((tw) => (
                                 <button
                                     key={tw}
                                     onClick={() => setSelectedTW(tw)}
-                                    className={`px-3 py-2 rounded-lg transition-all ${selectedTW === tw ? "bg-gray-800 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}
+                                    className={`flex-1 lg:flex-none px-6 py-3 rounded-xl transition-all duration-300 ${
+                                        selectedTW === tw
+                                            ? "bg-white text-indigo-600 shadow-[0_4px_12px_rgba(0,0,0,0.08)] scale-105 border border-slate-100"
+                                            : "text-slate-500 hover:bg-slate-200/50"
+                                    }`}
                                 >
-                                    {tw === "ALL" ? "Setahun" : `TW ${tw}`}
+                                    Triwulan {tw}
                                 </button>
                             ))}
                         </div>
 
-                        <div className="relative">
+                        <div className="relative w-full md:w-48">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <CalendarRange
+                                    size={18}
+                                    className="text-indigo-500"
+                                />
+                            </div>
                             <select
                                 value={tahun}
                                 onChange={(e) => setTahun(e.target.value)}
-                                className="block w-full pl-4 pr-10 py-2.5 text-sm border-gray-200 rounded-xl bg-white shadow-sm font-bold text-slate-700 cursor-pointer"
+                                className="w-full pl-12 pr-10 py-3.5 text-sm border-slate-200/80 rounded-2xl bg-white shadow-sm hover:border-indigo-300 focus:ring-4 focus:ring-indigo-500/10 cursor-pointer font-black text-slate-800 transition-all appearance-none"
                             >
                                 {[...Array(5)].map((_, i) => {
                                     const yr = new Date().getFullYear() - 2 + i;
                                     return (
                                         <option key={yr} value={yr}>
-                                            Tahun {yr}
+                                            T.A {yr}
                                         </option>
                                     );
                                 })}
                             </select>
+                            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                                <ChevronDown
+                                    size={16}
+                                    className="text-slate-400"
+                                />
+                            </div>
                         </div>
+                    </div>
+
+                    <div className="bg-white/80 backdrop-blur-xl p-5 rounded-[2rem] shadow-sm border border-white flex flex-wrap items-center gap-3 relative z-10 w-full lg:w-auto">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center px-2">
+                            Aksi Cepat:
+                        </span>
+                        <a
+                            href="/dashboard/input-transaksi"
+                            className="flex-1 lg:flex-none flex justify-center items-center gap-2 px-5 py-3 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-2xl text-xs font-bold hover:bg-indigo-600 hover:text-white transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
+                        >
+                            <PlusCircle size={16} /> Input RPD
+                        </a>
+                        <a
+                            href="/dashboard/input-transaksi"
+                            className="flex-1 lg:flex-none flex justify-center items-center gap-2 px-5 py-3 bg-teal-50 text-teal-700 border border-teal-100 rounded-2xl text-xs font-bold hover:bg-teal-600 hover:text-white transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
+                        >
+                            <Receipt size={16} /> Input Realisasi
+                        </a>
                     </div>
                 </div>
 
-                {/* --- QUICK ACTIONS BAR --- */}
-                <div className="flex flex-wrap gap-3 bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center px-2">
-                        Aksi Cepat:
-                    </span>
-                    <a
-                        href="/dashboard/input-transaksi"
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-sm font-bold hover:bg-indigo-600 hover:text-white transition-colors"
-                    >
-                        <PlusCircle size={16} /> Input RPD Baru
-                    </a>
-                    <a
-                        href="/dashboard/input-transaksi"
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-xl text-sm font-bold hover:bg-blue-600 hover:text-white transition-colors"
-                    >
-                        <Receipt size={16} /> Input Realisasi
-                    </a>
-                </div>
+                {loading ? (
+                    <div className="flex flex-col justify-center items-center h-80 gap-6 bg-white/40 rounded-[3rem] border border-white backdrop-blur-md">
+                        <div className="relative w-20 h-20">
+                            <div className="absolute inset-0 border-4 border-indigo-100 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div>
+                            <Activity
+                                className="absolute inset-0 m-auto text-indigo-500 animate-pulse"
+                                size={24}
+                            />
+                        </div>
+                        <p className="text-indigo-900 font-black text-sm tracking-[0.2em] uppercase animate-pulse">
+                            Menganalisis Kinerja Satker...
+                        </p>
+                    </div>
+                ) : (
+                    dashboardData && (
+                        <>
+                            {/* --- HOLOGRAPHIC AI INSIGHT POP-UP --- */}
+                            {showInsightPopup && insight && (
+                                <div className="fixed top-0 left-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 sm:p-6 bg-[#0B1120]/80 backdrop-blur-xl animate-in fade-in duration-500 overflow-hidden">
+                                    <div
+                                        className={`bg-slate-900/90 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl p-10 w-full max-w-lg relative animate-in zoom-in-95 duration-500 border ${insight.border} ${insight.glow} overflow-hidden text-center`}
+                                    >
+                                        <div className="absolute -right-20 -top-20 opacity-10 pointer-events-none">
+                                            <Sparkles
+                                                size={250}
+                                                className="text-white"
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={() =>
+                                                setShowInsightPopup(false)
+                                            }
+                                            className="absolute top-6 right-6 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-rose-500/80 p-2.5 rounded-2xl transition-all z-20"
+                                        >
+                                            <X size={20} strokeWidth={2.5} />
+                                        </button>
 
-                {dashboardData && (
-                    <>
-                        {/* --- 1. SUMMARY CARDS (WITH POIN SIRA) --- */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5">
-                            {/* 🔥 SUPER CARD: TOTAL POIN SIRA 🔥 */}
-                            <div className="md:col-span-2 bg-gradient-to-br from-indigo-900 to-slate-900 p-6 rounded-[2rem] shadow-xl flex items-center justify-between relative overflow-hidden group border border-slate-800">
-                                <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <Star size={120} />
-                                </div>
-                                <div className="flex items-center gap-5 z-10">
-                                    <div className="w-20 h-20 rounded-[1.5rem] bg-indigo-500/20 text-yellow-400 flex items-center justify-center border border-indigo-500/30 backdrop-blur-sm shadow-inner">
-                                        <Star
-                                            size={40}
-                                            className="drop-shadow-lg fill-yellow-400"
-                                        />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-black text-indigo-200 uppercase tracking-widest">
-                                            TOTAL POIN SIRA
-                                        </p>
-                                        <div className="flex items-baseline gap-2 mt-1">
-                                            <h3 className="text-5xl font-black text-white drop-shadow-md">
-                                                {formatDecimal(
-                                                    dashboardData.analisis_tw
-                                                        ?.poin?.total_poin || 0,
+                                        <div className="flex flex-col items-center relative z-10">
+                                            <div className="flex items-center gap-2 px-4 py-1.5 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-full text-[10px] font-black uppercase tracking-widest mb-8 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
+                                                <Sparkles
+                                                    size={14}
+                                                    className="animate-pulse"
+                                                />{" "}
+                                                SIRA AI Assistant
+                                            </div>
+
+                                            <div
+                                                className={`relative w-28 h-28 rounded-full flex items-center justify-center mb-6 border-4 border-slate-800 ${insight.type === "success" ? "bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-[0_0_40px_rgba(16,185,129,0.5)]" : insight.type === "warning" ? "bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-[0_0_40px_rgba(245,158,11,0.5)]" : "bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-[0_0_40px_rgba(225,29,72,0.5)]"}`}
+                                            >
+                                                <div className="absolute inset-0 rounded-full animate-ping opacity-20 bg-white"></div>
+                                                {insight.type === "success" ? (
+                                                    <Trophy
+                                                        size={48}
+                                                        strokeWidth={2}
+                                                    />
+                                                ) : insight.type ===
+                                                  "warning" ? (
+                                                    <AlertTriangle
+                                                        size={48}
+                                                        strokeWidth={2}
+                                                    />
+                                                ) : (
+                                                    <Zap
+                                                        size={48}
+                                                        strokeWidth={2}
+                                                    />
                                                 )}
+                                            </div>
+
+                                            <h3
+                                                className={`text-3xl font-black mb-4 tracking-tight ${insight.type === "success" ? "text-emerald-400" : insight.type === "warning" ? "text-amber-400" : "text-rose-400"}`}
+                                            >
+                                                {insight.title}
                                             </h3>
-                                            <span className="text-lg font-bold text-indigo-300">
-                                                / 30 Pts
-                                            </span>
+
+                                            <p className="text-slate-300 font-medium leading-relaxed text-sm bg-slate-800/50 p-5 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
+                                                {insight.text}
+                                            </p>
+
+                                            <button
+                                                onClick={() =>
+                                                    setShowInsightPopup(false)
+                                                }
+                                                className={`mt-8 px-8 py-4 w-full font-black text-sm uppercase tracking-widest rounded-2xl transition-all duration-300 ${insight.type === "success" ? "bg-emerald-500 hover:bg-emerald-400 text-emerald-950 shadow-[0_10px_20px_rgba(16,185,129,0.3)] hover:-translate-y-1" : insight.type === "warning" ? "bg-amber-500 hover:bg-amber-400 text-amber-950 shadow-[0_10px_20px_rgba(245,158,11,0.3)] hover:-translate-y-1" : "bg-rose-500 hover:bg-rose-400 text-white shadow-[0_10px_20px_rgba(225,29,72,0.3)] hover:-translate-y-1"}`}
+                                            >
+                                                Masuk Ruang Kerja
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
-                            <div className="bg-white rounded-[2rem] shadow-sm p-6 border border-slate-100 hover:shadow-lg transition-all group flex flex-col justify-center">
-                                <div className="flex items-center gap-4 mb-3">
-                                    <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <Wallet size={24} />
+                            {/* --- 1. SUPER SUMMARY CARDS (55 POIN) --- */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-6 relative z-10">
+                                {/* 🔥 SUPER CARD: TOTAL POIN SIRA 🔥 */}
+                                <div className="xl:col-span-2 bg-gradient-to-br from-slate-900 via-[#0B1120] to-slate-900 p-8 rounded-[2.5rem] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] flex flex-col justify-center relative overflow-hidden group border border-slate-800">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/10 rounded-full blur-[50px] pointer-events-none group-hover:bg-yellow-500/20 transition-colors duration-700"></div>
+                                    <div className="absolute -top-12 -right-12 opacity-10 group-hover:opacity-20 transition-all duration-700 group-hover:rotate-12 group-hover:scale-110">
+                                        <Star
+                                            size={220}
+                                            className="fill-yellow-500 text-yellow-500"
+                                        />
                                     </div>
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">
-                                        Pagu
-                                        <br />
-                                        Anggaran
-                                    </h3>
-                                </div>
-                                <h2 className="text-2xl font-black text-slate-800 truncate">
-                                    {formatSingkat(
-                                        dashboardData.summary.total_anggaran,
-                                    )}
-                                </h2>
-                            </div>
 
-                            <div className="bg-white rounded-[2rem] shadow-sm p-6 border border-slate-100 hover:shadow-lg transition-all group flex flex-col justify-center">
-                                <div className="flex items-center gap-4 mb-3">
-                                    <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <Receipt size={24} />
-                                    </div>
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">
-                                        Aktual
-                                        <br />
-                                        Realisasi
-                                    </h3>
-                                </div>
-                                <h2 className="text-2xl font-black text-slate-800 truncate">
-                                    {formatSingkat(
-                                        dashboardData.summary
-                                            .total_realisasi_setahun,
-                                    )}
-                                </h2>
-                                <div className="mt-1">
-                                    <span className="text-[10px] font-black px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md">
-                                        SERAPAN:{" "}
-                                        {
-                                            dashboardData.summary
-                                                .persentase_realisasi
-                                        }
-                                        %
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-[2rem] shadow-sm p-6 border border-slate-100 hover:shadow-lg transition-all group flex flex-col justify-center relative overflow-hidden">
-                                <div className="flex items-center gap-4 mb-3 relative z-10">
-                                    <div
-                                        className={`w-12 h-12 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${dashboardData.summary.ikpa >= 95 ? "bg-emerald-50 text-emerald-500" : dashboardData.summary.ikpa >= 85 ? "bg-amber-50 text-amber-500" : "bg-rose-50 text-rose-500"}`}
-                                    >
-                                        <Award size={24} />
-                                    </div>
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">
-                                        Nilai IKPA
-                                        <br />
-                                        (Hal III)
-                                    </h3>
-                                </div>
-                                <h2
-                                    className={`text-3xl font-black relative z-10 ${dashboardData.summary.ikpa >= 95 ? "text-emerald-600" : dashboardData.summary.ikpa >= 85 ? "text-amber-500" : "text-rose-600"}`}
-                                >
-                                    {dashboardData.summary.ikpa}
-                                </h2>
-                            </div>
-                        </div>
-
-                        {/* --- 2. ANALISIS TARGET TW KEMENKEU & POIN --- */}
-                        {dashboardData.analisis_tw && (
-                            <div className="bg-white rounded-[2rem] shadow-sm p-6 md:p-8 border border-slate-100 mt-6">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="p-3 bg-blue-50 rounded-2xl text-blue-600">
-                                        <Target size={24} />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-black text-slate-900">
-                                            Evaluasi Target Kemenkeu & Poin SIRA
-                                            (TW {dashboardData.tw_aktif})
-                                        </h3>
-                                        <p className="text-xs text-slate-500 font-medium mt-1">
-                                            Status kepatuhan minimal penyerapan
-                                            anggaran dan kalkulasi Nilai
-                                            Tertimbang.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
-                                    {["51", "52", "53"].map((kode) => {
-                                        const an =
-                                            dashboardData.analisis_tw[kode];
-                                        if (!an) return null;
-
-                                        const isLulus =
-                                            an.status === "Tercapai";
-                                        const isNA = an.status === "N/A";
-                                        const namaBelanja =
-                                            kode === "51"
-                                                ? "Belanja Pegawai"
-                                                : kode === "52"
-                                                  ? "Belanja Barang"
-                                                  : "Belanja Modal";
-
-                                        return (
-                                            <div
-                                                key={kode}
-                                                className={`p-5 flex flex-col justify-between rounded-3xl border ${isNA ? "bg-slate-50/80 border-slate-200" : isLulus ? "bg-emerald-50/50 border-emerald-100" : "bg-rose-50/50 border-rose-100"}`}
-                                            >
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div>
-                                                        <span
-                                                            className={`text-[10px] font-black px-2.5 py-1 rounded-md ${isNA ? "bg-slate-200 text-slate-600" : isLulus ? "bg-emerald-200 text-emerald-800" : "bg-rose-200 text-rose-800"}`}
-                                                        >
-                                                            KODE {kode}
-                                                        </span>
-                                                        <h4
-                                                            className={`font-bold mt-2 ${isNA ? "text-slate-400" : "text-slate-800"}`}
-                                                        >
-                                                            {namaBelanja}
-                                                        </h4>
-                                                    </div>
-                                                    {isNA ? (
-                                                        <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center font-black text-slate-400">
-                                                            -
-                                                        </div>
-                                                    ) : isLulus ? (
-                                                        <CheckCircle2
-                                                            className="text-emerald-500"
-                                                            size={28}
-                                                        />
-                                                    ) : (
-                                                        <XCircle
-                                                            className="text-rose-500"
-                                                            size={28}
-                                                        />
+                                    <div className="flex items-center gap-6 relative z-10">
+                                        <div className="w-24 h-24 rounded-[1.8rem] bg-gradient-to-br from-yellow-300 via-amber-500 to-orange-600 text-white flex items-center justify-center shadow-[0_10px_25px_rgba(245,158,11,0.4)] border border-yellow-200/50 relative overflow-hidden">
+                                            <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 skew-x-12"></div>
+                                            <Star
+                                                size={44}
+                                                className="drop-shadow-lg fill-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">
+                                                Skor SIRA Satker
+                                            </p>
+                                            <div className="flex items-baseline gap-2">
+                                                <h3
+                                                    className={`text-6xl font-black tracking-tight ${dashboardData.summary.total_anggaran === 0 ? "text-slate-600" : "text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-500 drop-shadow-[0_0_15px_rgba(253,230,138,0.3)]"}`}
+                                                >
+                                                    {formatDecimal(
+                                                        dashboardData
+                                                            .analisis_tw.poin
+                                                            .total_poin,
                                                     )}
-                                                </div>
+                                                </h3>
+                                                <span className="text-xl font-bold text-slate-600">
+                                                    / 55
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                                {isNA ? (
-                                                    <div className="mt-6 text-xs font-bold text-slate-400 text-center py-2 bg-slate-100/50 rounded-xl">
-                                                        TIDAK ADA PAGU
+                                {/* CARD: PAGU */}
+                                <div className="bg-white/80 backdrop-blur-md rounded-[2.5rem] shadow-sm p-7 border border-white hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 flex flex-col justify-center group relative overflow-hidden">
+                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500">
+                                        <Wallet size={100} />
+                                    </div>
+                                    <div className="flex items-center gap-4 mb-3 relative z-10">
+                                        <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center shadow-inner">
+                                            <Wallet
+                                                size={22}
+                                                strokeWidth={2.5}
+                                            />
+                                        </div>
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">
+                                            Pagu
+                                            <br />
+                                            Anggaran
+                                        </h3>
+                                    </div>
+                                    <h2 className="text-2xl font-black text-slate-800 truncate relative z-10">
+                                        {formatSingkat(
+                                            dashboardData.summary
+                                                .total_anggaran,
+                                        )}
+                                    </h2>
+                                </div>
+
+                                {/* CARD: REALISASI */}
+                                <div className="bg-white/80 backdrop-blur-md rounded-[2.5rem] shadow-sm p-7 border border-white hover:shadow-xl hover:shadow-emerald-500/5 transition-all duration-300 flex flex-col justify-center group relative overflow-hidden">
+                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500 text-emerald-500">
+                                        <Receipt size={100} />
+                                    </div>
+                                    <div className="flex items-center gap-4 mb-3 relative z-10">
+                                        <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shadow-inner">
+                                            <Receipt
+                                                size={22}
+                                                strokeWidth={2.5}
+                                            />
+                                        </div>
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">
+                                            Aktual
+                                            <br />
+                                            Realisasi
+                                        </h3>
+                                    </div>
+                                    <h2
+                                        className={`text-2xl font-black truncate relative z-10 ${dashboardData.summary.total_anggaran === 0 ? "text-slate-400" : "text-emerald-700"}`}
+                                    >
+                                        {formatSingkat(
+                                            dashboardData.summary
+                                                .total_realisasi_setahun,
+                                        )}
+                                    </h2>
+                                    <div className="mt-2 relative z-10">
+                                        <span
+                                            className={`text-[10px] font-black px-2.5 py-1 rounded-lg shadow-[0_2px_10px_rgba(16,185,129,0.3)] ${dashboardData.summary.total_anggaran === 0 ? "bg-slate-300 text-slate-600 shadow-none" : "bg-emerald-500 text-white"}`}
+                                        >
+                                            SERAPAN:{" "}
+                                            {
+                                                dashboardData.summary
+                                                    .persentase_realisasi
+                                            }
+                                            %
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* CARD: IKPA */}
+                                <div className="bg-white/80 backdrop-blur-md rounded-[2.5rem] shadow-sm p-7 border border-white hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-300 flex flex-col justify-center group relative overflow-hidden">
+                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500 text-blue-500">
+                                        <Award size={100} />
+                                    </div>
+                                    <div className="flex items-center gap-4 mb-3 relative z-10">
+                                        <div
+                                            className={`w-12 h-12 rounded-2xl border flex items-center justify-center shadow-inner ${dashboardData.summary.total_anggaran === 0 ? "bg-slate-100 border-slate-200 text-slate-400" : dashboardData.summary.ikpa >= 95 ? "bg-emerald-50 border-emerald-100 text-emerald-600" : dashboardData.summary.ikpa >= 85 ? "bg-amber-50 border-amber-100 text-amber-500" : "bg-rose-50 border-rose-100 text-rose-500"}`}
+                                        >
+                                            <Award
+                                                size={22}
+                                                strokeWidth={2.5}
+                                            />
+                                        </div>
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">
+                                            Nilai
+                                            <br />
+                                            IKPA
+                                        </h3>
+                                    </div>
+                                    <h2
+                                        className={`text-4xl font-black relative z-10 tracking-tight ${dashboardData.summary.total_anggaran === 0 ? "text-slate-400" : dashboardData.summary.ikpa >= 95 ? "text-emerald-600" : dashboardData.summary.ikpa >= 85 ? "text-amber-500" : "text-rose-600"}`}
+                                    >
+                                        {formatDecimal(
+                                            dashboardData.summary.ikpa,
+                                        )}
+                                    </h2>
+                                </div>
+
+                                {/* CARD: RO */}
+                                <div className="bg-white/80 backdrop-blur-md rounded-[2.5rem] shadow-sm p-7 border border-white hover:shadow-xl hover:shadow-purple-500/5 transition-all duration-300 flex flex-col justify-center group relative overflow-hidden">
+                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500 text-purple-500">
+                                        <Target size={100} />
+                                    </div>
+                                    <div className="flex items-center gap-4 mb-3 relative z-10">
+                                        <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 text-purple-600 flex items-center justify-center shadow-inner">
+                                            <Target
+                                                size={22}
+                                                strokeWidth={2.5}
+                                            />
+                                        </div>
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">
+                                            Capaian
+                                            <br />
+                                            Output (RO)
+                                        </h3>
+                                    </div>
+                                    <h2
+                                        className={`text-4xl font-black truncate relative z-10 tracking-tight ${dashboardData.summary.total_anggaran === 0 ? "text-slate-400" : "text-purple-600"}`}
+                                    >
+                                        {formatDecimal(
+                                            dashboardData.analisis_tw.poin
+                                                .nilai_ro,
+                                        )}
+                                        <span
+                                            className={`text-base ml-1 ${dashboardData.summary.total_anggaran === 0 ? "text-slate-300" : "text-purple-300"}`}
+                                        >
+                                            %
+                                        </span>
+                                    </h2>
+                                </div>
+                            </div>
+
+                            {/* --- 2. TARGET KEMENKEU (NEON PROGRESS BARS) --- */}
+                            {dashboardData.analisis_tw && (
+                                <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-sm p-8 md:p-10 border border-white mt-8 relative overflow-hidden">
+                                    <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-400/5 rounded-full blur-[80px] pointer-events-none translate-x-1/2 -translate-y-1/2"></div>
+
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 relative z-10">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-4 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl text-indigo-600 border border-indigo-100 shadow-inner">
+                                                <Target
+                                                    size={28}
+                                                    strokeWidth={2.5}
+                                                />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                                                    Bedah Indikator SMART Satker
+                                                    (TW {selectedTW})
+                                                </h3>
+                                                <p className="text-sm text-slate-500 font-medium mt-1">
+                                                    Transparansi parameter
+                                                    Penyerapan (20%), IKPA
+                                                    (10%), & RO (25%).
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 relative z-10">
+                                        {["51", "52", "53"].map((kode) => {
+                                            const an =
+                                                dashboardData.analisis_tw[kode];
+                                            const isLulus =
+                                                an.status === "Tercapai";
+                                            const isNA = an.status === "N/A";
+                                            const namaBelanja =
+                                                kode === "51"
+                                                    ? "Belanja Pegawai"
+                                                    : kode === "52"
+                                                      ? "Belanja Barang"
+                                                      : "Belanja Modal";
+                                            return (
+                                                <div
+                                                    key={kode}
+                                                    className={`p-6 flex flex-col justify-between rounded-[2rem] border transition-all duration-300 group ${isNA ? "bg-slate-50/50 border-slate-200" : isLulus ? "bg-emerald-50/30 border-emerald-200 hover:shadow-[0_10px_30px_rgba(16,185,129,0.1)] hover:-translate-y-1" : "bg-rose-50/30 border-rose-200 hover:shadow-[0_10px_30px_rgba(225,29,72,0.1)] hover:-translate-y-1"}`}
+                                                >
+                                                    <div className="flex justify-between items-start mb-6">
+                                                        <div>
+                                                            <span
+                                                                className={`text-[10px] font-black px-3 py-1.5 rounded-lg tracking-widest border ${isNA ? "bg-slate-100 text-slate-500 border-slate-200" : isLulus ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-rose-100 text-rose-700 border-rose-200"}`}
+                                                            >
+                                                                KODE {kode}
+                                                            </span>
+                                                            <h4
+                                                                className={`font-black text-lg mt-3 tracking-tight ${isNA ? "text-slate-400" : "text-slate-800"}`}
+                                                            >
+                                                                {namaBelanja}
+                                                            </h4>
+                                                        </div>
+                                                        {isNA ? (
+                                                            <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-slate-300">
+                                                                -
+                                                            </div>
+                                                        ) : isLulus ? (
+                                                            <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center shadow-inner">
+                                                                <CheckCircle2
+                                                                    className="text-emerald-500"
+                                                                    size={24}
+                                                                    strokeWidth={
+                                                                        2.5
+                                                                    }
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="w-10 h-10 rounded-2xl bg-rose-100 flex items-center justify-center shadow-inner">
+                                                                <XCircle
+                                                                    className="text-rose-500"
+                                                                    size={24}
+                                                                    strokeWidth={
+                                                                        2.5
+                                                                    }
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                ) : (
-                                                    <div className="mt-auto">
-                                                        <div className="space-y-2 mt-4">
-                                                            <div className="flex justify-between text-xs">
-                                                                <span className="text-slate-500 font-medium">
-                                                                    Target
-                                                                    Minimal TW:
-                                                                </span>
-                                                                <span className="font-bold text-slate-700">
+
+                                                    {isNA ? (
+                                                        <div className="mt-8 text-xs font-black text-slate-400 tracking-widest text-center py-3 bg-slate-100/50 rounded-xl border border-slate-200 border-dashed">
+                                                            TIDAK ADA PAGU
+                                                        </div>
+                                                    ) : (
+                                                        <div className="mt-auto">
+                                                            <div className="flex justify-between text-[11px] font-black uppercase tracking-widest mb-2">
+                                                                <span className="text-slate-400">
+                                                                    Target:{" "}
                                                                     {
                                                                         an.target_persen
                                                                     }
                                                                     %
                                                                 </span>
-                                                            </div>
-                                                            <div className="flex justify-between text-xs">
-                                                                <span className="text-slate-500 font-medium">
-                                                                    Realisasi
-                                                                    Saat Ini:
-                                                                </span>
                                                                 <span
-                                                                    className={`font-black ${isLulus ? "text-emerald-600" : "text-rose-600"}`}
+                                                                    className={
+                                                                        isLulus
+                                                                            ? "text-emerald-600"
+                                                                            : "text-rose-600"
+                                                                    }
                                                                 >
+                                                                    Aktual:{" "}
                                                                     {
                                                                         an.realisasi_persen
                                                                     }
                                                                     %
                                                                 </span>
                                                             </div>
+                                                            <div className="w-full bg-slate-200/80 rounded-full h-3 overflow-hidden relative shadow-inner">
+                                                                <div
+                                                                    className={`absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ${isLulus ? "bg-gradient-to-r from-emerald-400 to-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]" : "bg-gradient-to-r from-rose-400 to-rose-500 shadow-[0_0_10px_rgba(225,29,72,0.8)]"}`}
+                                                                    style={{
+                                                                        width: `${Math.min(an.realisasi_persen, 100)}%`,
+                                                                    }}
+                                                                ></div>
+                                                                <div
+                                                                    className="absolute top-0 bottom-0 w-1 bg-slate-900 z-10 rounded-full shadow-[0_0_5px_rgba(0,0,0,0.5)]"
+                                                                    style={{
+                                                                        left: `${an.target_persen}%`,
+                                                                    }}
+                                                                ></div>
+                                                            </div>
                                                         </div>
-                                                        <div className="w-full bg-slate-200/60 rounded-full h-1.5 mt-4 overflow-hidden relative">
-                                                            <div
-                                                                className={`absolute top-0 left-0 h-1.5 rounded-full ${isLulus ? "bg-emerald-500" : "bg-rose-500"}`}
-                                                                style={{
-                                                                    width: `${Math.min(an.realisasi_persen, 100)}%`,
-                                                                }}
-                                                            ></div>
-                                                            <div
-                                                                className="absolute top-0 bottom-0 w-0.5 bg-slate-800 z-10"
-                                                                style={{
-                                                                    left: `${an.target_persen}%`,
-                                                                }}
-                                                                title={`Garis Target ${an.target_persen}%`}
-                                                            ></div>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
 
-                                {/* RUMUS POIN TERTIMBANG SIRA (BOX HITAM) */}
-                                <div className="bg-[#0A192F] rounded-[1.5rem] p-6 shadow-inner border border-slate-700 text-white">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                                    {/* 🔥 BOX KALKULATOR SIRA (NEON THEME) 🔥 */}
+                                    <div className="bg-[#0B1120] rounded-[2rem] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] border border-slate-800 text-white relative overflow-hidden z-10">
+                                        <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#4f46e5_1px,transparent_1px),linear-gradient(to_bottom,#4f46e5_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_70%,transparent_100%)]"></div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+                                            {/* SKOR PENYERAPAN */}
+                                            <div className="bg-slate-900/80 backdrop-blur-md p-5 rounded-3xl border border-slate-700/80 hover:border-emerald-500/50 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] transition-all duration-300">
+                                                <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                    <Target size={16} /> Skor
+                                                    Penyerapan
+                                                </div>
+                                                <div className="flex items-end gap-3">
+                                                    <span
+                                                        className={`text-4xl font-black tracking-tight ${dashboardData.summary.total_anggaran === 0 ? "text-slate-600" : "text-white"}`}
+                                                    >
+                                                        {formatDecimal(
+                                                            dashboardData
+                                                                .analisis_tw
+                                                                .poin
+                                                                .nilai_penyerapan,
+                                                        )}
+                                                    </span>
+                                                    <span className="text-xs text-slate-400 font-bold mb-1.5 flex items-center gap-1.5">
+                                                        x 20% ={" "}
+                                                        <span
+                                                            className={`px-2.5 py-1 rounded-lg border ${dashboardData.summary.total_anggaran === 0 ? "bg-slate-800 text-slate-500 border-slate-700" : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"}`}
+                                                        >
+                                                            {formatDecimal(
+                                                                dashboardData
+                                                                    .analisis_tw
+                                                                    .poin
+                                                                    .tertimbang_penyerapan,
+                                                            )}{" "}
+                                                            pts
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* SKOR HAL III */}
+                                            <div className="bg-slate-900/80 backdrop-blur-md p-5 rounded-3xl border border-slate-700/80 hover:border-blue-500/50 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] transition-all duration-300">
+                                                <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                    <Award size={16} /> Skor
+                                                    Hal. III DIPA
+                                                </div>
+                                                <div className="flex items-end gap-3">
+                                                    <span
+                                                        className={`text-4xl font-black tracking-tight ${dashboardData.summary.total_anggaran === 0 ? "text-slate-600" : "text-white"}`}
+                                                    >
+                                                        {formatDecimal(
+                                                            dashboardData
+                                                                .analisis_tw
+                                                                .poin
+                                                                .ikpa_hal_iii,
+                                                        )}
+                                                    </span>
+                                                    <span className="text-xs text-slate-400 font-bold mb-1.5 flex items-center gap-1.5">
+                                                        x 10% ={" "}
+                                                        <span
+                                                            className={`px-2.5 py-1 rounded-lg border ${dashboardData.summary.total_anggaran === 0 ? "bg-slate-800 text-slate-500 border-slate-700" : "text-blue-400 bg-blue-500/10 border-blue-500/20"}`}
+                                                        >
+                                                            {formatDecimal(
+                                                                dashboardData
+                                                                    .analisis_tw
+                                                                    .poin
+                                                                    .tertimbang_hal_iii,
+                                                            )}{" "}
+                                                            pts
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* SKOR RO */}
+                                            <div className="bg-slate-900/80 backdrop-blur-md p-5 rounded-3xl border border-slate-700/80 hover:border-purple-500/50 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] transition-all duration-300">
+                                                <div className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                    <FileText size={16} /> Skor
+                                                    Output RO
+                                                </div>
+                                                <div className="flex items-end gap-3">
+                                                    <span
+                                                        className={`text-4xl font-black tracking-tight ${dashboardData.summary.total_anggaran === 0 ? "text-slate-600" : "text-white"}`}
+                                                    >
+                                                        {formatDecimal(
+                                                            dashboardData
+                                                                .analisis_tw
+                                                                .poin.nilai_ro,
+                                                        )}
+                                                    </span>
+                                                    <span className="text-xs text-slate-400 font-bold mb-1.5 flex items-center gap-1.5">
+                                                        x 25% ={" "}
+                                                        <span
+                                                            className={`px-2.5 py-1 rounded-lg border ${dashboardData.summary.total_anggaran === 0 ? "bg-slate-800 text-slate-500 border-slate-700" : "text-purple-400 bg-purple-500/10 border-purple-500/20"}`}
+                                                        >
+                                                            {formatDecimal(
+                                                                dashboardData
+                                                                    .analisis_tw
+                                                                    .poin
+                                                                    .tertimbang_ro,
+                                                            )}{" "}
+                                                            pts
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* --- 3. GRAFIK & RINCIAN BELANJA --- */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+                                {/* GRAFIK */}
+                                <div className="lg:col-span-2 bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-sm p-8 border border-white relative overflow-hidden z-10">
+                                    <div className="flex items-center gap-4 mb-8">
+                                        <div className="p-3.5 bg-indigo-50 rounded-2xl text-indigo-600 shadow-inner">
+                                            <TrendingUp
+                                                size={24}
+                                                strokeWidth={2.5}
+                                            />
+                                        </div>
                                         <div>
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                                                Skor Penyerapan (Bobot 20%)
-                                            </div>
-                                            <div className="flex items-end gap-3">
-                                                <span className="text-3xl font-black text-emerald-400 leading-none">
-                                                    {formatDecimal(
-                                                        dashboardData
-                                                            .analisis_tw.poin
-                                                            ?.nilai_penyerapan ||
-                                                            0,
-                                                    )}
-                                                </span>
-                                                <span className="text-sm text-slate-400 font-bold mb-1">
-                                                    x 20% ={" "}
-                                                    <span className="text-white bg-emerald-500/20 px-2 py-1 rounded-lg ml-1">
-                                                        {formatDecimal(
-                                                            dashboardData
-                                                                .analisis_tw
-                                                                .poin
-                                                                ?.tertimbang_penyerapan ||
-                                                                0,
-                                                        )}{" "}
-                                                        pts
-                                                    </span>
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="border-t md:border-t-0 md:border-l border-slate-700/50 pt-5 md:pt-0 md:pl-6">
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                                                Skor Hal. III DIPA (Bobot 10%)
-                                            </div>
-                                            <div className="flex items-end gap-3">
-                                                <span className="text-3xl font-black text-blue-400 leading-none">
-                                                    {formatDecimal(
-                                                        dashboardData
-                                                            .analisis_tw.poin
-                                                            ?.ikpa_hal_iii || 0,
-                                                    )}
-                                                </span>
-                                                <span className="text-sm text-slate-400 font-bold mb-1">
-                                                    x 10% ={" "}
-                                                    <span className="text-white bg-blue-500/20 px-2 py-1 rounded-lg ml-1">
-                                                        {formatDecimal(
-                                                            dashboardData
-                                                                .analisis_tw
-                                                                .poin
-                                                                ?.tertimbang_hal_iii ||
-                                                                0,
-                                                        )}{" "}
-                                                        pts
-                                                    </span>
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="border-t md:border-t-0 md:border-l border-slate-700/50 pt-5 md:pt-0 md:pl-6 flex flex-col justify-center">
-                                            <div className="text-xs font-black text-yellow-500 uppercase tracking-widest flex items-center gap-2 mb-2">
-                                                <Star
-                                                    size={18}
-                                                    className="fill-yellow-500 text-yellow-500"
-                                                />{" "}
-                                                TOTAL POIN SIRA TW{" "}
-                                                {dashboardData.tw_aktif}
-                                            </div>
-                                            <div className="text-4xl font-black text-yellow-400 leading-none">
-                                                {formatDecimal(
-                                                    dashboardData.analisis_tw
-                                                        .poin?.total_poin || 0,
-                                                )}{" "}
-                                                <span className="text-lg text-yellow-700">
-                                                    / 30 Pts
-                                                </span>
-                                            </div>
+                                            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                                                Grafik Serapan Anggaran
+                                            </h3>
+                                            <p className="text-sm text-slate-500 font-medium mt-1">
+                                                Tren Rincian Belanja Berdasarkan
+                                                Komponen
+                                            </p>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-                            <div className="lg:col-span-2 bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-100 w-full">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="p-3 bg-slate-50 rounded-2xl text-slate-600">
-                                        <TrendingUp size={24} />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-black text-gray-900">
-                                            Grafik Performa Satker
-                                        </h3>
-                                        <p className="text-xs text-gray-500 font-medium mt-1">
-                                            Perbandingan RPD vs Realisasi (Dalam
-                                            Milyar Rupiah)
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="h-[300px] w-full">
-                                    <ResponsiveContainer
-                                        width="100%"
-                                        height="100%"
-                                    >
-                                        <BarChart
-                                            data={dashboardData.grafik}
-                                            margin={{
-                                                top: 5,
-                                                right: 10,
-                                                left: -20,
-                                                bottom: 5,
-                                            }}
+                                    <div className="h-[350px] w-full">
+                                        <ResponsiveContainer
+                                            width="100%"
+                                            height="100%"
                                         >
-                                            <CartesianGrid
-                                                strokeDasharray="3 3"
-                                                vertical={false}
-                                                stroke="#f3f4f6"
-                                            />
-                                            <XAxis
-                                                dataKey="name"
-                                                axisLine={false}
-                                                tickLine={false}
-                                                tick={{
-                                                    fill: "#9ca3af",
-                                                    fontSize: 12,
-                                                    fontWeight: 600,
+                                            <BarChart
+                                                data={dashboardData.grafik}
+                                                margin={{
+                                                    top: 10,
+                                                    right: 10,
+                                                    left: 10,
+                                                    bottom: 10,
                                                 }}
-                                                dy={10}
+                                            >
+                                                <CartesianGrid
+                                                    strokeDasharray="3 3"
+                                                    vertical={false}
+                                                    stroke="#e2e8f0"
+                                                />
+                                                <XAxis
+                                                    dataKey="name"
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    tick={{
+                                                        fill: "#64748b",
+                                                        fontSize: 11,
+                                                        fontWeight: 700,
+                                                    }}
+                                                    dy={15}
+                                                />
+                                                <YAxis
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    width={55}
+                                                    tick={{
+                                                        fill: "#64748b",
+                                                        fontSize: 11,
+                                                        fontWeight: 700,
+                                                    }}
+                                                    tickFormatter={(val) =>
+                                                        val >= 1000000
+                                                            ? `${(val / 1000000).toFixed(1)} T`
+                                                            : val >= 1000
+                                                              ? `${(val / 1000).toFixed(1)} M`
+                                                              : `${val} Jt`
+                                                    }
+                                                />
+                                                <Tooltip
+                                                    cursor={{
+                                                        fill: "rgba(241,245,249,0.5)",
+                                                    }}
+                                                    contentStyle={{
+                                                        borderRadius: "20px",
+                                                        border: "1px solid #e2e8f0",
+                                                        boxShadow:
+                                                            "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+                                                        fontWeight: "bold",
+                                                        fontSize: "13px",
+                                                        padding: "16px",
+                                                        backgroundColor:
+                                                            "rgba(255,255,255,0.95)",
+                                                        backdropFilter:
+                                                            "blur(8px)",
+                                                    }}
+                                                    formatter={(val, name) => [
+                                                        `Rp ${val >= 1000000 ? (val / 1000000).toFixed(2) + " Triliun" : val >= 1000 ? (val / 1000).toFixed(2) + " Miliar" : val + " Juta"}`,
+                                                        name,
+                                                    ]}
+                                                />
+                                                <Legend
+                                                    wrapperStyle={{
+                                                        paddingTop: "30px",
+                                                        fontSize: "13px",
+                                                        fontWeight: "bold",
+                                                        color: "#334155",
+                                                    }}
+                                                    iconType="circle"
+                                                />
+                                                <Bar
+                                                    dataKey="Target_RPD"
+                                                    name="Pagu DIPA"
+                                                    fill="#818cf8"
+                                                    radius={[8, 8, 0, 0]}
+                                                    maxBarSize={35}
+                                                />
+                                                <Bar
+                                                    dataKey="Belanja_Gaji"
+                                                    name="Pegawai (51)"
+                                                    fill="#3b82f6"
+                                                    radius={[8, 8, 0, 0]}
+                                                    maxBarSize={35}
+                                                />
+                                                <Bar
+                                                    dataKey="Belanja_Barang"
+                                                    name="Barang (52)"
+                                                    fill="#10b981"
+                                                    radius={[8, 8, 0, 0]}
+                                                    maxBarSize={35}
+                                                />
+                                                <Bar
+                                                    dataKey="Belanja_Modal"
+                                                    name="Modal (53)"
+                                                    fill="#8b5cf6"
+                                                    radius={[8, 8, 0, 0]}
+                                                    maxBarSize={35}
+                                                />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* RINCIAN BELANJA */}
+                                <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-sm p-8 border border-white flex flex-col h-full relative z-10 overflow-hidden">
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <div className="p-3.5 bg-blue-50 rounded-2xl text-blue-600 shadow-inner">
+                                            <PieChart
+                                                size={24}
+                                                strokeWidth={2.5}
                                             />
-                                            <YAxis
-                                                axisLine={false}
-                                                tickLine={false}
-                                                tick={{
-                                                    fill: "#9ca3af",
-                                                    fontSize: 12,
-                                                }}
-                                                tickFormatter={(value) =>
-                                                    `${value}M`
-                                                }
-                                            />
-                                            <Tooltip
-                                                cursor={{ fill: "#f8fafc" }}
-                                                contentStyle={{
-                                                    borderRadius: "12px",
-                                                    border: "1px solid #f1f5f9",
-                                                    boxShadow:
-                                                        "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                                                    fontWeight: "bold",
-                                                    fontSize: "12px",
-                                                    padding: "12px 16px",
-                                                }}
-                                                formatter={(value) => [
-                                                    `Rp ${value} Milyar`,
-                                                ]}
-                                            />
-                                            <Legend
-                                                wrapperStyle={{
-                                                    paddingTop: "20px",
-                                                    fontSize: "12px",
-                                                    fontWeight: "bold",
-                                                    color: "#475569",
-                                                }}
-                                                iconType="circle"
-                                            />
-                                            <Bar
-                                                dataKey="RPD"
-                                                name="Target RPD"
-                                                fill="#4f46e5"
-                                                radius={[4, 4, 0, 0]}
-                                                maxBarSize={40}
-                                            />
-                                            <Bar
-                                                dataKey="Realisasi"
-                                                name="Aktual Realisasi"
-                                                fill="#0ea5e9"
-                                                radius={[4, 4, 0, 0]}
-                                                maxBarSize={40}
-                                            />
-                                        </BarChart>
-                                    </ResponsiveContainer>
+                                        </div>
+                                        <div>
+                                            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                                                Rincian Belanja
+                                            </h3>
+                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">
+                                                Akumulasi Realisasi
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 flex flex-col justify-around gap-5">
+                                        <div className="p-6 bg-emerald-50/80 rounded-[1.5rem] border border-emerald-100 hover:shadow-md hover:shadow-emerald-100/50 transition-all duration-300">
+                                            <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>{" "}
+                                                51 - Belanja Pegawai
+                                            </h4>
+                                            <p className="text-3xl font-black text-emerald-900 tracking-tight">
+                                                {formatSingkat(
+                                                    dashboardData
+                                                        .rincian_belanja
+                                                        ?.gaji || 0,
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div className="p-6 bg-blue-50/80 rounded-[1.5rem] border border-blue-100 hover:shadow-md hover:shadow-blue-100/50 transition-all duration-300">
+                                            <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>{" "}
+                                                52 - Belanja Barang
+                                            </h4>
+                                            <p className="text-3xl font-black text-blue-900 tracking-tight">
+                                                {formatSingkat(
+                                                    dashboardData
+                                                        .rincian_belanja
+                                                        ?.barang || 0,
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div className="p-6 bg-purple-50/80 rounded-[1.5rem] border border-purple-100 hover:shadow-md hover:shadow-purple-100/50 transition-all duration-300">
+                                            <h4 className="text-[10px] font-black text-purple-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-purple-500"></span>{" "}
+                                                53 - Belanja Modal
+                                            </h4>
+                                            <p className="text-3xl font-black text-purple-900 tracking-tight">
+                                                {formatSingkat(
+                                                    dashboardData
+                                                        .rincian_belanja
+                                                        ?.modal || 0,
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-
-                            <div className="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-100 flex flex-col justify-between">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="p-3 bg-blue-50 rounded-2xl text-blue-600">
-                                        <PieChart size={24} />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-black text-gray-900">
-                                            Rincian Belanja
-                                        </h3>
-                                        <p className="text-xs text-gray-500 font-medium mt-1">
-                                            Berdasarkan komponen pengeluaran
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="flex-1 flex flex-col justify-around gap-4">
-                                    <div className="p-5 bg-emerald-50 rounded-3xl border border-emerald-100">
-                                        <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5">
-                                            51 - Belanja Pegawai
-                                        </h4>
-                                        <p className="text-2xl font-black text-emerald-900">
-                                            {formatSingkat(
-                                                dashboardData.rincian_belanja
-                                                    ?.gaji || 0,
-                                            )}
-                                        </p>
-                                    </div>
-                                    <div className="p-5 bg-blue-50 rounded-3xl border border-blue-100">
-                                        <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1.5">
-                                            52 - Belanja Barang
-                                        </h4>
-                                        <p className="text-2xl font-black text-blue-900">
-                                            {formatSingkat(
-                                                dashboardData.rincian_belanja
-                                                    ?.barang || 0,
-                                            )}
-                                        </p>
-                                    </div>
-                                    <div className="p-5 bg-purple-50 rounded-3xl border border-purple-100">
-                                        <h4 className="text-[10px] font-black text-purple-600 uppercase tracking-widest mb-1.5">
-                                            53 - Belanja Modal
-                                        </h4>
-                                        <p className="text-2xl font-black text-purple-900">
-                                            {formatSingkat(
-                                                dashboardData.rincian_belanja
-                                                    ?.modal || 0,
-                                            )}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </>
+                        </>
+                    )
                 )}
             </div>
+
             <style>{`
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                .animate-in { animation: fade-in 0.5s ease-out forwards; }
             `}</style>
         </>
     );
