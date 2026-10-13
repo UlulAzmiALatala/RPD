@@ -10,9 +10,9 @@ import {
     DollarSign,
     AlertTriangle,
     Building2,
+    Loader2,
 } from "lucide-react";
 
-// 🔥 TERIMA PROP authUser dan daftarSatker DARI INDEX 🔥
 export default function AddRoModal({
     onClose,
     onSuccess,
@@ -22,7 +22,7 @@ export default function AddRoModal({
     daftarSatker,
 }) {
     const [formData, setFormData] = useState({
-        satker_id: satkerId || "", // Inisialisasi otomatis jika admin sudah milih di filter luar
+        satker_id: satkerId || "",
         kode_ro: "",
         nama_ro: "",
         satuan: "",
@@ -42,16 +42,11 @@ export default function AddRoModal({
         setLoading(true);
         setErrorMsg("");
 
-        const payload = {
-            ...formData,
-            tahun: tahun,
-        };
+        const payload = { ...formData, tahun: tahun };
 
         axios
             .post("/api/rincian-output", payload)
-            .then((res) => {
-                onSuccess(res.data.message);
-            })
+            .then((res) => onSuccess(res.data.message))
             .catch((err) => {
                 setErrorMsg(
                     err.response?.data?.message ||
@@ -62,38 +57,41 @@ export default function AddRoModal({
     };
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-[2rem] w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-                <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-indigo-100 text-indigo-600 rounded-xl">
-                            <Target size={20} />
+        <div className="fixed top-0 left-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 sm:p-6 bg-[#0B1120]/80 backdrop-blur-md transition-all duration-300">
+            <div className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] w-full max-w-2xl overflow-hidden border border-white/60 flex flex-col max-h-[95vh] animate-in zoom-in-95 fade-in duration-300 relative">
+                {/* AMBIENT GLOW */}
+                <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+
+                <div className="flex justify-between items-center p-6 md:p-8 border-b border-slate-100/60 bg-slate-50/30 shrink-0 relative z-10">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-2xl shadow-[0_8px_16px_rgba(79,70,229,0.25)]">
+                            <Target size={26} strokeWidth={2.5} />
                         </div>
                         <div>
-                            <h3 className="font-black text-slate-800 text-lg">
+                            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
                                 Setup Target RO
                             </h3>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            <p className="text-sm font-medium text-slate-500 mt-0.5 uppercase tracking-widest">
                                 Tahun Anggaran {tahun}
                             </p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                        className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors outline-none"
                     >
-                        <X size={20} />
+                        <X size={20} strokeWidth={2.5} />
                     </button>
                 </div>
 
-                <div className="p-6 overflow-y-auto custom-scrollbar">
+                <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar flex-1 relative z-10">
                     {errorMsg && (
-                        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3 animate-in slide-in-from-top-2">
+                        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 shadow-sm animate-in slide-in-from-top-2">
                             <AlertTriangle
-                                size={18}
+                                size={20}
                                 className="text-rose-500 mt-0.5 shrink-0"
                             />
-                            <p className="text-sm font-bold text-rose-700">
+                            <p className="text-sm font-bold text-rose-800">
                                 {errorMsg}
                             </p>
                         </div>
@@ -102,12 +100,11 @@ export default function AddRoModal({
                     <form
                         id="form-add-ro"
                         onSubmit={handleSubmit}
-                        className="space-y-5"
+                        className="space-y-6"
                     >
-                        {/* 🔥 KHUSUS ADMIN: TAMPILKAN DROPDOWN PILIH SATKER 🔥 */}
                         {authUser?.role === "admin" && (
-                            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl mb-2">
-                                <label className="flex items-center gap-1.5 text-xs font-black text-slate-500 uppercase tracking-wider mb-2 ml-1">
+                            <div className="p-5 bg-slate-50/80 border border-slate-200/60 rounded-[2rem] shadow-inner mb-2">
+                                <label className="flex items-center gap-1.5 text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1">
                                     <Building2
                                         size={14}
                                         className="text-indigo-400"
@@ -119,7 +116,7 @@ export default function AddRoModal({
                                     name="satker_id"
                                     value={formData.satker_id}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-indigo-700 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                                    className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-indigo-700 shadow-sm focus:ring-4 focus:ring-indigo-500/10 outline-none cursor-pointer transition-all"
                                 >
                                     <option value="">-- Pilih Satker --</option>
                                     {daftarSatker?.map((s) => (
@@ -131,9 +128,9 @@ export default function AddRoModal({
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
-                                <label className="flex items-center gap-1.5 text-xs font-black text-slate-500 uppercase tracking-wider mb-2 ml-1">
+                                <label className="flex items-center gap-1.5 text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
                                     <Hash
                                         size={14}
                                         className="text-indigo-400"
@@ -147,11 +144,11 @@ export default function AddRoModal({
                                     placeholder="Misal: 4258.EBA.962"
                                     value={formData.kode_ro}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-5 py-3.5 bg-white/90 backdrop-blur border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:font-normal"
                                 />
                             </div>
                             <div>
-                                <label className="flex items-center gap-1.5 text-xs font-black text-slate-500 uppercase tracking-wider mb-2 ml-1">
+                                <label className="flex items-center gap-1.5 text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
                                     <CheckSquare
                                         size={14}
                                         className="text-indigo-400"
@@ -165,13 +162,13 @@ export default function AddRoModal({
                                     placeholder="Misal: Layanan / Orang"
                                     value={formData.satuan}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-5 py-3.5 bg-white/90 backdrop-blur border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:font-normal"
                                 />
                             </div>
                         </div>
 
                         <div>
-                            <label className="flex items-center gap-1.5 text-xs font-black text-slate-500 uppercase tracking-wider mb-2 ml-1">
+                            <label className="flex items-center gap-1.5 text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
                                 <FileType
                                     size={14}
                                     className="text-indigo-400"
@@ -185,16 +182,16 @@ export default function AddRoModal({
                                 placeholder="Misal: Pembinaan Narapidana"
                                 value={formData.nama_ro}
                                 onChange={handleChange}
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-5 py-3.5 bg-white/90 backdrop-blur border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:font-normal"
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 p-5 bg-indigo-50/50 border border-indigo-100 rounded-2xl">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-6 bg-indigo-50/50 border border-indigo-100 rounded-[2rem]">
                             <div>
-                                <label className="flex items-center gap-1.5 text-xs font-black text-slate-500 uppercase tracking-wider mb-2 ml-1">
+                                <label className="flex items-center gap-1.5 text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
                                     <Target
                                         size={14}
-                                        className="text-indigo-600"
+                                        className="text-indigo-500"
                                     />{" "}
                                     Target Volume
                                 </label>
@@ -207,11 +204,11 @@ export default function AddRoModal({
                                     placeholder="Contoh: 50"
                                     value={formData.target_volume}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 bg-white border border-indigo-200 rounded-xl text-lg font-black text-indigo-700 focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-5 py-3.5 bg-white border border-indigo-200 rounded-2xl text-lg font-black text-indigo-700 shadow-sm focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all placeholder:font-normal"
                                 />
                             </div>
                             <div>
-                                <label className="flex items-center gap-1.5 text-xs font-black text-slate-500 uppercase tracking-wider mb-2 ml-1">
+                                <label className="flex items-center gap-1.5 text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
                                     <DollarSign
                                         size={14}
                                         className="text-emerald-500"
@@ -226,19 +223,19 @@ export default function AddRoModal({
                                     placeholder="Contoh: 150000000"
                                     value={formData.pagu_anggaran}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 bg-white border border-emerald-200 rounded-xl text-lg font-black text-emerald-700 focus:ring-2 focus:ring-emerald-500"
+                                    className="w-full px-5 py-3.5 bg-white border border-emerald-200 rounded-2xl text-lg font-black text-emerald-700 shadow-sm focus:ring-4 focus:ring-emerald-500/20 outline-none transition-all placeholder:font-normal"
                                 />
                             </div>
                         </div>
                     </form>
                 </div>
 
-                <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
+                <div className="p-6 md:px-8 border-t border-slate-100 bg-white flex justify-end gap-3 shrink-0 relative z-20">
                     <button
                         type="button"
                         onClick={onClose}
                         disabled={loading}
-                        className="px-6 py-2.5 text-sm font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-700 rounded-xl transition-colors"
+                        className="px-6 py-3.5 rounded-2xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors outline-none"
                     >
                         Batal
                     </button>
@@ -246,10 +243,14 @@ export default function AddRoModal({
                         type="submit"
                         form="form-add-ro"
                         disabled={loading}
-                        className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg shadow-indigo-200 transition-all disabled:opacity-50"
+                        className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl font-bold text-white transition-all duration-300 outline-none ${loading ? "bg-slate-400 cursor-not-allowed shadow-none" : "bg-gradient-to-br from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 shadow-[0_8px_16px_rgba(79,70,229,0.25)] hover:shadow-[0_8px_20px_rgba(79,70,229,0.4)] hover:-translate-y-0.5"}`}
                     >
-                        <Save size={16} />{" "}
-                        {loading ? "Menyimpan..." : "Simpan Target"}
+                        {loading ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                            <Save size={18} strokeWidth={2.5} />
+                        )}{" "}
+                        Simpan Target
                     </button>
                 </div>
             </div>

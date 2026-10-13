@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\RincianOutput;
 use App\Models\RealisasiOutput;
 use App\Models\Satker;
+use App\Models\ActivityLog; // 🔥 WAJIB IMPORT LOG
 use Illuminate\Support\Facades\Validator;
 
 class RincianOutputController extends Controller
@@ -76,14 +77,14 @@ class RincianOutputController extends Controller
     }
 
     // =====================================================================
-    // 📝 SIMPAN TARGET RO BARU (SET UP AWAL TAHUN)
+    // 🎯 SIMPAN TARGET RO BARU (SET UP AWAL TAHUN)
     // =====================================================================
     public function storeTarget(Request $request)
     {
         $user = $request->user();
         $inputData = $request->all();
 
-        // 🧠 ALARM PELACAK: Analisis masalah Satker ID
+        // 🚨 ALARM PELACAK: Analisis masalah Satker ID
         if ($user->role !== 'admin') {
             // Coba cari Satker di database berdasarkan kode_satker User
             $satker = \App\Models\Satker::where('kode_satker', $user->kode_satker)->first();
@@ -126,6 +127,10 @@ class RincianOutputController extends Controller
 
         try {
             $ro = RincianOutput::create($inputData);
+
+            // 🔥 CATAT LOG KEAMANAN
+            ActivityLog::record('CREATE', 'MASTER RO', "Membuat Target RO Baru: {$ro->kode_ro} - {$ro->nama_ro} untuk tahun {$ro->tahun}.");
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Target RO berhasil ditambahkan!',
@@ -189,9 +194,12 @@ class RincianOutputController extends Controller
                 $msg = 'Laporan Realisasi Output berhasil ditambahkan!';
             }
 
+            // 🔥 CATAT LOG KEAMANAN
+            ActivityLog::record('UPDATE', 'PROGRESS RO', "Mengisi progres realisasi RO: {$ro->kode_ro} pada Bulan {$request->bulan}.");
+
             return response()->json(['status' => 'success', 'message' => $msg]);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => 'Gagal menyimpan Realisasi Output.'], 500);
+            return response()->json(['status' => 'error', 'message' => 'Gagal menyimpan Realisasi Output: ' . $e->getMessage()], 500);
         }
     }
 
@@ -202,13 +210,21 @@ class RincianOutputController extends Controller
     {
         try {
             $ro = RincianOutput::findOrFail($id);
+            $namaRo = $ro->nama_ro;
             $ro->delete();
+
+            // 🔥 CATAT LOG KEAMANAN
+            ActivityLog::record('DELETE', 'MASTER RO', "Menghapus Target RO: {$namaRo} beserta seluruh riwayat realisasi bulanannya.");
+
             return response()->json(['status' => 'success', 'message' => 'Target RO berhasil dihapus!']);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => 'Gagal menghapus Target RO.'], 500);
         }
     }
 
+    // =====================================================================
+    // 📄 CETAK PDF RO
+    // =====================================================================
     public function cetakPdfRo(Request $request)
     {
         $tahun = $request->query('tahun', date('Y'));

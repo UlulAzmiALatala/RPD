@@ -13,6 +13,7 @@ import {
     Trophy,
     Medal,
     Crown,
+    Loader2,
 } from "lucide-react";
 
 export default function LaporanBulanan() {
@@ -235,31 +236,36 @@ export default function LaporanBulanan() {
 
     return (
         <MainLayout tahun={tahun}>
-            <div className="space-y-6 font-sans text-slate-600 relative overflow-hidden pb-10">
-                {/* --- HEADER & FILTER SECTION --- */}
-                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6 bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/40">
-                    <div className="flex-1 min-w-[300px]">
+            <div className="space-y-6 font-sans text-slate-700 relative overflow-hidden min-h-screen pb-10">
+                {/* --- AMBIENT BACKGROUND GLOW --- */}
+                <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none -z-10"></div>
+                <div className="absolute top-20 right-20 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+
+                {/* --- HEADER & FILTER SECTION (GLASSMORPHISM) --- */}
+                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6 bg-white/70 backdrop-blur-2xl p-6 md:p-8 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white">
+                    <div className="flex-1 min-w-[300px] relative z-10">
                         <div className="flex items-center gap-4 mb-3">
-                            <div className="p-3.5 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-2xl shadow-lg shadow-indigo-200">
-                                <CalendarSearch size={28} />
+                            <div className="p-4 bg-gradient-to-br from-indigo-600 to-blue-700 text-white rounded-2xl shadow-[0_10px_20px_rgba(79,70,229,0.3)] border border-indigo-400/30">
+                                <CalendarSearch size={32} strokeWidth={2.5} />
                             </div>
-                            <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-600 tracking-tight">
-                                Laporan Nasional Kanwil
-                            </h2>
+                            <div>
+                                <h2 className="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 tracking-tight leading-tight">
+                                    Leaderboard Nasional
+                                </h2>
+                                <p className="text-sm font-semibold text-slate-500 mt-1 flex items-center gap-2">
+                                    Klasemen Poin SIRA (55 Pts) dan Pantauan
+                                    Kinerja Seluruh Satuan Kerja.
+                                </p>
+                            </div>
                         </div>
-                        <p className="text-sm font-medium text-slate-500 ml-[76px]">
-                            Monitoring performa RPD, Realisasi, Capaian RO, dan
-                            Deviasi IKPA Lintas Satker. Diurutkan berdasarkan
-                            Total Poin SIRA (55 Pts) Tertinggi.
-                        </p>
                     </div>
 
                     <form
                         onSubmit={fetchLaporan}
-                        className="w-full xl:w-auto flex flex-wrap gap-4 items-end"
+                        className="w-full xl:w-auto flex flex-wrap gap-4 items-end relative z-10"
                     >
                         <div className="flex-1 min-w-[200px]">
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1 flex items-center gap-1">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1 flex items-center gap-1.5">
                                 <Filter size={14} className="text-indigo-400" />{" "}
                                 Jenis Laporan
                             </label>
@@ -268,10 +274,10 @@ export default function LaporanBulanan() {
                                 onChange={(e) =>
                                     setJenisLaporan(e.target.value)
                                 }
-                                className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-bold text-indigo-700 shadow-sm focus:ring-4 focus:ring-indigo-500/20 cursor-pointer transition-all"
+                                className="w-full bg-white/90 backdrop-blur border border-slate-200/80 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/20 cursor-pointer transition-all outline-none"
                             >
                                 <option value="rpd_vs_realisasi">
-                                    📊 Laporan SIRA (IKPA + RO)
+                                    📊 Poin SIRA (IKPA + RO)
                                 </option>
                                 <option value="murni_realisasi">
                                     💰 Murni Realisasi Saja
@@ -287,18 +293,18 @@ export default function LaporanBulanan() {
                                 type="number"
                                 value={tahun}
                                 onChange={(e) => setTahun(e.target.value)}
-                                className="w-full bg-slate-50/50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-500/20 transition-all"
+                                className="w-full bg-white/90 backdrop-blur border border-slate-200/80 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-800 focus:ring-4 focus:ring-indigo-500/20 transition-all outline-none"
                             />
                         </div>
 
                         <div className="w-48">
-                            <label className="block text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2 ml-1">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">
                                 Kumulatif s.d. Bulan
                             </label>
                             <select
                                 value={bulan}
                                 onChange={(e) => setBulan(e.target.value)}
-                                className="w-full bg-slate-50/50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-500/20 cursor-pointer transition-all"
+                                className="w-full bg-white/90 backdrop-blur border border-slate-200/80 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-800 focus:ring-4 focus:ring-indigo-500/20 cursor-pointer transition-all outline-none"
                             >
                                 {[...Array(12)].map((_, i) => (
                                     <option key={i + 1} value={i + 1}>
@@ -311,255 +317,295 @@ export default function LaporanBulanan() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className={`w-full sm:w-auto px-8 py-3.5 rounded-2xl font-black transition-all duration-300 shadow-lg ${loading ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none" : "bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:shadow-indigo-500/30 hover:-translate-y-0.5"}`}
+                            className={`w-full sm:w-auto px-8 py-3.5 rounded-2xl font-black transition-all duration-300 shadow-lg flex items-center justify-center gap-2 ${loading ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none" : "bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:shadow-[0_8px_20px_rgba(79,70,229,0.3)] hover:-translate-y-1 outline-none"}`}
                         >
-                            {loading ? "Mencari..." : "Tampilkan"}
+                            {loading ? (
+                                <>
+                                    <Loader2
+                                        size={18}
+                                        className="animate-spin"
+                                    />{" "}
+                                    Mencari...
+                                </>
+                            ) : (
+                                "Tampilkan"
+                            )}
                         </button>
                     </form>
                 </div>
 
                 {errorMsg && (
-                    <div className="p-5 bg-rose-50 text-rose-700 border border-rose-100 rounded-2xl text-sm flex items-center gap-4 shadow-sm animate-[fadeIn_0.3s_ease-out]">
-                        <div className="p-2 bg-rose-100 rounded-full">
+                    <div className="p-5 bg-rose-50/90 backdrop-blur text-rose-700 border border-rose-200 rounded-[1.5rem] text-sm flex items-center gap-4 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300 relative z-10">
+                        <div className="p-2 bg-rose-100 rounded-xl">
                             <AlertTriangle className="w-5 h-5 text-rose-600" />
                         </div>
                         <p className="font-bold">{errorMsg}</p>
                     </div>
                 )}
 
-                {/* --- TABEL REKAPITULASI --- */}
-                <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden animate-[fadeIn_0.5s_ease-out]">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-6 md:px-8 border-b border-slate-100 bg-slate-50/30">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-emerald-100 rounded-xl text-emerald-600">
-                                <TrendingUp size={20} />
+                {/* --- TABEL LEADERBOARD PREMIUM --- */}
+                <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700 relative z-10 mt-6">
+                    {/* Panel Kendali Export */}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 p-6 md:p-8 border-b border-slate-100/60 bg-slate-50/50">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-emerald-500/20 text-emerald-600 rounded-2xl">
+                                <TrendingUp size={24} strokeWidth={2.5} />
                             </div>
                             <div>
-                                <h3 className="text-lg font-black text-slate-800">
-                                    Data Kumulatif s.d.{" "}
-                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-500">
+                                <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                                    Rekapitulasi s.d.{" "}
+                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-600">
                                         {namaBulan[bulan]} {tahun}
                                     </span>
-                                    {twAktif && (
-                                        <span className="ml-2 px-2 py-0.5 text-[10px] bg-blue-100 text-blue-700 rounded-md uppercase">
-                                            TW {twAktif}
-                                        </span>
-                                    )}
                                 </h3>
+                                {twAktif && (
+                                    <div className="inline-block mt-2 px-3 py-1 bg-blue-100/80 text-blue-700 text-[10px] font-black uppercase tracking-widest rounded-lg border border-blue-200">
+                                        Posisi TW {twAktif}
+                                    </div>
+                                )}
                             </div>
                         </div>
-                        <div className="flex gap-3 w-full md:w-auto">
+
+                        <div className="flex flex-wrap gap-3 w-full md:w-auto bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
                             <button
                                 onClick={handleExportPdfNasional}
-                                disabled={laporanData.length === 0}
-                                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-rose-50 text-rose-600 hover:bg-gradient-to-r hover:from-rose-500 hover:to-red-500 hover:text-white border border-rose-200 hover:border-transparent rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 disabled:opacity-50 group shadow-sm"
+                                disabled={laporanData.length === 0 || loading}
+                                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 outline-none disabled:opacity-50"
                             >
-                                <FileText
-                                    size={16}
-                                    className="group-hover:-translate-y-0.5 transition-transform"
-                                />{" "}
-                                Unduh PDF Nasional
+                                <FileText size={16} /> PDF Nasional
                             </button>
                             <button
                                 onClick={handleExportExcel}
-                                disabled={laporanData.length === 0}
-                                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 hover:border-emerald-500 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 disabled:opacity-50 group shadow-sm"
+                                disabled={laporanData.length === 0 || loading}
+                                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 outline-none disabled:opacity-50"
                             >
-                                <FileSpreadsheet
-                                    size={16}
-                                    className="group-hover:scale-110 transition-transform"
-                                />{" "}
-                                Unduh Excel
+                                <FileSpreadsheet size={16} /> Excel
                             </button>
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-left text-sm whitespace-nowrap">
-                            <thead className="sticky top-0 z-10 bg-slate-900 text-slate-300 text-[10px] uppercase font-black tracking-widest text-center border-b border-slate-700 shadow-md">
+                    {/* STICKY DATA GRID */}
+                    <div className="overflow-x-auto custom-scrollbar max-h-[700px] relative">
+                        <table className="min-w-full divide-y divide-slate-200 text-[11px] border-collapse relative">
+                            <thead className="bg-[#0A192F] text-slate-300 text-[10px] uppercase font-black tracking-widest text-center shadow-md sticky top-0 z-30">
                                 {jenisLaporan === "murni_realisasi" ? (
                                     <tr>
-                                        <th className="px-5 py-5 rounded-tl-xl text-left">
+                                        <th className="px-5 py-5 text-left border-r border-slate-700">
                                             Satuan Kerja
                                         </th>
-                                        <th className="px-5 py-5 text-right border-x border-slate-700">
+                                        <th className="px-5 py-5 text-right border-r border-slate-700">
                                             Pagu Efektif
                                         </th>
-                                        <th className="px-5 py-5 text-right">
+                                        <th className="px-5 py-5 text-right border-r border-slate-700 bg-emerald-900/30">
                                             Realisasi 51
                                         </th>
-                                        <th className="px-5 py-5 text-right">
+                                        <th className="px-5 py-5 text-right border-r border-slate-700 bg-emerald-900/30">
                                             Realisasi 52
                                         </th>
-                                        <th className="px-5 py-5 text-right">
+                                        <th className="px-5 py-5 text-right border-r border-slate-700 bg-emerald-900/30">
                                             Realisasi 53
                                         </th>
-                                        <th className="px-5 py-5 text-right bg-emerald-900/40 border-l border-slate-700">
+                                        <th className="px-5 py-5 text-right bg-emerald-900/60 border-l border-slate-700 text-white">
                                             Total Realisasi
                                         </th>
-                                        <th className="px-5 py-5 bg-emerald-900/40 border-x border-slate-700">
+                                        <th className="px-5 py-5 bg-emerald-900/60 border-x border-slate-700 text-white">
                                             % Serap
                                         </th>
-                                        <th className="px-5 py-5 rounded-tr-xl">
-                                            Aksi
-                                        </th>
+                                        <th className="px-5 py-5">Aksi</th>
                                     </tr>
                                 ) : (
                                     <tr>
                                         <th
-                                            className="px-5 py-5 rounded-tl-xl text-left align-middle"
+                                            className="px-5 py-5 text-left align-middle border-r border-slate-700 bg-slate-900 sticky left-0 z-40"
                                             rowSpan="2"
                                         >
-                                            Peringkat
+                                            Satuan Kerja
                                         </th>
                                         <th
-                                            className="px-5 py-5 text-right border-x border-slate-700 align-middle"
+                                            className="px-5 py-5 text-right border-r border-slate-700 align-middle"
                                             rowSpan="2"
                                         >
                                             Pagu Efektif
                                         </th>
                                         <th
-                                            className="px-5 py-5 text-right text-indigo-300 bg-indigo-900/30 align-middle"
+                                            className="px-5 py-5 text-right text-indigo-300 bg-indigo-900/50 align-middle border-r border-slate-700"
                                             rowSpan="2"
                                         >
                                             Total RPD
                                         </th>
                                         <th
-                                            className="px-5 py-5 text-right text-emerald-300 bg-emerald-900/30 align-middle"
+                                            className="px-5 py-5 text-right text-emerald-300 bg-emerald-900/50 align-middle border-r border-slate-700"
                                             rowSpan="2"
                                         >
                                             Total Realisasi
                                         </th>
                                         <th
-                                            className="px-5 py-5 text-right text-rose-300 bg-rose-900/30 border-r border-slate-700 align-middle"
+                                            className="px-5 py-5 text-right text-rose-300 bg-rose-900/50 border-r border-slate-700 align-middle leading-tight"
                                             rowSpan="2"
                                         >
-                                            Selisih Nominal
+                                            Selisih
+                                            <br />
+                                            Nominal
                                         </th>
                                         <th
-                                            className="px-5 py-5 text-right align-middle"
+                                            className="px-5 py-5 text-center align-middle border-r border-slate-700 bg-slate-800 leading-tight"
                                             rowSpan="2"
                                         >
-                                            Deviasi Tertimbang
+                                            Deviasi
+                                            <br />
+                                            Tertimbang
                                         </th>
+
+                                        {/* GABUNGAN HEADER KEMENKEU */}
                                         <th
-                                            className="px-5 py-2 border-x border-slate-700 bg-blue-900/30"
+                                            className="px-5 py-3 border-r border-slate-700 bg-blue-900/50"
                                             colSpan="3"
                                         >
-                                            Status Target Penyerapan (TW{" "}
+                                            Status Penyerapan Nasional (TW{" "}
                                             {twAktif})
                                         </th>
+
                                         <th
-                                            className="px-5 py-5 bg-slate-800 text-slate-300 border-r border-slate-700 align-middle"
+                                            className="px-5 py-5 bg-slate-800 text-slate-300 border-r border-slate-700 align-middle leading-tight"
                                             rowSpan="2"
                                         >
                                             Nilai IKPA
-                                            <div className="text-[8px] text-slate-500 mt-1 leading-tight">
+                                            <div className="text-[8px] text-slate-400 mt-1 font-bold">
                                                 Hal. III DIPA
                                             </div>
                                         </th>
-                                        {/* 🔥 SUPER KOLOM: CAPAIAN OUTPUT 🔥 */}
                                         <th
-                                            className="px-5 py-5 bg-purple-900/30 text-purple-300 border-r border-slate-700 align-middle"
+                                            className="px-5 py-5 bg-purple-900/50 text-purple-300 border-r border-slate-700 align-middle leading-tight"
                                             rowSpan="2"
                                         >
                                             Capaian RO
-                                            <div className="text-[8px] text-purple-400/50 mt-1 leading-tight">
+                                            <div className="text-[8px] text-purple-400/50 mt-1 font-bold">
                                                 Maks 100
                                             </div>
                                         </th>
                                         <th
-                                            className="px-5 py-5 bg-yellow-500/20 text-yellow-400 border-r border-slate-700 align-middle"
+                                            className="px-5 py-5 bg-yellow-500/20 text-yellow-400 border-r border-slate-700 align-middle leading-tight"
                                             rowSpan="2"
                                         >
                                             TOTAL POIN
-                                            <div className="text-[8px] text-yellow-500/50 mt-1 leading-tight">
+                                            <div className="text-[8px] text-yellow-500/50 mt-1 font-bold">
                                                 SIRA (Maks 55)
                                             </div>
                                         </th>
                                         <th
-                                            className="px-5 py-5 rounded-tr-xl align-middle"
+                                            className="px-5 py-5 align-middle"
                                             rowSpan="2"
                                         >
-                                            Aksi
+                                            Cetak
+                                            <br />
+                                            Rapor
                                         </th>
                                     </tr>
                                 )}
                                 {jenisLaporan !== "murni_realisasi" && (
-                                    <tr className="bg-slate-800 text-[9px]">
-                                        <th className="px-3 py-2 border-l border-r border-slate-700 text-blue-300">
-                                            Target 51
+                                    <tr className="bg-slate-800 text-[9px] uppercase tracking-widest text-blue-300">
+                                        <th className="px-4 py-2 border-r border-slate-700 font-bold">
+                                            Pegawai (51)
                                         </th>
-                                        <th className="px-3 py-2 border-r border-slate-700 text-blue-300">
-                                            Target 52
+                                        <th className="px-4 py-2 border-r border-slate-700 font-bold">
+                                            Barang (52)
                                         </th>
-                                        <th className="px-3 py-2 border-r border-slate-700 text-blue-300">
-                                            Target 53
+                                        <th className="px-4 py-2 border-r border-slate-700 font-bold">
+                                            Modal (53)
                                         </th>
                                     </tr>
                                 )}
                             </thead>
-                            <tbody className="divide-y divide-slate-100/80">
+
+                            <tbody className="divide-y divide-slate-100 bg-white">
                                 {loading ? (
                                     <tr>
                                         <td
                                             colSpan="14"
-                                            className="px-6 py-20 text-center"
+                                            className="px-6 py-24 text-center"
                                         >
-                                            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 mb-4"></div>
+                                            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 mb-4 shadow-md"></div>
+                                            <p className="text-sm font-black text-slate-400 tracking-widest uppercase animate-pulse">
+                                                Menyusun Leaderboard...
+                                            </p>
                                         </td>
                                     </tr>
                                 ) : laporanData.length > 0 ? (
                                     laporanData.map((row, index) => {
-                                        // Styling khusus untuk Medali Juara
+                                        // 🔥 STYLING MEDALI & GLOWING LEADERBOARD 🔥
                                         let medalStyle =
-                                            "bg-slate-50 text-slate-400 border-slate-200";
-                                        let iconMedal = `#${index + 1}`;
+                                            "bg-slate-100 text-slate-500 border-slate-200";
+                                        let iconMedal = (
+                                            <span className="font-mono text-sm">
+                                                {index + 1}
+                                            </span>
+                                        );
                                         let pointStyle = "text-rose-600";
+                                        let rowGlow = "";
 
                                         if (index === 0) {
                                             medalStyle =
-                                                "bg-gradient-to-br from-yellow-100 to-amber-200 text-amber-700 border-yellow-300 shadow-[0_0_15px_rgba(252,211,77,0.5)]";
-                                            iconMedal = <Crown size={16} />;
+                                                "bg-gradient-to-br from-yellow-300 to-amber-500 text-white border-yellow-400 shadow-[0_0_15px_rgba(252,211,77,0.8)]";
+                                            iconMedal = (
+                                                <Crown
+                                                    size={18}
+                                                    strokeWidth={2.5}
+                                                />
+                                            );
                                             pointStyle =
-                                                "text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-orange-500 scale-110";
+                                                "text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-orange-500 scale-110 drop-shadow-md";
+                                            rowGlow =
+                                                "bg-gradient-to-r from-yellow-50/50 to-transparent";
                                         } else if (index === 1) {
                                             medalStyle =
-                                                "bg-gradient-to-br from-slate-100 to-slate-300 text-slate-700 border-slate-400 shadow-[0_0_10px_rgba(148,163,184,0.4)]";
-                                            iconMedal = <Medal size={16} />;
+                                                "bg-gradient-to-br from-slate-300 to-slate-400 text-white border-slate-400 shadow-[0_0_10px_rgba(148,163,184,0.6)]";
+                                            iconMedal = (
+                                                <Medal
+                                                    size={18}
+                                                    strokeWidth={2.5}
+                                                />
+                                            );
                                             pointStyle =
                                                 "text-transparent bg-clip-text bg-gradient-to-r from-slate-500 to-slate-700 scale-105";
+                                            rowGlow = "bg-slate-50/50";
                                         } else if (index === 2) {
                                             medalStyle =
-                                                "bg-gradient-to-br from-orange-100 to-orange-300 text-orange-800 border-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.4)]";
-                                            iconMedal = <Medal size={16} />;
+                                                "bg-gradient-to-br from-orange-300 to-amber-600 text-white border-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.5)]";
+                                            iconMedal = (
+                                                <Medal
+                                                    size={18}
+                                                    strokeWidth={2.5}
+                                                />
+                                            );
                                             pointStyle =
                                                 "text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-700 scale-105";
+                                            rowGlow = "bg-orange-50/20";
                                         } else if (
                                             row.evaluasi_tw?.poin?.total_poin >=
                                             48
-                                        )
+                                        ) {
                                             pointStyle = "text-emerald-600";
-                                        else if (
+                                        } else if (
                                             row.evaluasi_tw?.poin?.total_poin >=
                                             35
-                                        )
+                                        ) {
                                             pointStyle = "text-amber-500";
+                                        }
 
                                         return (
                                             <tr
                                                 key={row.satker.id}
-                                                className={`hover:bg-indigo-50/40 transition-colors group ${index <= 2 ? "bg-yellow-50/10" : ""}`}
+                                                className={`hover:bg-indigo-50/60 transition-colors group whitespace-nowrap ${rowGlow}`}
                                             >
-                                                <td className="px-5 py-4 flex items-center gap-3 border-r border-slate-100">
+                                                <td className="px-5 py-4 flex items-center gap-4 border-r border-slate-100 bg-white sticky left-0 z-20 group-hover:bg-indigo-50/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                                                     <div
-                                                        className={`w-9 h-9 flex items-center justify-center rounded-full font-black text-xs border ${medalStyle}`}
+                                                        className={`w-10 h-10 flex items-center justify-center rounded-[1rem] font-black border ${medalStyle}`}
                                                     >
                                                         {iconMedal}
                                                     </div>
                                                     <div>
                                                         <div
-                                                            className={`font-bold ${index <= 2 ? "text-slate-900" : "text-slate-700"}`}
+                                                            className={`text-sm ${index <= 2 ? "font-black text-slate-900" : "font-bold text-slate-700"}`}
                                                         >
                                                             {
                                                                 row.satker
@@ -574,7 +620,7 @@ export default function LaporanBulanan() {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-5 py-4 text-right font-extrabold text-slate-600 border-r border-slate-100 bg-slate-50/20">
+                                                <td className="px-5 py-4 text-right font-black text-slate-600 border-r border-slate-100 bg-slate-50/30 text-[13px]">
                                                     Rp{" "}
                                                     {formatRp(row.pagu_efektif)}
                                                 </td>
@@ -582,45 +628,45 @@ export default function LaporanBulanan() {
                                                 {jenisLaporan ===
                                                 "murni_realisasi" ? (
                                                     <>
-                                                        <td className="px-5 py-4 text-right font-medium text-slate-500">
+                                                        <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100">
                                                             {formatRp(
                                                                 row.realisasi_gaji,
                                                             )}
                                                         </td>
-                                                        <td className="px-5 py-4 text-right font-medium text-slate-500">
+                                                        <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100">
                                                             {formatRp(
                                                                 row.realisasi_barang,
                                                             )}
                                                         </td>
-                                                        <td className="px-5 py-4 text-right font-medium text-slate-500">
+                                                        <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100">
                                                             {formatRp(
                                                                 row.realisasi_modal,
                                                             )}
                                                         </td>
-                                                        <td className="px-5 py-4 text-right font-black text-emerald-700 bg-emerald-50/30 border-l border-slate-100">
+                                                        <td className="px-5 py-4 text-right font-black text-emerald-700 bg-emerald-50/30 border-r border-slate-100 text-[13px]">
                                                             {formatRp(
                                                                 row.total_realisasi,
                                                             )}
                                                         </td>
-                                                        <td className="px-5 py-4 text-center bg-emerald-50/10 border-x border-slate-100">
+                                                        <td className="px-5 py-4 text-center bg-emerald-50/10 border-r border-slate-100">
                                                             <span
-                                                                className={`px-3 py-1 inline-flex text-xs font-black rounded-lg border shadow-sm ${row.persentase_penyerapan >= 50 ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-rose-100 text-rose-700 border-rose-200"}`}
+                                                                className={`px-3 py-1.5 inline-flex text-[11px] font-black rounded-lg border shadow-sm ${row.persentase_penyerapan >= 50 ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-rose-100 text-rose-700 border-rose-200"}`}
                                                             >
-                                                                {
-                                                                    row.persentase_penyerapan
-                                                                }
+                                                                {formatDecimal(
+                                                                    row.persentase_penyerapan,
+                                                                )}
                                                                 %
                                                             </span>
                                                         </td>
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <td className="px-5 py-4 text-right font-semibold text-indigo-700 bg-indigo-50/40">
+                                                        <td className="px-5 py-4 text-right font-bold text-indigo-700 bg-indigo-50/40 border-r border-slate-100">
                                                             {formatRp(
                                                                 row.total_rpd,
                                                             )}
                                                         </td>
-                                                        <td className="px-5 py-4 text-right font-semibold text-emerald-700 bg-emerald-50/40">
+                                                        <td className="px-5 py-4 text-right font-bold text-emerald-700 bg-emerald-50/40 border-r border-slate-100">
                                                             {formatRp(
                                                                 row.total_realisasi,
                                                             )}
@@ -630,14 +676,14 @@ export default function LaporanBulanan() {
                                                                 row.total_deviasi,
                                                             )}
                                                         </td>
-                                                        <td className="px-5 py-4 text-right font-bold text-slate-700">
-                                                            {
-                                                                row.deviasi_tertimbang_kumulatif
-                                                            }{" "}
+                                                        <td className="px-5 py-4 text-center font-bold text-slate-700 border-r border-slate-100 bg-slate-50/50">
+                                                            {formatDecimal(
+                                                                row.deviasi_tertimbang_kumulatif,
+                                                            )}{" "}
                                                             %
                                                         </td>
 
-                                                        {/* 🔥 KOLOM KELULUSAN TARGET TW */}
+                                                        {/* KOLOM KELULUSAN TARGET TW KEMENKEU */}
                                                         {["51", "52", "53"].map(
                                                             (kode) => {
                                                                 const stat =
@@ -650,7 +696,7 @@ export default function LaporanBulanan() {
                                                                         key={
                                                                             kode
                                                                         }
-                                                                        className="px-3 py-4 text-center border-l border-slate-100"
+                                                                        className="px-3 py-4 text-center border-r border-slate-100"
                                                                     >
                                                                         {stat ===
                                                                         "N/A" ? (
@@ -661,12 +707,12 @@ export default function LaporanBulanan() {
                                                                               "Lulus" ||
                                                                           stat ===
                                                                               "Tercapai" ? (
-                                                                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-2.5 py-1 rounded-md">
-                                                                                Lulus
+                                                                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-3 py-1 rounded-md border border-emerald-200">
+                                                                                LULUS
                                                                             </span>
                                                                         ) : (
-                                                                            <span className="text-[10px] font-black text-rose-600 bg-rose-100 px-2.5 py-1 rounded-md">
-                                                                                Gagal
+                                                                            <span className="text-[10px] font-black text-rose-600 bg-rose-100 px-3 py-1 rounded-md border border-rose-200">
+                                                                                GAGAL
                                                                             </span>
                                                                         )}
                                                                     </td>
@@ -674,12 +720,14 @@ export default function LaporanBulanan() {
                                                             },
                                                         )}
 
-                                                        <td className="px-5 py-4 text-center bg-slate-50 border-x border-slate-100 font-bold text-slate-600">
-                                                            {row.nilai_ikpa}
+                                                        <td className="px-5 py-4 text-center bg-slate-50/80 border-r border-slate-100 font-black text-slate-700 text-sm">
+                                                            {formatDecimal(
+                                                                row.nilai_ikpa,
+                                                            )}
                                                         </td>
 
-                                                        {/* 🔥 SUPER KOLOM: CAPAIAN OUTPUT RO 🔥 */}
-                                                        <td className="px-5 py-4 text-center bg-purple-50/30 border-r border-slate-100 font-bold text-purple-700">
+                                                        {/* SUPER KOLOM: CAPAIAN OUTPUT RO */}
+                                                        <td className="px-5 py-4 text-center bg-purple-50/30 border-r border-slate-100 font-black text-purple-700 text-sm">
                                                             {formatDecimal(
                                                                 row.evaluasi_tw
                                                                     ?.poin
@@ -688,10 +736,10 @@ export default function LaporanBulanan() {
                                                             )}
                                                         </td>
 
-                                                        {/* 🔥 SUPER KOLOM: TOTAL POIN SIRA 🔥 */}
-                                                        <td className="px-5 py-4 text-center bg-amber-50/30 border-r border-slate-100">
+                                                        {/* SUPER KOLOM: TOTAL POIN SIRA */}
+                                                        <td className="px-5 py-4 text-center bg-amber-50/20 border-r border-slate-100">
                                                             <span
-                                                                className={`text-lg font-black drop-shadow-sm inline-block ${pointStyle}`}
+                                                                className={`text-xl font-black ${pointStyle}`}
                                                             >
                                                                 {formatDecimal(
                                                                     row
@@ -701,26 +749,24 @@ export default function LaporanBulanan() {
                                                                         0,
                                                                 )}
                                                             </span>
-                                                            <div className="text-[9px] text-yellow-700/60 font-bold mt-0.5">
-                                                                / 55 Pts
-                                                            </div>
                                                         </td>
                                                     </>
                                                 )}
 
-                                                <td className="px-5 py-4 text-center bg-slate-50/30">
+                                                <td className="px-5 py-4 text-center">
                                                     <button
                                                         onClick={() =>
                                                             handleDownloadPdf(
                                                                 row.satker.id,
                                                             )
                                                         }
-                                                        className="inline-flex items-center justify-center p-2.5 bg-rose-50 text-rose-600 hover:bg-gradient-to-r hover:from-rose-500 hover:to-red-500 hover:text-white rounded-xl transition-all duration-300 border border-rose-200 hover:border-transparent hover:shadow-lg group/btn"
-                                                        title="Cetak PDF Detail Satker"
+                                                        className="inline-flex items-center justify-center p-2.5 bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white rounded-xl transition-all duration-300 border border-rose-100 hover:border-transparent outline-none group/btn shadow-sm"
+                                                        title="Cetak Rapor Eksekutif Satker"
                                                     >
                                                         <DownloadCloud
                                                             size={18}
                                                             className="group-hover/btn:-translate-y-0.5 transition-transform"
+                                                            strokeWidth={2.5}
                                                         />
                                                     </button>
                                                 </td>
@@ -731,9 +777,18 @@ export default function LaporanBulanan() {
                                     <tr>
                                         <td
                                             colSpan="14"
-                                            className="px-6 py-20 text-center text-slate-400 font-bold"
+                                            className="px-6 py-24 text-center"
                                         >
-                                            Data Belum Tersedia
+                                            <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                                                <AlertTriangle size={32} />
+                                            </div>
+                                            <p className="text-base font-black text-slate-500">
+                                                Data Belum Tersedia
+                                            </p>
+                                            <p className="text-sm font-medium text-slate-400 mt-1">
+                                                Belum ada aktivitas anggaran di
+                                                bulan ini.
+                                            </p>
                                         </td>
                                     </tr>
                                 )}
@@ -743,10 +798,10 @@ export default function LaporanBulanan() {
                 </div>
             </div>
             <style>{`
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-                .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                .custom-scrollbar::-webkit-scrollbar { height: 10px; width: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid #f8fafc; }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
             `}</style>
         </MainLayout>
