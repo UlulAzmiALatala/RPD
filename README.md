@@ -1,59 +1,126 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+<div align="center">
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+  <!-- PROJECT BANNER -->
+  <img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:005C84,50:0A192F,100:00F7FF&height=220&section=header&text=SIRA%202.0&fontSize=60&fontColor=FFFFFF&desc=Sistem%20Informasi%20Realisasi%20Anggaran&descSize=20&descAlignY=65" alt="SIRA 2.0 Banner" />
 
-## About Laravel
+  <p align="center">
+    <i>Platform Executive Dashboard & Monitoring Serapan Anggaran Berbasis Real-Time.</i>
+  </p>
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+  <!-- TECH & STATUS BADGES -->
+  <p align="center">
+    <img src="https://img.shields.io/badge/Status-Production-00E676?style=for-the-badge" alt="Status" />
+    <img src="https://img.shields.io/badge/Architecture-Monolithic_SPA-00F7FF?style=for-the-badge&logo=codeigniter&logoColor=black" alt="Architecture" />
+    <img src="https://img.shields.io/badge/Laravel-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel" />
+    <img src="https://img.shields.io/badge/React.js-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
+    <img src="https://img.shields.io/badge/Inertia.js-9553E9?style=for-the-badge&logo=inertia&logoColor=white" alt="Inertia" />
+  </p>
+</div>
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 🏛️ Tentang Proyek
 
-## Learning Laravel
+**SIRA 2.0 (Sistem Informasi Realisasi Anggaran)** atau modul **RPD (Rencana Penarikan Dana)** adalah platform *GovTech* berskala *enterprise* yang dirancang khusus untuk memonitor, menganalisis, dan melaporkan serapan anggaran secara *real-time*. 
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+Sistem ini mentransformasi alur pelaporan keuangan konvensional menjadi ekosistem digital terpadu, memungkinkan jajaran pimpinan eksekutif untuk mengambil keputusan berbasis data (*data-driven decision making*) dengan visibilitas penuh terhadap arus operasional institusi.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## ✨ Fitur Utama (Core Features)
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+- 📊 **Executive Real-Time Dashboard:** Visualisasi data interaktif (menggunakan *Chart.js*) untuk memantau metrik serapan anggaran secara instan.
+- 📄 **Automated Document Generation:** Ekspor laporan eksekutif, rekapitulasi RPD, dan dokumen Buku Saku ke format PDF (via DOMPDF) secara otomatis.
+- 🔐 **Role-Based Access Control (RBAC):** Manajemen otorisasi bertingkat yang membedakan akses antara pimpinan eksekutif, divisi, dan staf operator.
+- ⚡ **Seamless SPA Experience:** Navigasi super cepat tanpa *page-reload* berkat integrasi Laravel dan React.js yang dijembatani oleh Inertia.js.
+- 📱 **Responsive Glassmorphism UI:** Antarmuka modern yang adaptif di berbagai ukuran layar (Desktop, Tablet, Mobile) menggunakan Tailwind CSS.
 
-### Premium Partners
+---
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## 🛠️ Arsitektur Teknologi (Tech Stack)
 
-## Contributing
+| Kategori | Teknologi Utama | Fungsi dalam Sistem |
+| :--- | :--- | :--- |
+| **Backend / API** | `Laravel 10+` `PHP 8+` | Menangani logika bisnis, *routing*, autentikasi, dan ORM. |
+| **Frontend / UI** | `React.js` `Tailwind CSS` | Membangun komponen UI interaktif dan *styling* responsif. |
+| **Bridge / Routing**| `Inertia.js` | Menghubungkan Laravel & React sebagai *Single Page Application* tanpa API REST terpisah. |
+| **Database** | `MySQL / MariaDB` | Penyimpanan data relasional skala institusi. |
+| **Data Analytics** | `Chart.js` | *Rendering* grafik statistik dinamis pada dashboard. |
+| **Reporting** | `DOMPDF` | *Generate* laporan dokumen resmi (PDF) secara *on-the-fly*. |
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+---
 
-## Code of Conduct
+## 🚀 Panduan Instalasi (Local Environment)
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Ikuti langkah-langkah berikut untuk menjalankan SIRA 2.0 di mesin lokal Anda. Pastikan Anda telah menginstal **PHP 8+**, **Composer**, **Node.js (NPM)**, dan **MySQL**.
 
-## Security Vulnerabilities
+### 1. Clone Repositori
+```bash
+git clone [https://github.com/UlulAzmiALatala/RPD.git](https://github.com/UlulAzmiALatala/RPD.git)
+cd RPD
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### 2. Konfigurasi Backend (Laravel)
+```bash
+# Install dependensi PHP
+composer install
 
-## License
+# Salin file environment
+cp .env.example .env
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# Generate application key
+php artisan key:generate
+```
+
+### 3. Konfigurasi Database
+Buat database baru di MySQL (misalnya `sira_db`), lalu sesuaikan kredensial pada file `.env`:
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=sira_db
+DB_USERNAME=root
+DB_PASSWORD=
+```
+Jalankan migrasi dan *seeder* (jika ada):
+```bash
+php artisan migrate --seed
+```
+
+### 4. Konfigurasi Frontend (React & Inertia)
+```bash
+# Install dependensi Node.js
+npm install
+
+# Build asset untuk development
+npm run dev
+```
+
+### 5. Jalankan Server
+Buka terminal baru dan jalankan server *development* Laravel:
+```bash
+php artisan serve
+```
+Aplikasi kini dapat diakses melalui: `http://localhost:8000`
+
+---
+
+## 💻 Cuplikan Layar Sistem (Screenshots)
+
+<div align="center">
+  <!-- GANTI LINK GAMBAR DI BAWAH INI DENGAN SCREENSHOT ASLI APLIKASIMU -->
+    <img width="1920" height="1200" alt="Screenshot 2026-10-27 154111" src="https://github.com/user-attachments/assets/5142c07c-7be3-47f7-9601-8f868282f3c6" alt="Dashboard SIRA 2.0" />
+    <br/>
+    <img width="1920" height="1200" alt="Screenshot 2026-10-27 154326" src="https://github.com/user-attachments/assets/64548c4c-3277-452a-b469-3ef618e65bd6" alt="Reporting Modul" />
+</div>
+
+---
+
+## 🔐 Keamanan & Lisensi
+
+Sistem ini dikembangkan secara spesifik untuk kebutuhan institusional. Penggunaan, penyalinan, atau modifikasi kode sumber di luar otorisasi yang diberikan dilarang secara ketat tanpa izin tertulis dari pengembang utama.
+
+<div align="center">
+  <br/>
+  <i>Engineered with precision by <b>Ulul Azmi A. Latala</b> &copy; 2026</i>
+</div>
