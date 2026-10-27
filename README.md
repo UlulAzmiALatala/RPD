@@ -109,10 +109,9 @@ Aplikasi kini dapat diakses melalui: `http://localhost:8000`
 
 <div align="center">
   <!-- GANTI LINK GAMBAR DI BAWAH INI DENGAN SCREENSHOT ASLI APLIKASIMU -->
-    <img width="1920" height="1200" alt="Screenshot 2026-10-27 154111" src="https://github.com/user-attachments/assets/5142c07c-7be3-47f7-9601-8f868282f3c6" />
-  <img src="https://via.placeholder.com/800x400/0D1117/00F7FF?text=Dashboard+Executive+View+(Upload+Screenshot+Here)" alt="Dashboard SIRA 2.0" width="80%" />
-  <br/>
-  <img src="https://via.placeholder.com/800x400/0D1117/00F7FF?text=Modul+Laporan+%26+PDF+Export+(Upload+Screenshot+Here)" alt="Reporting Modul" width="80%" />
+    <img width="1920" height="1200" alt="Screenshot 2026-10-27 154111" src="https://github.com/user-attachments/assets/5142c07c-7be3-47f7-9601-8f868282f3c6" alt="Dashboard SIRA 2.0" />
+    <br/>
+    <img width="1920" height="1200" alt="Screenshot 2026-10-27 154326" src="https://github.com/user-attachments/assets/64548c4c-3277-452a-b469-3ef618e65bd6" alt="Reporting Modul" />
 </div>
 
 ---
