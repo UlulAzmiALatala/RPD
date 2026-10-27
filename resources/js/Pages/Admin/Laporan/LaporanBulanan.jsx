@@ -10,10 +10,15 @@ import {
     Filter,
     DownloadCloud,
     TrendingUp,
-    Trophy,
     Medal,
     Crown,
     Loader2,
+    ChevronDown,
+    ChevronUp,
+    Layers,
+    Target,
+    CheckCircle2,
+    Activity,
 } from "lucide-react";
 
 export default function LaporanBulanan() {
@@ -26,10 +31,22 @@ export default function LaporanBulanan() {
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
+    // 🔥 STATE UNTUK MEMBUKA LACI RINCIAN RO PER SATKER
+    const [expandedSatkers, setExpandedSatkers] = useState([]);
+
+    const toggleSatkerRow = (satkerId) => {
+        setExpandedSatkers((prev) =>
+            prev.includes(satkerId)
+                ? prev.filter((id) => id !== satkerId)
+                : [...prev, satkerId],
+        );
+    };
+
     const fetchLaporan = (e) => {
         if (e) e.preventDefault();
         setLoading(true);
         setErrorMsg("");
+        setExpandedSatkers([]);
 
         axios
             .get(`/api/laporan/bulanan?tahun=${tahun}&bulan=${bulan}`)
@@ -105,6 +122,7 @@ export default function LaporanBulanan() {
                     "Realisasi Modal (53)",
                     "Total Realisasi (Rp)",
                     "Serapan Total (%)",
+                    "Jumlah Target RO",
                 ],
             ];
             laporanData.forEach((row, index) => {
@@ -118,6 +136,7 @@ export default function LaporanBulanan() {
                     Number(row.realisasi_modal),
                     Number(row.total_realisasi),
                     Number(row.persentase_penyerapan) / 100,
+                    row.rincian_ro?.length || 0,
                 ]);
             });
         } else {
@@ -170,7 +189,7 @@ export default function LaporanBulanan() {
                     eval51,
                     eval52,
                     eval53,
-                    Number(row.nilai_ikpa),
+                    row.nilai_ikpa === "-" ? "-" : Number(row.nilai_ikpa),
                     Number(row.evaluasi_tw?.poin?.nilai_ro || 0),
                     Number(row.evaluasi_tw?.poin?.total_poin || 0),
                 ]);
@@ -214,6 +233,69 @@ export default function LaporanBulanan() {
             worksheet,
             `Rekap_${namaBulan[bulan]}`,
         );
+
+        // 🔥 SHEET 2 OTOMATIS: RINCIAN KETERLACAKAN RO & SERAPAN LEDGER LINTAS SATKER
+        const aoaRo = [
+            [
+                "RINCIAN CAPAIAN OUTPUT (RO) & SERAPAN ANGGARAN LEDGER LINTAS SATKER",
+            ],
+            [
+                `Kumulatif s.d. Bulan: ${namaBulan[bulan]} ${tahun} (TW ${twAktif})`,
+            ],
+            [],
+            [
+                "Kode Satker",
+                "Nama Satuan Kerja",
+                "Kode RO",
+                "Nama Rincian Output",
+                "Target Volume",
+                "Realisasi Volume",
+                "Capaian Fisik (%)",
+                "Pagu RO (Rp)",
+                "Serapan Ledger (Rp)",
+                "Serapan RO (%)",
+                "Status Kinerja",
+            ],
+        ];
+
+        laporanData.forEach((row) => {
+            if (row.rincian_ro && row.rincian_ro.length > 0) {
+                row.rincian_ro.forEach((ro) => {
+                    aoaRo.push([
+                        row.satker.kode_satker,
+                        row.satker.nama_satker,
+                        ro.kode_ro,
+                        ro.nama_ro,
+                        `${ro.target_volume} ${ro.satuan}`,
+                        `${ro.realisasi_volume} ${ro.satuan}`,
+                        Number(ro.persen_volume),
+                        Number(ro.pagu_anggaran),
+                        Number(ro.serapan_anggaran),
+                        Number(ro.persen_anggaran),
+                        ro.status_kinerja,
+                    ]);
+                });
+            }
+        });
+
+        if (aoaRo.length > 4) {
+            const wsRo = XLSX.utils.aoa_to_sheet(aoaRo);
+            wsRo["!cols"] = [
+                { wch: 15 },
+                { wch: 35 },
+                { wch: 18 },
+                { wch: 40 },
+                { wch: 18 },
+                { wch: 18 },
+                { wch: 15 },
+                { wch: 20 },
+                { wch: 20 },
+                { wch: 15 },
+                { wch: 18 },
+            ];
+            XLSX.utils.book_append_sheet(workbook, wsRo, `Rincian_RO_Satker`);
+        }
+
         XLSX.writeFile(
             workbook,
             `Laporan_Nasional_SIRA_${jenisLaporan}_${namaBulan[bulan]}_${tahun}.xlsx`,
@@ -227,12 +309,173 @@ export default function LaporanBulanan() {
         );
     };
 
+    const handleDownloadPdfRo = (satkerId) => {
+        window.open(
+            `/api/laporan/rincian-output/pdf?tahun=${tahun}&satker_id=${satkerId}`,
+            "_blank",
+        );
+    };
+
     const handleExportPdfNasional = () => {
         window.open(
             `/api/laporan/bulanan/pdf?tahun=${tahun}&bulan=${bulan}`,
             "_blank",
         );
     };
+
+    // 🔥 KOMPONEN LACI KETERLACAKAN RO & SERAPAN LEDGER PER SATKER
+    const renderRoDrawer = (row, colSpanCount) => (
+        <tr className="bg-slate-50/90 border-b border-slate-200">
+            <td
+                colSpan={colSpanCount}
+                className="p-6 text-left font-sans whitespace-normal"
+            >
+                <div className="bg-white rounded-[1.5rem] border border-indigo-100 shadow-inner p-5 animate-in fade-in slide-in-from-top-2 duration-300 max-w-6xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3.5 mb-4">
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-2 bg-purple-100 text-purple-600 rounded-xl">
+                                <Layers size={16} strokeWidth={2.5} />
+                            </div>
+                            <div>
+                                <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">
+                                    Keterlacakan Rincian Output (RO) & Serapan
+                                    Ledger — {row.satker.nama_satker}
+                                </h4>
+                                <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                                    Kumulatif s.d. {namaBulan[bulan]} {tahun} •
+                                    Nilai Rata-Rata Capaian RO:{" "}
+                                    <span className="text-purple-600 font-black">
+                                        {formatDecimal(
+                                            row.evaluasi_tw?.poin?.nilai_ro ||
+                                                0,
+                                        )}
+                                        %
+                                    </span>{" "}
+                                    (Kontribusi SIRA:{" "}
+                                    {formatDecimal(
+                                        row.evaluasi_tw?.poin?.tertimbang_ro ||
+                                            0,
+                                    )}{" "}
+                                    / 25 Pts)
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => handleDownloadPdfRo(row.satker.id)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-purple-200 transition-all shadow-sm self-start sm:self-auto"
+                        >
+                            <FileText size={13} /> Cetak PDF Detail RO
+                        </button>
+                    </div>
+
+                    {row.rincian_ro && row.rincian_ro.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {row.rincian_ro.map((ro) => (
+                                <div
+                                    key={ro.id}
+                                    className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 hover:border-indigo-200 transition-all flex flex-col justify-between gap-3"
+                                >
+                                    <div>
+                                        <div className="flex items-center justify-between gap-2 mb-2">
+                                            <span className="px-2.5 py-1 bg-white text-slate-700 text-[10px] font-black uppercase tracking-wider rounded-lg border border-slate-200 shadow-sm">
+                                                {ro.kode_ro}
+                                            </span>
+                                            <span
+                                                className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg border flex items-center gap-1 ${
+                                                    ro.status_kinerja ===
+                                                    "Selesai 100%"
+                                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                        : ro.status_kinerja ===
+                                                            "Anomali Fisik"
+                                                          ? "bg-amber-50 text-amber-700 border-amber-200"
+                                                          : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                                }`}
+                                            >
+                                                {ro.status_kinerja ===
+                                                "Selesai 100%" ? (
+                                                    <CheckCircle2 size={11} />
+                                                ) : ro.status_kinerja ===
+                                                  "Anomali Fisik" ? (
+                                                    <AlertTriangle size={11} />
+                                                ) : (
+                                                    <Activity size={11} />
+                                                )}
+                                                {ro.status_kinerja}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs font-extrabold text-slate-800 leading-snug">
+                                            {ro.nama_ro}
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-2.5 pt-2 border-t border-slate-200/60">
+                                        {/* Progress Fisik */}
+                                        <div>
+                                            <div className="flex justify-between text-[10px] font-bold mb-1">
+                                                <span className="text-slate-500 flex items-center gap-1">
+                                                    <Target
+                                                        size={11}
+                                                        className="text-emerald-500"
+                                                    />{" "}
+                                                    Fisik: {ro.realisasi_volume}{" "}
+                                                    / {ro.target_volume}{" "}
+                                                    {ro.satuan}
+                                                </span>
+                                                <span className="text-emerald-600 font-black">
+                                                    {ro.persen_volume}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                                <div
+                                                    className="bg-emerald-500 h-full rounded-full"
+                                                    style={{
+                                                        width: `${Math.min(ro.persen_volume, 100)}%`,
+                                                    }}
+                                                ></div>
+                                            </div>
+                                        </div>
+
+                                        {/* Progress Anggaran Ledger */}
+                                        <div>
+                                            <div className="flex justify-between text-[10px] font-bold mb-1">
+                                                <span className="text-slate-500">
+                                                    Serapan Ledger:{" "}
+                                                    <strong className="text-slate-700">
+                                                        Rp{" "}
+                                                        {formatRp(
+                                                            ro.serapan_anggaran,
+                                                        )}
+                                                    </strong>{" "}
+                                                    / Rp{" "}
+                                                    {formatRp(ro.pagu_anggaran)}
+                                                </span>
+                                                <span className="text-blue-600 font-black">
+                                                    {ro.persen_anggaran}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                                <div
+                                                    className="bg-blue-500 h-full rounded-full"
+                                                    style={{
+                                                        width: `${Math.min(ro.persen_anggaran, 100)}%`,
+                                                    }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-6 text-slate-400 text-xs font-bold">
+                            Satuan Kerja ini belum mendaftarkan Target Rincian
+                            Output (RO) pada tahun {tahun}.
+                        </div>
+                    )}
+                </div>
+            </td>
+        </tr>
+    );
 
     return (
         <MainLayout tahun={tahun}>
@@ -253,8 +496,8 @@ export default function LaporanBulanan() {
                                     Leaderboard Nasional
                                 </h2>
                                 <p className="text-sm font-semibold text-slate-500 mt-1 flex items-center gap-2">
-                                    Klasemen Poin SIRA (55 Pts) dan Pantauan
-                                    Kinerja Seluruh Satuan Kerja.
+                                    Klasemen Poin SIRA (55 Pts) & Keterlacakan
+                                    Rincian Output Seluruh Satker.
                                 </p>
                             </div>
                         </div>
@@ -358,11 +601,18 @@ export default function LaporanBulanan() {
                                         {namaBulan[bulan]} {tahun}
                                     </span>
                                 </h3>
-                                {twAktif && (
-                                    <div className="inline-block mt-2 px-3 py-1 bg-blue-100/80 text-blue-700 text-[10px] font-black uppercase tracking-widest rounded-lg border border-blue-200">
-                                        Posisi TW {twAktif}
-                                    </div>
-                                )}
+                                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                    {twAktif && (
+                                        <span className="px-3 py-1 bg-blue-100/80 text-blue-700 text-[10px] font-black uppercase tracking-widest rounded-lg border border-blue-200">
+                                            Posisi TW {twAktif}
+                                        </span>
+                                    )}
+                                    <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100 flex items-center gap-1">
+                                        <Layers size={12} /> Klik baris Satker
+                                        untuk membuka Rincian Output (RO) &
+                                        Serapan Ledger
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
@@ -379,7 +629,7 @@ export default function LaporanBulanan() {
                                 disabled={laporanData.length === 0 || loading}
                                 className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 outline-none disabled:opacity-50"
                             >
-                                <FileSpreadsheet size={16} /> Excel
+                                <FileSpreadsheet size={16} /> Excel (+Sheet RO)
                             </button>
                         </div>
                     </div>
@@ -390,8 +640,8 @@ export default function LaporanBulanan() {
                             <thead className="bg-[#0A192F] text-slate-300 text-[10px] uppercase font-black tracking-widest text-center shadow-md sticky top-0 z-30">
                                 {jenisLaporan === "murni_realisasi" ? (
                                     <tr>
-                                        <th className="px-5 py-5 text-left border-r border-slate-700">
-                                            Satuan Kerja
+                                        <th className="px-5 py-5 text-left border-r border-slate-700 bg-slate-900 sticky left-0 z-40">
+                                            Satuan Kerja & RO
                                         </th>
                                         <th className="px-5 py-5 text-right border-r border-slate-700">
                                             Pagu Efektif
@@ -411,7 +661,9 @@ export default function LaporanBulanan() {
                                         <th className="px-5 py-5 bg-emerald-900/60 border-x border-slate-700 text-white">
                                             % Serap
                                         </th>
-                                        <th className="px-5 py-5">Aksi</th>
+                                        <th className="px-5 py-5">
+                                            Cetak Rapor
+                                        </th>
                                     </tr>
                                 ) : (
                                     <tr>
@@ -419,7 +671,7 @@ export default function LaporanBulanan() {
                                             className="px-5 py-5 text-left align-middle border-r border-slate-700 bg-slate-900 sticky left-0 z-40"
                                             rowSpan="2"
                                         >
-                                            Satuan Kerja
+                                            Satuan Kerja & RO
                                         </th>
                                         <th
                                             className="px-5 py-5 text-right border-r border-slate-700 align-middle"
@@ -532,7 +784,6 @@ export default function LaporanBulanan() {
                                     </tr>
                                 ) : laporanData.length > 0 ? (
                                     laporanData.map((row, index) => {
-                                        // 🔥 STYLING MEDALI & GLOWING LEADERBOARD 🔥
                                         let medalStyle =
                                             "bg-slate-100 text-slate-500 border-slate-200";
                                         let iconMedal = (
@@ -592,100 +843,169 @@ export default function LaporanBulanan() {
                                             pointStyle = "text-amber-500";
                                         }
 
+                                        const isExpanded =
+                                            expandedSatkers.includes(
+                                                row.satker.id,
+                                            );
+                                        const roCount =
+                                            row.rincian_ro?.length || 0;
+                                        const anomaliCount =
+                                            row.rincian_ro?.filter(
+                                                (r) =>
+                                                    r.status_kinerja ===
+                                                    "Anomali Fisik",
+                                            ).length || 0;
+
                                         return (
-                                            <tr
-                                                key={row.satker.id}
-                                                className={`hover:bg-indigo-50/60 transition-colors group whitespace-nowrap ${rowGlow}`}
-                                            >
-                                                <td className="px-5 py-4 flex items-center gap-4 border-r border-slate-100 bg-white sticky left-0 z-20 group-hover:bg-indigo-50/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                                                    <div
-                                                        className={`w-10 h-10 flex items-center justify-center rounded-[1rem] font-black border ${medalStyle}`}
+                                            <React.Fragment key={row.satker.id}>
+                                                <tr
+                                                    className={`hover:bg-indigo-50/60 transition-colors group whitespace-nowrap ${rowGlow} ${isExpanded ? "bg-indigo-50/50" : ""}`}
+                                                >
+                                                    {/* KOLOM SATKER STICKY + TOMBOL EXPAND RO */}
+                                                    <td
+                                                        onClick={() =>
+                                                            toggleSatkerRow(
+                                                                row.satker.id,
+                                                            )
+                                                        }
+                                                        className="px-5 py-4 flex items-center justify-between gap-4 border-r border-slate-100 bg-white sticky left-0 z-20 group-hover:bg-indigo-50/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] cursor-pointer select-none"
+                                                        title="Klik untuk membuka Rincian Output (RO) Satker ini"
                                                     >
-                                                        {iconMedal}
-                                                    </div>
-                                                    <div>
-                                                        <div
-                                                            className={`text-sm ${index <= 2 ? "font-black text-slate-900" : "font-bold text-slate-700"}`}
-                                                        >
-                                                            {
-                                                                row.satker
-                                                                    .nama_satker
-                                                            }
-                                                        </div>
-                                                        <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase mt-0.5">
-                                                            {
-                                                                row.satker
-                                                                    .kode_satker
-                                                            }
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-5 py-4 text-right font-black text-slate-600 border-r border-slate-100 bg-slate-50/30 text-[13px]">
-                                                    Rp{" "}
-                                                    {formatRp(row.pagu_efektif)}
-                                                </td>
-
-                                                {jenisLaporan ===
-                                                "murni_realisasi" ? (
-                                                    <>
-                                                        <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100">
-                                                            {formatRp(
-                                                                row.realisasi_gaji,
-                                                            )}
-                                                        </td>
-                                                        <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100">
-                                                            {formatRp(
-                                                                row.realisasi_barang,
-                                                            )}
-                                                        </td>
-                                                        <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100">
-                                                            {formatRp(
-                                                                row.realisasi_modal,
-                                                            )}
-                                                        </td>
-                                                        <td className="px-5 py-4 text-right font-black text-emerald-700 bg-emerald-50/30 border-r border-slate-100 text-[13px]">
-                                                            {formatRp(
-                                                                row.total_realisasi,
-                                                            )}
-                                                        </td>
-                                                        <td className="px-5 py-4 text-center bg-emerald-50/10 border-r border-slate-100">
-                                                            <span
-                                                                className={`px-3 py-1.5 inline-flex text-[11px] font-black rounded-lg border shadow-sm ${row.persentase_penyerapan >= 50 ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-rose-100 text-rose-700 border-rose-200"}`}
+                                                        <div className="flex items-center gap-3.5">
+                                                            <div
+                                                                className={`w-10 h-10 flex items-center justify-center rounded-[1rem] font-black border shrink-0 ${medalStyle}`}
                                                             >
-                                                                {formatDecimal(
-                                                                    row.persentase_penyerapan,
-                                                                )}
-                                                                %
-                                                            </span>
-                                                        </td>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <td className="px-5 py-4 text-right font-bold text-indigo-700 bg-indigo-50/40 border-r border-slate-100">
-                                                            {formatRp(
-                                                                row.total_rpd,
+                                                                {iconMedal}
+                                                            </div>
+                                                            <div>
+                                                                <div
+                                                                    className={`text-sm ${index <= 2 ? "font-black text-slate-900" : "font-bold text-slate-700"}`}
+                                                                >
+                                                                    {
+                                                                        row
+                                                                            .satker
+                                                                            .nama_satker
+                                                                    }
+                                                                </div>
+                                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                                    <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">
+                                                                        {
+                                                                            row
+                                                                                .satker
+                                                                                .kode_satker
+                                                                        }
+                                                                    </span>
+                                                                    <span
+                                                                        className={`px-1.5 py-0.5 text-[9px] font-black rounded-md border ${roCount > 0 ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-slate-100 text-slate-400 border-slate-200"}`}
+                                                                    >
+                                                                        {
+                                                                            roCount
+                                                                        }{" "}
+                                                                        RO
+                                                                    </span>
+                                                                    {anomaliCount >
+                                                                        0 && (
+                                                                        <span className="px-1.5 py-0.5 text-[9px] font-black rounded-md bg-amber-100 text-amber-700 border border-amber-200">
+                                                                            {
+                                                                                anomaliCount
+                                                                            }{" "}
+                                                                            Anomali
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div
+                                                            className={`p-1.5 rounded-lg border transition-colors ${isExpanded ? "bg-indigo-600 text-white border-indigo-600" : "bg-slate-50 text-slate-400 border-slate-200 group-hover:text-indigo-600"}`}
+                                                        >
+                                                            {isExpanded ? (
+                                                                <ChevronUp
+                                                                    size={14}
+                                                                    strokeWidth={
+                                                                        3
+                                                                    }
+                                                                />
+                                                            ) : (
+                                                                <ChevronDown
+                                                                    size={14}
+                                                                    strokeWidth={
+                                                                        3
+                                                                    }
+                                                                />
                                                             )}
-                                                        </td>
-                                                        <td className="px-5 py-4 text-right font-bold text-emerald-700 bg-emerald-50/40 border-r border-slate-100">
-                                                            {formatRp(
-                                                                row.total_realisasi,
-                                                            )}
-                                                        </td>
-                                                        <td className="px-5 py-4 text-right font-bold text-rose-600 bg-rose-50/40 border-r border-slate-100">
-                                                            {formatRp(
-                                                                row.total_deviasi,
-                                                            )}
-                                                        </td>
-                                                        <td className="px-5 py-4 text-center font-bold text-slate-700 border-r border-slate-100 bg-slate-50/50">
-                                                            {formatDecimal(
-                                                                row.deviasi_tertimbang_kumulatif,
-                                                            )}{" "}
-                                                            %
-                                                        </td>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-5 py-4 text-right font-black text-slate-600 border-r border-slate-100 bg-slate-50/30 text-[13px]">
+                                                        Rp{" "}
+                                                        {formatRp(
+                                                            row.pagu_efektif,
+                                                        )}
+                                                    </td>
 
-                                                        {/* KOLOM KELULUSAN TARGET TW KEMENKEU */}
-                                                        {["51", "52", "53"].map(
-                                                            (kode) => {
+                                                    {jenisLaporan ===
+                                                    "murni_realisasi" ? (
+                                                        <>
+                                                            <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100">
+                                                                {formatRp(
+                                                                    row.realisasi_gaji,
+                                                                )}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100">
+                                                                {formatRp(
+                                                                    row.realisasi_barang,
+                                                                )}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100">
+                                                                {formatRp(
+                                                                    row.realisasi_modal,
+                                                                )}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-right font-black text-emerald-700 bg-emerald-50/30 border-r border-slate-100 text-[13px]">
+                                                                {formatRp(
+                                                                    row.total_realisasi,
+                                                                )}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-center bg-emerald-50/10 border-r border-slate-100">
+                                                                <span
+                                                                    className={`px-3 py-1.5 inline-flex text-[11px] font-black rounded-lg border shadow-sm ${row.persentase_penyerapan >= 50 ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-rose-100 text-rose-700 border-rose-200"}`}
+                                                                >
+                                                                    {formatDecimal(
+                                                                        row.persentase_penyerapan,
+                                                                    )}
+                                                                    %
+                                                                </span>
+                                                            </td>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <td className="px-5 py-4 text-right font-bold text-indigo-700 bg-indigo-50/40 border-r border-slate-100">
+                                                                {formatRp(
+                                                                    row.total_rpd,
+                                                                )}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-right font-bold text-emerald-700 bg-emerald-50/40 border-r border-slate-100">
+                                                                {formatRp(
+                                                                    row.total_realisasi,
+                                                                )}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-right font-bold text-rose-600 bg-rose-50/40 border-r border-slate-100">
+                                                                {formatRp(
+                                                                    row.total_deviasi,
+                                                                )}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-center font-bold text-slate-700 border-r border-slate-100 bg-slate-50/50">
+                                                                {formatDecimal(
+                                                                    row.deviasi_tertimbang_kumulatif,
+                                                                )}{" "}
+                                                                %
+                                                            </td>
+
+                                                            {/* KOLOM KELULUSAN TARGET TW KEMENKEU */}
+                                                            {[
+                                                                "51",
+                                                                "52",
+                                                                "53",
+                                                            ].map((kode) => {
                                                                 const stat =
                                                                     row
                                                                         .evaluasi_tw[
@@ -709,6 +1029,8 @@ export default function LaporanBulanan() {
                                                                               "Tercapai" ? (
                                                                             <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-3 py-1 rounded-md border border-emerald-200">
                                                                                 LULUS
+                                                                                /
+                                                                                TERCAPAI
                                                                             </span>
                                                                         ) : (
                                                                             <span className="text-[10px] font-black text-rose-600 bg-rose-100 px-3 py-1 rounded-md border border-rose-200">
@@ -717,60 +1039,118 @@ export default function LaporanBulanan() {
                                                                         )}
                                                                     </td>
                                                                 );
-                                                            },
-                                                        )}
+                                                            })}
 
-                                                        <td className="px-5 py-4 text-center bg-slate-50/80 border-r border-slate-100 font-black text-slate-700 text-sm">
-                                                            {formatDecimal(
-                                                                row.nilai_ikpa,
-                                                            )}
-                                                        </td>
-
-                                                        {/* SUPER KOLOM: CAPAIAN OUTPUT RO */}
-                                                        <td className="px-5 py-4 text-center bg-purple-50/30 border-r border-slate-100 font-black text-purple-700 text-sm">
-                                                            {formatDecimal(
-                                                                row.evaluasi_tw
-                                                                    ?.poin
-                                                                    ?.nilai_ro ||
-                                                                    0,
-                                                            )}
-                                                        </td>
-
-                                                        {/* SUPER KOLOM: TOTAL POIN SIRA */}
-                                                        <td className="px-5 py-4 text-center bg-amber-50/20 border-r border-slate-100">
-                                                            <span
-                                                                className={`text-xl font-black ${pointStyle}`}
-                                                            >
+                                                            <td className="px-5 py-4 text-center bg-slate-50/80 border-r border-slate-100 font-black text-slate-700 text-sm">
                                                                 {formatDecimal(
-                                                                    row
-                                                                        .evaluasi_tw
-                                                                        ?.poin
-                                                                        ?.total_poin ||
-                                                                        0,
+                                                                    row.nilai_ikpa,
                                                                 )}
-                                                            </span>
-                                                        </td>
-                                                    </>
-                                                )}
+                                                            </td>
 
-                                                <td className="px-5 py-4 text-center">
-                                                    <button
-                                                        onClick={() =>
-                                                            handleDownloadPdf(
-                                                                row.satker.id,
-                                                            )
-                                                        }
-                                                        className="inline-flex items-center justify-center p-2.5 bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white rounded-xl transition-all duration-300 border border-rose-100 hover:border-transparent outline-none group/btn shadow-sm"
-                                                        title="Cetak Rapor Eksekutif Satker"
-                                                    >
-                                                        <DownloadCloud
-                                                            size={18}
-                                                            className="group-hover/btn:-translate-y-0.5 transition-transform"
-                                                            strokeWidth={2.5}
-                                                        />
-                                                    </button>
-                                                </td>
-                                            </tr>
+                                                            {/* SUPER KOLOM: CAPAIAN OUTPUT RO (KLIK UNTUK EXPAND) */}
+                                                            <td
+                                                                onClick={() =>
+                                                                    toggleSatkerRow(
+                                                                        row
+                                                                            .satker
+                                                                            .id,
+                                                                    )
+                                                                }
+                                                                className="px-5 py-4 text-center bg-purple-50/30 hover:bg-purple-100/50 border-r border-slate-100 font-black text-purple-700 text-sm cursor-pointer transition-colors"
+                                                                title="Klik untuk membuka laci rincian RO"
+                                                            >
+                                                                <div>
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .evaluasi_tw
+                                                                            ?.poin
+                                                                            ?.nilai_ro ||
+                                                                            0,
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-[9px] font-bold text-purple-500">
+                                                                    (
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .evaluasi_tw
+                                                                            ?.poin
+                                                                            ?.tertimbang_ro ||
+                                                                            0,
+                                                                    )}{" "}
+                                                                    pts)
+                                                                </div>
+                                                            </td>
+
+                                                            {/* SUPER KOLOM: TOTAL POIN SIRA */}
+                                                            <td className="px-5 py-4 text-center bg-amber-50/20 border-r border-slate-100">
+                                                                <span
+                                                                    className={`text-xl font-black ${pointStyle}`}
+                                                                >
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .evaluasi_tw
+                                                                            ?.poin
+                                                                            ?.total_poin ||
+                                                                            0,
+                                                                    )}
+                                                                </span>
+                                                            </td>
+                                                        </>
+                                                    )}
+
+                                                    <td className="px-4 py-4 text-center">
+                                                        <div className="flex items-center justify-center gap-1.5">
+                                                            <button
+                                                                onClick={() =>
+                                                                    handleDownloadPdf(
+                                                                        row
+                                                                            .satker
+                                                                            .id,
+                                                                    )
+                                                                }
+                                                                className="inline-flex items-center justify-center p-2 bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white rounded-xl transition-all duration-300 border border-rose-100 hover:border-transparent outline-none group/btn shadow-sm"
+                                                                title="Cetak PDF Rapor Eksekutif IKPA Satker"
+                                                            >
+                                                                <DownloadCloud
+                                                                    size={16}
+                                                                    className="group-hover/btn:-translate-y-0.5 transition-transform"
+                                                                    strokeWidth={
+                                                                        2.5
+                                                                    }
+                                                                />
+                                                            </button>
+                                                            <button
+                                                                onClick={() =>
+                                                                    handleDownloadPdfRo(
+                                                                        row
+                                                                            .satker
+                                                                            .id,
+                                                                    )
+                                                                }
+                                                                className="inline-flex items-center justify-center p-2 bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white rounded-xl transition-all duration-300 border border-purple-100 hover:border-transparent outline-none shadow-sm"
+                                                                title="Cetak PDF Detail RO Satker"
+                                                            >
+                                                                <FileText
+                                                                    size={16}
+                                                                    strokeWidth={
+                                                                        2.5
+                                                                    }
+                                                                />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+
+                                                {/* 🔥 LACI RINCIAN RO & SERAPAN LEDGER PER SATKER 🔥 */}
+                                                {isExpanded &&
+                                                    renderRoDrawer(
+                                                        row,
+                                                        jenisLaporan ===
+                                                            "murni_realisasi"
+                                                            ? 8
+                                                            : 13,
+                                                    )}
+                                            </React.Fragment>
                                         );
                                     })
                                 ) : (

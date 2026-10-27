@@ -27,9 +27,15 @@ class RincianOutput extends Model
         return $this->belongsTo(Satker::class, 'satker_id');
     }
 
-    // RO ini punya banyak laporan realisasi bulanan
+    // RO ini punya banyak laporan capaian fisik bulanan
     public function realisasiOutputs()
     {
         return $this->hasMany(RealisasiOutput::class, 'rincian_output_id');
+    }
+
+    // 🔥 FITUR BARU: Menarik semua riwayat transaksi uang keluar untuk RO ini
+    public function realisasiDetails()
+    {
+        return $this->hasMany(RealisasiDetail::class, 'rincian_output_id');
     }
 }

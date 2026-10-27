@@ -70,7 +70,7 @@
         .font-black { font-weight: 900; }
         
         /* ==========================================
-           TABEL EVALUASI TW (55 POIN)
+           TABEL EVALUASI TW (55 POIN) & RINCIAN RO
            ========================================== */
         .section-title { font-size: 10px; font-weight: 900; color: #0f172a; margin-bottom: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 15px; }
         
@@ -84,6 +84,7 @@
         .badge-lulus { background-color: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
         .badge-gagal { background-color: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; }
         .badge-na { background-color: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+        .badge-ro { background-color: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; font-weight: bold; padding: 2px 5px; border-radius: 3px; font-size: 7.5px; display: inline-block; }
 
         /* Breakdown Perhitungan Poin (Invoice Style) */
         .box-poin { width: 100%; background-color: #ffffff; padding: 4px; box-sizing: border-box; }
@@ -209,9 +210,8 @@
         </tbody>
     </table>
 
-    <!-- 櫨 TABEL EVALUASI TARGET KEMENKEU & POIN SIRA (55 POIN) 櫨 -->
+    <!-- TABEL EVALUASI TARGET KEMENKEU & POIN SIRA (55 POIN) -->
     @if(isset($evaluasi_tw))
-    <!-- 🔥 SOLUSI LAYOUT DOMPDF: Bungkus judul & tabel dalam container anti-potong 🔥 -->
     <div style="page-break-inside: avoid;">
         <div class="section-title">EVALUASI KEPATUHAN TARGET DAN KALKULASI POIN SIRA (BERDASARKAN TRIWULAN)</div>
         <table class="tabel-evaluasi">
@@ -226,7 +226,6 @@
                     <th style="width: 23%;">Kalkulasi Poin SIRA (Maks 55)</th>
                 </tr>
             </thead>
-            <!-- Tbody terpisah per Triwulan -->
             @foreach(['I', 'II', 'III', 'IV'] as $tw)
                 @php 
                     $eval = $evaluasi_tw[$tw]; 
@@ -305,6 +304,59 @@
                     @endforeach
                 </tbody>
             @endforeach
+        </table>
+    </div>
+    @endif
+
+    <!-- 🔥 LAMPIRAN KETERLACAKAN TRANSAKSI & RINCIAN OUTPUT (RO) 🔥 -->
+    @php
+        $adaDetailTransaksi = collect($laporan)->contains(function ($r) {
+            return isset($r['realisasi_details']) && count($r['realisasi_details']) > 0;
+        });
+    @endphp
+
+    @if($adaDetailTransaksi)
+    <div style="page-break-inside: avoid; margin-top: 15px;">
+        <div class="section-title">LAMPIRAN KETERLACAKAN TRANSAKSI AKTUAL & ALOKASI RINCIAN OUTPUT (RO)</div>
+        <table class="tabel-evaluasi">
+            <thead>
+                <tr>
+                    <th style="width: 10%;">Bulan</th>
+                    <th style="width: 14%;">Jenis Belanja</th>
+                    <th style="width: 34%;" class="text-left">Uraian Transaksi Pengeluaran</th>
+                    <th style="width: 27%;" class="text-left">Alokasi Rincian Output (RO)</th>
+                    <th style="width: 15%;" class="text-right">Nominal Aktual (Rp)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($laporan as $row)
+                    @if(isset($row['realisasi_details']) && count($row['realisasi_details']) > 0)
+                        @foreach ($row['realisasi_details'] as $idx => $det)
+                        <tr style="page-break-inside: avoid;">
+                            @if($idx === 0)
+                                <td rowspan="{{ count($row['realisasi_details']) }}" class="font-black bg-gray-light">
+                                    {{ strtoupper($row['nama_bulan']) }}
+                                </td>
+                            @endif
+                            <td class="font-bold">
+                                {{ $det->jenis_belanja === 'gaji' ? '51 - Pegawai' : ($det->jenis_belanja === 'barang' ? '52 - Barang' : '53 - Modal') }}
+                            </td>
+                            <td class="text-left font-bold" style="color: #0f172a;">{{ $det->uraian }}</td>
+                            <td class="text-left">
+                                @if($det->rincianOutput)
+                                    <span class="badge-ro">[{{ $det->rincianOutput->kode_ro }}] {{ $det->rincianOutput->nama_ro }}</span>
+                                @else
+                                    <span style="color: #64748b; font-style: italic;">Tanpa Rincian Output (Belanja Umum)</span>
+                                @endif
+                            </td>
+                            <td class="text-right font-black" style="color: #065f46;">
+                                Rp {{ number_format($det->nominal, 0, ',', '.') }}
+                            </td>
+                        </tr>
+                        @endforeach
+                    @endif
+                @endforeach
+            </tbody>
         </table>
     </div>
     @endif

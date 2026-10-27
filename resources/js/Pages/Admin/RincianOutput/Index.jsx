@@ -13,11 +13,12 @@ import {
     Trash2,
     FileEdit,
     CheckCircle,
+    RefreshCcw,
 } from "lucide-react";
 
 import AddRoModal from "./Modals/AddRoModal";
 import ProgressModal from "./Modals/ProgressModal";
-import DeleteModal from "./Modals/DeleteModal"; // 🔥 IMPORT MODAL BARU
+import DeleteModal from "./Modals/DeleteModal";
 
 export default function RincianOutputIndex() {
     const [authUser, setAuthUser] = useState(null);
@@ -32,7 +33,6 @@ export default function RincianOutputIndex() {
     const [showProgressModal, setShowProgressModal] = useState(false);
     const [selectedRo, setSelectedRo] = useState(null);
 
-    // 🔥 STATE DELETE MODAL
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -94,10 +94,8 @@ export default function RincianOutputIndex() {
             setRoData([]);
             setLoading(false);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tahun, selectedSatkerId, authUser]);
 
-    // 🔥 LOGIKA KONFIRMASI HAPUS (MENGGUNAKAN MODAL) 🔥
     const confirmDelete = () => {
         if (!itemToDelete) return;
         setIsDeleting(true);
@@ -123,6 +121,13 @@ export default function RincianOutputIndex() {
         return `Rp ${(angka / 1000000).toFixed(2)} Jt`;
     };
 
+    const formatCurrencyFull = (amount) =>
+        new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0,
+        }).format(amount);
+
     const filteredData = roData.filter(
         (ro) =>
             ro.nama_ro.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -130,10 +135,9 @@ export default function RincianOutputIndex() {
     );
 
     return (
-        <MainLayout>
+        <MainLayout authUser={authUser} tahun={tahun}>
             <style>{`
                 @keyframes slideInRight { 0% { transform: translateX(120%) scale(0.9); opacity: 0; } 100% { transform: translateX(0) scale(1); opacity: 1; } }
-                @keyframes slideOutRight { 0% { transform: translateX(0) scale(1); opacity: 1; } 100% { transform: translateX(120%) scale(0.9); opacity: 0; } }
                 .toast-enter { animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
             `}</style>
 
@@ -181,7 +185,7 @@ export default function RincianOutputIndex() {
                                 </h2>
                                 <p className="text-sm font-semibold text-slate-500 mt-1 flex items-center gap-2">
                                     Tracker progress volume fisik dan realisasi
-                                    anggaran.
+                                    anggaran otomatis.
                                 </p>
                             </div>
                         </div>
@@ -297,13 +301,13 @@ export default function RincianOutputIndex() {
                                                 {ro.kode_ro}
                                             </span>
                                             <span
-                                                className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl border flex items-center gap-1.5 shadow-sm transition-colors ${ro.status_kinerja === "Selesai 100%" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : ro.status_kinerja === "Anomali" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-indigo-50 text-indigo-700 border-indigo-200"}`}
+                                                className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl border flex items-center gap-1.5 shadow-sm transition-colors ${ro.status_kinerja === "Selesai 100%" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : ro.status_kinerja === "Anomali Fisik" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-indigo-50 text-indigo-700 border-indigo-200"}`}
                                             >
                                                 {ro.status_kinerja ===
                                                 "Selesai 100%" ? (
                                                     <CheckCircle2 size={14} />
                                                 ) : ro.status_kinerja ===
-                                                  "Anomali" ? (
+                                                  "Anomali Fisik" ? (
                                                     <AlertTriangle size={14} />
                                                 ) : (
                                                     <Activity size={14} />
@@ -318,15 +322,13 @@ export default function RincianOutputIndex() {
                                                     setShowProgressModal(true);
                                                 }}
                                                 className="p-2.5 bg-white text-indigo-600 hover:bg-indigo-50 hover:scale-110 rounded-xl transition-all shadow-sm border border-indigo-100 outline-none"
-                                                title="Input Progress"
+                                                title="Update Capaian Volume Fisik"
                                             >
                                                 <FileEdit
                                                     size={16}
                                                     strokeWidth={2.5}
                                                 />
                                             </button>
-
-                                            {/* 🔥 TOMBOL DELETE PANGGIL MODAL 🔥 */}
                                             <button
                                                 onClick={() => {
                                                     setItemToDelete(ro);
@@ -343,7 +345,10 @@ export default function RincianOutputIndex() {
                                         </div>
                                     </div>
 
-                                    <h3 className="text-xl font-black text-slate-900 mb-6 leading-snug line-clamp-2 pr-4">
+                                    <h3
+                                        className="text-xl font-black text-slate-900 mb-6 leading-snug line-clamp-2 pr-4"
+                                        title={ro.nama_ro}
+                                    >
                                         {ro.nama_ro}
                                     </h3>
 
@@ -363,11 +368,16 @@ export default function RincianOutputIndex() {
                                                 </span>
                                             </p>
                                         </div>
-                                        <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-100 shadow-inner group-hover:border-indigo-100 transition-colors">
+                                        <div
+                                            className="bg-slate-50/80 p-5 rounded-2xl border border-slate-100 shadow-inner group-hover:border-sky-100 transition-colors cursor-help"
+                                            title={formatCurrencyFull(
+                                                ro.pagu_anggaran,
+                                            )}
+                                        >
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                                                 <Box
                                                     size={12}
-                                                    className="text-emerald-400"
+                                                    className="text-sky-400"
                                                 />{" "}
                                                 Pagu Anggaran
                                             </p>
@@ -383,11 +393,12 @@ export default function RincianOutputIndex() {
                                 <div className="space-y-6 bg-[#0A192F] p-6 rounded-[2rem] shadow-inner border border-slate-800 relative overflow-hidden">
                                     <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none"></div>
 
+                                    {/* PROGRESS VOLUME FISIK (INPUT MANUAL) */}
                                     <div className="relative z-10">
                                         <div className="flex justify-between items-end mb-2">
                                             <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
                                                 <TrendingUp size={14} />{" "}
-                                                Progress Fisik (RV)
+                                                Progress Fisik (Volume)
                                             </span>
                                             <span className="text-base font-black text-white tracking-tight">
                                                 {ro.realisasi_volume_kumulatif}{" "}
@@ -407,19 +418,42 @@ export default function RincianOutputIndex() {
                                         </div>
                                     </div>
 
-                                    <div className="relative z-10">
-                                        <div className="flex justify-between items-end mb-2">
+                                    {/* PROGRESS KEUANGAN (AUTO SYNC LEDGER) */}
+                                    <div className="relative z-10 bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
+                                        <div className="flex justify-between items-center mb-3">
                                             <span className="text-[10px] font-black text-sky-400 uppercase tracking-widest flex items-center gap-1.5">
-                                                <TrendingUp size={14} /> Serapan
-                                                Anggaran
+                                                <RefreshCcw
+                                                    size={12}
+                                                    className="animate-spin text-sky-500"
+                                                    style={{
+                                                        animationDuration: "3s",
+                                                    }}
+                                                />{" "}
+                                                Serapan Anggaran
                                             </span>
-                                            <span className="text-base font-black text-white tracking-tight">
+                                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest px-2 py-0.5 bg-slate-800 rounded-md border border-slate-700">
+                                                Live Sync Ledger
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-end mb-2">
+                                            <span
+                                                className="text-sm font-black text-white tracking-tight cursor-help"
+                                                title={formatCurrencyFull(
+                                                    ro.realisasi_anggaran_kumulatif,
+                                                )}
+                                            >
                                                 {formatSingkat(
                                                     ro.realisasi_anggaran_kumulatif,
                                                 )}{" "}
                                                 <span className="text-[10px] font-bold text-slate-400 tracking-widest ml-1">
-                                                    ({ro.persen_anggaran}%)
+                                                    dari{" "}
+                                                    {formatSingkat(
+                                                        ro.pagu_anggaran,
+                                                    )}
                                                 </span>
+                                            </span>
+                                            <span className="text-[10px] font-black text-sky-400 tracking-widest ml-1">
+                                                ({ro.persen_anggaran}%)
                                             </span>
                                         </div>
                                         <div className="w-full bg-slate-800/80 rounded-full h-2.5 border border-slate-700 overflow-hidden">
@@ -437,7 +471,6 @@ export default function RincianOutputIndex() {
                     </div>
                 )}
 
-                {/* Modals Rendering */}
                 {showAddModal && (
                     <AddRoModal
                         onClose={() => setShowAddModal(false)}
@@ -467,8 +500,6 @@ export default function RincianOutputIndex() {
                         }}
                     />
                 )}
-
-                {/* 🔥 HAPUS MODAL 🔥 */}
                 <DeleteModal
                     isOpen={showDeleteModal}
                     onClose={() => {

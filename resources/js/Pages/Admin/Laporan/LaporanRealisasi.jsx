@@ -21,7 +21,9 @@ import {
     Download,
     Activity,
     ShieldCheck,
-    Medal,
+    ChevronDown,
+    ChevronUp,
+    Layers,
 } from "lucide-react";
 
 export default function LaporanRealisasi() {
@@ -34,6 +36,17 @@ export default function LaporanRealisasi() {
     const [laporanData, setLaporanData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
+
+    // STATE EXPANDED ROWS (Bekerja di kedua mode tabel)
+    const [expandedRows, setExpandedRows] = useState([]);
+
+    const toggleRow = (bulan) => {
+        setExpandedRows((prev) =>
+            prev.includes(bulan)
+                ? prev.filter((b) => b !== bulan)
+                : [...prev, bulan],
+        );
+    };
 
     useEffect(() => {
         axios
@@ -52,6 +65,7 @@ export default function LaporanRealisasi() {
         setLoading(true);
         setErrorMsg("");
         setLaporanData(null);
+        setExpandedRows([]);
 
         axios
             .get(
@@ -72,6 +86,13 @@ export default function LaporanRealisasi() {
             minimumFractionDigits: 0,
         }).format(angka);
     };
+
+    const formatCurrencyFull = (amount) =>
+        new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0,
+        }).format(amount || 0);
 
     const formatDecimal = (value) => {
         if (typeof value === "number") {
@@ -130,9 +151,8 @@ export default function LaporanRealisasi() {
         }
 
         let totalPoinSira = "-";
-        if (laporanData.evaluasi_tw) {
+        if (laporanData.evaluasi_tw)
             totalPoinSira = laporanData.evaluasi_tw["IV"].poin.total_poin;
-        }
 
         return {
             totRencana,
@@ -143,7 +163,6 @@ export default function LaporanRealisasi() {
         };
     }, [laporanData]);
 
-    // 🔥 LOGIKA GRADE RAPOR (SANGAT BAIK, BAIK, CUKUP, KURANG)
     const getGrade = (poin) => {
         if (poin === "-" || !poin)
             return {
@@ -195,7 +214,6 @@ export default function LaporanRealisasi() {
 
     const handleExportExcel = () => {
         if (!laporanData) return;
-
         let aoa = [];
         if (jenisLaporan === "murni_realisasi") {
             aoa = [
@@ -302,28 +320,30 @@ export default function LaporanRealisasi() {
             });
 
             if (laporanData.evaluasi_tw) {
-                aoa.push([]);
-                aoa.push([]);
-                aoa.push([
-                    "EVALUASI TARGET PENYERAPAN KEMENKEU & POIN SIRA (PER TRIWULAN)",
-                ]);
-                aoa.push([
-                    "Triwulan",
-                    "Jenis Belanja",
-                    "Realisasi Kumulatif (Rp)",
-                    "Target Minimal Kemenkeu (%)",
-                    "Target Nominal Kemenkeu (Rp)",
-                    "Aktual Penyerapan (%)",
-                    "Status",
-                    "",
-                    "Nilai Penyerapan (Maks 100)",
-                    "Poin Penyerapan (Bobot 20%)",
-                    "Nilai IKPA Hal III (Maks 100)",
-                    "Poin Hal III (Bobot 10%)",
-                    "Nilai Capaian RO (Maks 100)",
-                    "Poin Capaian RO (Bobot 25%)",
-                    "TOTAL POIN SIRA (Maks 55)",
-                ]);
+                aoa.push(
+                    [],
+                    [],
+                    [
+                        "EVALUASI TARGET PENYERAPAN KEMENKEU & POIN SIRA (PER TRIWULAN)",
+                    ],
+                    [
+                        "Triwulan",
+                        "Jenis Belanja",
+                        "Realisasi Kumulatif (Rp)",
+                        "Target Minimal Kemenkeu (%)",
+                        "Target Nominal Kemenkeu (Rp)",
+                        "Aktual Penyerapan (%)",
+                        "Status",
+                        "",
+                        "Nilai Penyerapan (Maks 100)",
+                        "Poin Penyerapan (Bobot 20%)",
+                        "Nilai IKPA Hal III (Maks 100)",
+                        "Poin Hal III (Bobot 10%)",
+                        "Nilai Capaian RO (Maks 100)",
+                        "Poin Capaian RO (Bobot 25%)",
+                        "TOTAL POIN SIRA (Maks 55)",
+                    ],
+                );
 
                 ["I", "II", "III", "IV"].forEach((tw) => {
                     const poin = laporanData.evaluasi_tw[tw].poin;
@@ -369,6 +389,55 @@ export default function LaporanRealisasi() {
             }
         }
 
+        // 🔥 INTEGRASI RO KE EXCEL: Lampirkan Rincian Transaksi & Kode RO di bagian bawah
+        const hasDetails = laporanData.laporan_bulanan.some(
+            (r) => r.realisasi_details && r.realisasi_details.length > 0,
+        );
+        if (hasDetails) {
+            aoa.push(
+                [],
+                [],
+                [
+                    "LAMPIRAN KETERLACAKAN TRANSAKSI AKTUAL & ALOKASI RINCIAN OUTPUT (RO)",
+                ],
+            );
+            aoa.push([
+                "Bulan",
+                "Jenis Belanja",
+                "Uraian Transaksi Pengeluaran",
+                "Kode RO",
+                "Nama Rincian Output (RO)",
+                "Nominal Aktual (Rp)",
+            ]);
+
+            laporanData.laporan_bulanan.forEach((row) => {
+                if (row.realisasi_details && row.realisasi_details.length > 0) {
+                    row.realisasi_details.forEach((det) => {
+                        const jns =
+                            det.jenis_belanja === "gaji"
+                                ? "51 - Pegawai"
+                                : det.jenis_belanja === "barang"
+                                  ? "52 - Barang"
+                                  : "53 - Modal";
+                        const kodeRo = det.rincian_output
+                            ? det.rincian_output.kode_ro
+                            : "-";
+                        const namaRo = det.rincian_output
+                            ? det.rincian_output.nama_ro
+                            : "Tanpa Rincian Output (Belanja Umum)";
+                        aoa.push([
+                            namaBulan[row.bulan],
+                            jns,
+                            det.uraian,
+                            kodeRo,
+                            namaRo,
+                            Number(det.nominal),
+                        ]);
+                    });
+                }
+            });
+        }
+
         const worksheet = XLSX.utils.aoa_to_sheet(aoa);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(
@@ -390,14 +459,98 @@ export default function LaporanRealisasi() {
         );
     };
 
+    // Komponen Reusable untuk merender Laci Rincian Transaksi & RO
+    const renderDetailDrawer = (row, colSpanCount) => (
+        <tr className="bg-slate-50/90 border-b border-slate-200">
+            <td
+                colSpan={colSpanCount}
+                className="p-5 text-left font-sans whitespace-normal"
+            >
+                <div className="bg-white rounded-2xl border border-indigo-100 shadow-inner p-5 animate-in fade-in slide-in-from-top-2 duration-300 max-w-5xl">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                            <Layers size={16} className="text-indigo-600" />
+                            Keterlacakan Transaksi & Alokasi Rincian Output (RO)
+                            — Bulan {namaBulan[row.bulan]}
+                        </h4>
+                        <span className="text-[10px] font-bold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-100">
+                            {row.realisasi_details?.length || 0} Item Transaksi
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3">
+                        {row.realisasi_details &&
+                        row.realisasi_details.length > 0 ? (
+                            row.realisasi_details.map((detail, idx) => (
+                                <div
+                                    key={detail.id || idx}
+                                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 bg-slate-50/80 border border-slate-200/70 rounded-xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-colors gap-3"
+                                >
+                                    <div className="flex items-start sm:items-center gap-3.5">
+                                        <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center font-black text-[11px] text-slate-600 uppercase tracking-widest border border-slate-200 shrink-0">
+                                            {detail.jenis_belanja === "gaji"
+                                                ? "51"
+                                                : detail.jenis_belanja ===
+                                                    "barang"
+                                                  ? "52"
+                                                  : "53"}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-800 leading-snug">
+                                                {detail.uraian}
+                                            </p>
+                                            {detail.rincian_output ? (
+                                                <div className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-0.5 bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-md text-[10px] font-black shadow-sm">
+                                                    <Target
+                                                        size={11}
+                                                        className="text-indigo-600"
+                                                    />
+                                                    RO: [
+                                                    {
+                                                        detail.rincian_output
+                                                            .kode_ro
+                                                    }
+                                                    ]{" "}
+                                                    {
+                                                        detail.rincian_output
+                                                            .nama_ro
+                                                    }
+                                                </div>
+                                            ) : (
+                                                <div className="inline-flex items-center mt-1.5 px-2.5 py-0.5 bg-slate-200/70 text-slate-500 rounded-md text-[10px] font-bold">
+                                                    Tanpa Rincian Output
+                                                    (Belanja Umum)
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="text-left sm:text-right w-full sm:w-auto pl-14 sm:pl-0">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+                                            Nominal Aktual
+                                        </p>
+                                        <p className="text-sm font-black text-emerald-700 font-mono">
+                                            {formatCurrencyFull(detail.nominal)}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center py-6 text-slate-400 text-xs font-bold">
+                                Belum ada rincian transaksi keuangan yang
+                                tercatat pada bulan {namaBulan[row.bulan]}.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </td>
+        </tr>
+    );
+
     return (
         <MainLayout tahun={tahun}>
             <div className="space-y-6 font-sans text-slate-700 relative overflow-hidden min-h-screen pb-12">
-                {/* --- AMBIENT BACKGROUND GLOW --- */}
                 <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none -z-10"></div>
                 <div className="absolute top-20 right-20 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
 
-                {/* --- HEADER & FILTER SECTION (GLASSMORPHISM) --- */}
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6 bg-white/70 backdrop-blur-2xl p-6 md:p-8 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white">
                     <div className="flex-1 min-w-[300px] relative z-10">
                         <div className="flex items-center gap-4 mb-3">
@@ -499,17 +652,14 @@ export default function LaporanRealisasi() {
                     </div>
                 )}
 
-                {/* --- SUMMARY CARDS --- */}
                 {laporanData && summary && (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5 animate-in fade-in slide-in-from-bottom-8 duration-500 relative z-10">
-                        {/* 🔥 SUPER CARD: RAPOR KINERJA & TOTAL POIN SIRA 🔥 */}
                         <div
                             className={`xl:col-span-2 bg-[#0B1120] p-7 rounded-[2.5rem] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] flex items-center justify-between relative overflow-hidden group border ${grade.border}`}
                         >
                             <div
                                 className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-[60px] pointer-events-none transition-colors duration-700 ${grade.bg}`}
                             ></div>
-
                             <div className="flex items-center gap-6 relative z-10">
                                 <div
                                     className={`w-24 h-24 rounded-[1.8rem] flex items-center justify-center border backdrop-blur-sm shadow-inner relative overflow-hidden ${grade.bg} ${grade.border} ${grade.color} ${grade.glow}`}
@@ -548,7 +698,6 @@ export default function LaporanRealisasi() {
                             </div>
                         </div>
 
-                        {/* KARTU: PAGU EFEKTIF */}
                         <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all flex flex-col justify-center relative overflow-hidden group">
                             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500">
                                 <Wallet size={100} />
@@ -567,8 +716,6 @@ export default function LaporanRealisasi() {
                                 {formatRp(laporanData.pagu_efektif)}
                             </h2>
                         </div>
-
-                        {/* KARTU: NILAI IKPA */}
                         <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all flex flex-col justify-center relative overflow-hidden group">
                             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500">
                                 <Award size={100} />
@@ -591,8 +738,6 @@ export default function LaporanRealisasi() {
                                 {formatDecimal(summary.finalIkpa)}
                             </h2>
                         </div>
-
-                        {/* KARTU: TOTAL REALISASI */}
                         <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all flex flex-col justify-center relative overflow-hidden group">
                             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500 text-emerald-500">
                                 <TrendingUp size={100} />
@@ -614,16 +759,14 @@ export default function LaporanRealisasi() {
                     </div>
                 )}
 
-                {/* --- TABEL DETAIL IKPA (PREMIUM DATA GRID) --- */}
                 {laporanData && (
                     <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white overflow-hidden animate-in fade-in slide-in-from-bottom-12 duration-700 relative z-10 mt-6">
-                        {/* GLASSMORPHISM EXPORT PANEL */}
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 p-6 md:p-8 border-b border-slate-100/60 bg-slate-50/50">
                             <div>
                                 <h3 className="text-2xl font-black text-slate-900 tracking-tight">
                                     {jenisLaporan === "murni_realisasi"
-                                        ? "Rincian Murni Realisasi"
-                                        : "Grid Analisis Indikator Halaman III DIPA"}
+                                        ? "Rincian Murni Realisasi & Kaitan Output (RO)"
+                                        : "Grid Analisis Indikator Halaman III DIPA & Keterlacakan RO"}
                                 </h3>
                                 <div className="flex flex-wrap items-center gap-2 mt-2">
                                     <span className="text-[11px] font-bold text-slate-500 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm">
@@ -633,15 +776,19 @@ export default function LaporanRealisasi() {
                                         </span>
                                     </span>
                                     <span className="text-[11px] font-bold text-slate-500 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm">
-                                        Pagu Evaluasi Kemenkeu (Kotor):{" "}
+                                        Pagu Evaluasi Kemenkeu:{" "}
                                         <span className="text-emerald-600 font-black">
                                             Rp{" "}
                                             {formatRp(laporanData.pagu_total)}
                                         </span>
                                     </span>
+                                    <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100 shadow-sm flex items-center gap-1">
+                                        <Layers size={12} /> Klik baris Bulan
+                                        untuk melihat Rincian Transaksi & Kode
+                                        RO
+                                    </span>
                                 </div>
                             </div>
-
                             <div className="flex flex-wrap gap-3 w-full md:w-auto bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
                                 <button
                                     onClick={() =>
@@ -669,13 +816,15 @@ export default function LaporanRealisasi() {
                             </div>
                         </div>
 
-                        {/* STICKY DATA GRID */}
                         <div className="overflow-x-auto custom-scrollbar max-h-[600px] relative">
                             <table className="min-w-full divide-y divide-slate-200 text-[11px] border-collapse relative">
                                 {jenisLaporan === "murni_realisasi" ? (
                                     <>
                                         <thead className="bg-[#0A192F] text-white text-center font-bold sticky top-0 z-20 shadow-md">
                                             <tr>
+                                                <th className="px-4 py-4 w-10 border-r border-slate-700">
+                                                    Detail
+                                                </th>
                                                 <th className="px-5 py-4 border-r border-slate-700 align-middle tracking-wider uppercase text-[10px]">
                                                     Bulan
                                                 </th>
@@ -692,7 +841,7 @@ export default function LaporanRealisasi() {
                                                     TOTAL REALISASI
                                                 </th>
                                                 <th className="px-5 py-4 bg-emerald-900/40 border-l border-slate-700 tracking-wider uppercase text-[10px]">
-                                                    % Serap (Pagu Efektif)
+                                                    % Serap
                                                 </th>
                                             </tr>
                                         </thead>
@@ -713,53 +862,118 @@ export default function LaporanRealisasi() {
                                                                   laporanData.pagu_efektif) *
                                                               100
                                                             : 0;
+                                                    const isExpanded =
+                                                        expandedRows.includes(
+                                                            row.bulan,
+                                                        );
+                                                    const detailCount =
+                                                        row.realisasi_details
+                                                            ?.length || 0;
                                                     return (
-                                                        <tr
+                                                        <React.Fragment
                                                             key={row.bulan}
-                                                            className="hover:bg-slate-50 text-right transition-colors font-mono group whitespace-nowrap"
                                                         >
-                                                            <td className="px-5 py-4 border-r border-slate-100 text-center font-sans font-black text-slate-900 bg-slate-50/50">
-                                                                {namaBulan[
-                                                                    row.bulan
-                                                                ].toUpperCase()}
-                                                            </td>
-                                                            <td className="px-5 py-4 border-r border-slate-100 font-bold text-slate-600">
-                                                                {formatRp(
-                                                                    row
-                                                                        .realisasi
-                                                                        .b51,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-5 py-4 border-r border-slate-100 font-bold text-slate-600">
-                                                                {formatRp(
-                                                                    row
-                                                                        .realisasi
-                                                                        .b52,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-5 py-4 border-r border-slate-100 font-bold text-slate-600">
-                                                                {formatRp(
-                                                                    row
-                                                                        .realisasi
-                                                                        .b53,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-5 py-4 font-black text-indigo-700 bg-indigo-50/30">
-                                                                {formatRp(
-                                                                    totRealBulan,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-5 py-4 text-center bg-emerald-50/10 border-l border-slate-100">
-                                                                <span
-                                                                    className={`px-3 py-1.5 inline-flex text-xs font-black rounded-lg border shadow-sm ${persenSerap >= 50 ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-rose-100 text-rose-700 border-rose-200"}`}
+                                                            <tr
+                                                                className={`hover:bg-slate-50 text-right transition-colors font-mono group whitespace-nowrap ${isExpanded ? "bg-indigo-50/40" : ""}`}
+                                                            >
+                                                                <td className="px-4 py-4 text-center border-r border-slate-100 bg-slate-50/50">
+                                                                    <button
+                                                                        onClick={() =>
+                                                                            toggleRow(
+                                                                                row.bulan,
+                                                                            )
+                                                                        }
+                                                                        className={`p-1.5 rounded-lg border shadow-sm transition-all focus:outline-none ${detailCount > 0 ? "bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-600 hover:text-white" : "bg-white border-slate-200 text-slate-400 hover:text-indigo-600"}`}
+                                                                        title="Lihat Rincian RO"
+                                                                    >
+                                                                        {isExpanded ? (
+                                                                            <ChevronUp
+                                                                                size={
+                                                                                    16
+                                                                                }
+                                                                                strokeWidth={
+                                                                                    3
+                                                                                }
+                                                                            />
+                                                                        ) : (
+                                                                            <ChevronDown
+                                                                                size={
+                                                                                    16
+                                                                                }
+                                                                                strokeWidth={
+                                                                                    3
+                                                                                }
+                                                                            />
+                                                                        )}
+                                                                    </button>
+                                                                </td>
+                                                                <td
+                                                                    onClick={() =>
+                                                                        toggleRow(
+                                                                            row.bulan,
+                                                                        )
+                                                                    }
+                                                                    className="px-5 py-4 border-r border-slate-100 text-center font-sans font-black text-slate-900 bg-slate-50/50 cursor-pointer"
                                                                 >
-                                                                    {formatDecimal(
-                                                                        persenSerap,
+                                                                    <span>
+                                                                        {namaBulan[
+                                                                            row
+                                                                                .bulan
+                                                                        ].toUpperCase()}
+                                                                    </span>
+                                                                    {detailCount >
+                                                                        0 && (
+                                                                        <span className="ml-2 px-1.5 py-0.5 text-[9px] font-black bg-indigo-100 text-indigo-700 rounded-md">
+                                                                            {
+                                                                                detailCount
+                                                                            }{" "}
+                                                                            RO
+                                                                        </span>
                                                                     )}
-                                                                    %
-                                                                </span>
-                                                            </td>
-                                                        </tr>
+                                                                </td>
+                                                                <td className="px-5 py-4 border-r border-slate-100 font-bold text-slate-600">
+                                                                    {formatRp(
+                                                                        row
+                                                                            .realisasi
+                                                                            .b51,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-5 py-4 border-r border-slate-100 font-bold text-slate-600">
+                                                                    {formatRp(
+                                                                        row
+                                                                            .realisasi
+                                                                            .b52,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-5 py-4 border-r border-slate-100 font-bold text-slate-600">
+                                                                    {formatRp(
+                                                                        row
+                                                                            .realisasi
+                                                                            .b53,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-5 py-4 font-black text-indigo-700 bg-indigo-50/30">
+                                                                    {formatRp(
+                                                                        totRealBulan,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-5 py-4 text-center bg-emerald-50/10 border-l border-slate-100">
+                                                                    <span
+                                                                        className={`px-3 py-1.5 inline-flex text-xs font-black rounded-lg border shadow-sm ${persenSerap >= 50 ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-rose-100 text-rose-700 border-rose-200"}`}
+                                                                    >
+                                                                        {formatDecimal(
+                                                                            persenSerap,
+                                                                        )}
+                                                                        %
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                            {isExpanded &&
+                                                                renderDetailDrawer(
+                                                                    row,
+                                                                    7,
+                                                                )}
+                                                        </React.Fragment>
                                                     );
                                                 },
                                             )}
@@ -773,7 +987,7 @@ export default function LaporanRealisasi() {
                                                     rowSpan="2"
                                                     className="px-3 py-3 border-r border-slate-700 align-middle bg-slate-900 sticky left-0 z-30"
                                                 >
-                                                    Bulan
+                                                    Bulan & RO
                                                 </th>
                                                 <th
                                                     colSpan="3"
@@ -906,168 +1120,229 @@ export default function LaporanRealisasi() {
                                                             ikpaColor =
                                                                 "bg-rose-100 text-rose-700 border-rose-200 shadow-sm";
                                                     }
+                                                    const isExpanded =
+                                                        expandedRows.includes(
+                                                            row.bulan,
+                                                        );
+                                                    const detailCount =
+                                                        row.realisasi_details
+                                                            ?.length || 0;
 
                                                     return (
-                                                        <tr
+                                                        <React.Fragment
                                                             key={row.bulan}
-                                                            className="hover:bg-slate-50/80 text-right transition-colors font-mono group whitespace-nowrap"
                                                         >
-                                                            <td className="px-3 py-3 border-r border-slate-100 text-center font-sans font-black text-slate-800 bg-slate-50 sticky left-0 z-10 group-hover:bg-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                                                                {namaBulan[
-                                                                    row.bulan
-                                                                ]
-                                                                    .substring(
-                                                                        0,
-                                                                        3,
-                                                                    )
-                                                                    .toUpperCase()}
-                                                            </td>
-                                                            <td className="px-2 py-3 border-r border-slate-100 text-slate-500 font-medium">
-                                                                {formatRp(
-                                                                    row.rencana
-                                                                        .b51,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-3 border-r border-slate-100 text-slate-500 font-medium">
-                                                                {formatRp(
-                                                                    row.rencana
-                                                                        .b52,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-3 border-r border-slate-100 text-slate-500 font-medium">
-                                                                {formatRp(
-                                                                    row.rencana
-                                                                        .b53,
-                                                                )}
-                                                            </td>
-
-                                                            <td className="px-2 py-3 text-emerald-700 bg-emerald-50/30 font-bold">
-                                                                {formatRp(
-                                                                    row
-                                                                        .realisasi
-                                                                        .b51,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-3 border-r border-slate-100 font-black text-amber-600 bg-amber-50/20">
-                                                                {formatDecimal(
-                                                                    row
-                                                                        .persen_deviasi
-                                                                        .b51,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-3 text-emerald-700 bg-emerald-50/30 font-bold">
-                                                                {formatRp(
-                                                                    row
-                                                                        .realisasi
-                                                                        .b52,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-3 border-r border-slate-100 font-black text-amber-600 bg-amber-50/20">
-                                                                {formatDecimal(
-                                                                    row
-                                                                        .persen_deviasi
-                                                                        .b52,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-3 text-emerald-700 bg-emerald-50/30 font-bold">
-                                                                {formatRp(
-                                                                    row
-                                                                        .realisasi
-                                                                        .b53,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-3 border-r border-slate-100 font-black text-amber-600 bg-amber-50/20">
-                                                                {formatDecimal(
-                                                                    row
-                                                                        .persen_deviasi
-                                                                        .b53,
-                                                                )}
-                                                            </td>
-
-                                                            <td className="px-2 py-3 border-r border-slate-100 text-rose-500 font-medium">
-                                                                {formatRp(
-                                                                    row.deviasi
-                                                                        .b51,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-3 border-r border-slate-100 text-rose-500 font-medium">
-                                                                {formatRp(
-                                                                    row.deviasi
-                                                                        .b52,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-3 border-r border-slate-100 text-rose-500 font-medium">
-                                                                {formatRp(
-                                                                    row.deviasi
-                                                                        .b53,
-                                                                )}
-                                                            </td>
-
-                                                            <td className="px-2 py-3 border-r border-slate-100 text-slate-400 text-[10px]">
-                                                                {formatDecimal(
-                                                                    row
-                                                                        .proporsi_pagu
-                                                                        .b51,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-3 border-r border-slate-100 text-slate-400 text-[10px]">
-                                                                {formatDecimal(
-                                                                    row
-                                                                        .proporsi_pagu
-                                                                        .b52,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-3 border-r border-slate-100 text-slate-400 text-[10px]">
-                                                                {formatDecimal(
-                                                                    row
-                                                                        .proporsi_pagu
-                                                                        .b53,
-                                                                )}
-                                                            </td>
-
-                                                            <td className="px-2 py-3 border-r border-slate-100 font-bold text-indigo-500">
-                                                                {formatDecimal(
-                                                                    row
-                                                                        .deviasi_tertimbang
-                                                                        .b51,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-3 border-r border-slate-100 font-bold text-indigo-500">
-                                                                {formatDecimal(
-                                                                    row
-                                                                        .deviasi_tertimbang
-                                                                        .b52,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-3 border-r border-slate-100 font-bold text-indigo-500">
-                                                                {formatDecimal(
-                                                                    row
-                                                                        .deviasi_tertimbang
-                                                                        .b53,
-                                                                )}
-                                                            </td>
-
-                                                            <td className="px-3 py-3 border-r border-slate-100 font-black text-slate-800 bg-slate-50/50">
-                                                                {formatDecimal(
-                                                                    row.persen_seluruh,
-                                                                )}
-                                                            </td>
-                                                            <td className="px-3 py-3 border-r border-slate-100 font-black text-indigo-700 bg-indigo-50/30">
-                                                                {formatDecimal(
-                                                                    row.rata_kumulatif,
-                                                                )}
-                                                            </td>
-
-                                                            <td className="px-3 py-3 text-center align-middle bg-slate-50">
-                                                                <span
-                                                                    className={`px-2.5 py-1 inline-flex text-[11px] font-black rounded-lg border ${ikpaColor} font-sans min-w-[40px] justify-center`}
+                                                            <tr
+                                                                className={`hover:bg-slate-50/80 text-right transition-colors font-mono group whitespace-nowrap ${isExpanded ? "bg-indigo-50/40" : ""}`}
+                                                            >
+                                                                {/* 🔥 TOMBOL EXPAND MENYATU DI KOLOM STICKY BULAN 🔥 */}
+                                                                <td
+                                                                    onClick={() =>
+                                                                        toggleRow(
+                                                                            row.bulan,
+                                                                        )
+                                                                    }
+                                                                    className="px-3 py-3 border-r border-slate-100 text-left font-sans font-black text-slate-800 bg-slate-50 sticky left-0 z-10 group-hover:bg-indigo-50/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] cursor-pointer select-none"
+                                                                    title="Klik untuk melihat Rincian Transaksi & Kode RO"
                                                                 >
-                                                                    {formatDecimal(
-                                                                        row.ikpa,
+                                                                    <div className="flex items-center justify-between gap-2">
+                                                                        <span className="flex items-center gap-1.5">
+                                                                            <span
+                                                                                className={`p-1 rounded-md border transition-colors ${detailCount > 0 ? "bg-indigo-100 border-indigo-200 text-indigo-700" : "bg-white border-slate-200 text-slate-400"}`}
+                                                                            >
+                                                                                {isExpanded ? (
+                                                                                    <ChevronUp
+                                                                                        size={
+                                                                                            12
+                                                                                        }
+                                                                                        strokeWidth={
+                                                                                            3
+                                                                                        }
+                                                                                    />
+                                                                                ) : (
+                                                                                    <ChevronDown
+                                                                                        size={
+                                                                                            12
+                                                                                        }
+                                                                                        strokeWidth={
+                                                                                            3
+                                                                                        }
+                                                                                    />
+                                                                                )}
+                                                                            </span>
+                                                                            {namaBulan[
+                                                                                row
+                                                                                    .bulan
+                                                                            ]
+                                                                                .substring(
+                                                                                    0,
+                                                                                    3,
+                                                                                )
+                                                                                .toUpperCase()}
+                                                                        </span>
+                                                                        {detailCount >
+                                                                            0 && (
+                                                                            <span className="px-1.5 py-0.5 text-[8px] font-black bg-indigo-600 text-white rounded-full">
+                                                                                {
+                                                                                    detailCount
+                                                                                }
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 text-slate-500 font-medium">
+                                                                    {formatRp(
+                                                                        row
+                                                                            .rencana
+                                                                            .b51,
                                                                     )}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 text-slate-500 font-medium">
+                                                                    {formatRp(
+                                                                        row
+                                                                            .rencana
+                                                                            .b52,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 text-slate-500 font-medium">
+                                                                    {formatRp(
+                                                                        row
+                                                                            .rencana
+                                                                            .b53,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 text-emerald-700 bg-emerald-50/30 font-bold">
+                                                                    {formatRp(
+                                                                        row
+                                                                            .realisasi
+                                                                            .b51,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 font-black text-amber-600 bg-amber-50/20">
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .persen_deviasi
+                                                                            .b51,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 text-emerald-700 bg-emerald-50/30 font-bold">
+                                                                    {formatRp(
+                                                                        row
+                                                                            .realisasi
+                                                                            .b52,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 font-black text-amber-600 bg-amber-50/20">
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .persen_deviasi
+                                                                            .b52,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 text-emerald-700 bg-emerald-50/30 font-bold">
+                                                                    {formatRp(
+                                                                        row
+                                                                            .realisasi
+                                                                            .b53,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 font-black text-amber-600 bg-amber-50/20">
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .persen_deviasi
+                                                                            .b53,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 text-rose-500 font-medium">
+                                                                    {formatRp(
+                                                                        row
+                                                                            .deviasi
+                                                                            .b51,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 text-rose-500 font-medium">
+                                                                    {formatRp(
+                                                                        row
+                                                                            .deviasi
+                                                                            .b52,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 text-rose-500 font-medium">
+                                                                    {formatRp(
+                                                                        row
+                                                                            .deviasi
+                                                                            .b53,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 text-slate-400 text-[10px]">
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .proporsi_pagu
+                                                                            .b51,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 text-slate-400 text-[10px]">
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .proporsi_pagu
+                                                                            .b52,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 text-slate-400 text-[10px]">
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .proporsi_pagu
+                                                                            .b53,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 font-bold text-indigo-500">
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .deviasi_tertimbang
+                                                                            .b51,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 font-bold text-indigo-500">
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .deviasi_tertimbang
+                                                                            .b52,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 font-bold text-indigo-500">
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .deviasi_tertimbang
+                                                                            .b53,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-3 py-3 border-r border-slate-100 font-black text-slate-800 bg-slate-50/50">
+                                                                    {formatDecimal(
+                                                                        row.persen_seluruh,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-3 py-3 border-r border-slate-100 font-black text-indigo-700 bg-indigo-50/30">
+                                                                    {formatDecimal(
+                                                                        row.rata_kumulatif,
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-3 py-3 text-center align-middle bg-slate-50">
+                                                                    <span
+                                                                        className={`px-2.5 py-1 inline-flex text-[11px] font-black rounded-lg border ${ikpaColor} font-sans min-w-[40px] justify-center`}
+                                                                    >
+                                                                        {formatDecimal(
+                                                                            row.ikpa,
+                                                                        )}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                            {/* 🔥 LACI RINCIAN TRANSAKSI & RO DI MODE TABEL UTAMA (22 KOLOM) 🔥 */}
+                                                            {isExpanded &&
+                                                                renderDetailDrawer(
+                                                                    row,
+                                                                    22,
+                                                                )}
+                                                        </React.Fragment>
                                                     );
                                                 },
                                             )}
@@ -1079,7 +1354,6 @@ export default function LaporanRealisasi() {
                     </div>
                 )}
 
-                {/* 🔥 NEON HUD EVALUASI PENYERAPAN KEMENKEU & POIN SIRA 55 POINTS 🔥 */}
                 {laporanData?.evaluasi_tw && (
                     <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white overflow-hidden animate-in fade-in slide-in-from-bottom-16 duration-700 mt-8 relative z-10">
                         <div className="p-6 md:p-8 border-b border-slate-100 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 flex flex-col md:flex-row items-start md:items-center gap-5">
@@ -1098,7 +1372,6 @@ export default function LaporanRealisasi() {
                             </div>
                         </div>
 
-                        {/* SPANDUK EDUKASI */}
                         <div className="mx-6 md:mx-8 mt-8 p-6 bg-indigo-50/80 border border-indigo-100 rounded-2xl flex items-start gap-5 shadow-sm">
                             <div className="p-3 bg-indigo-100/80 rounded-2xl flex-shrink-0 text-indigo-600">
                                 <Info className="w-6 h-6" strokeWidth={2.5} />
@@ -1161,7 +1434,9 @@ export default function LaporanRealisasi() {
                                             {["51", "52", "53"].map((kode) => {
                                                 const item = evalTw[kode];
                                                 const isLulus =
-                                                    item.status === "Tercapai";
+                                                    item.status ===
+                                                        "Tercapai" ||
+                                                    item.status === "Lulus";
                                                 const isNA =
                                                     item.status === "N/A";
                                                 const nama =
@@ -1219,7 +1494,6 @@ export default function LaporanRealisasi() {
                                                                 </span>
                                                             )}
                                                         </div>
-
                                                         {isNA ? (
                                                             <span className="text-[10px] font-black text-slate-400 px-3 py-1.5 bg-slate-200 rounded-xl tracking-widest uppercase">
                                                                 Tidak Ada Pagu

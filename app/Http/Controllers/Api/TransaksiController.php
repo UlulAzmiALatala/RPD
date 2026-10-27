@@ -305,7 +305,7 @@ class TransaksiController extends Controller
     }
 
     // =====================================================================
-    // 🧾 BAGIAN REALISASI PENGELUARAN
+    // 🧾 BAGIAN REALISASI PENGELUARAN (INTEGRASI RO FISIK)
     // =====================================================================
 
     public function getRealisasi(Request $request)
@@ -320,7 +320,8 @@ class TransaksiController extends Controller
             $status = $request->query('status');
             $tw = $request->query('tw');
 
-            $query = Realisasi::with(['satker', 'details'])
+            // 🔥 PERBARUAN: Load relasi 'rincianOutput' agar frontend bisa menampilkannya
+            $query = Realisasi::with(['satker', 'details.rincianOutput'])
                 ->where('tahun', $tahun)
                 ->orderBy('bulan', 'asc');
 
@@ -365,6 +366,7 @@ class TransaksiController extends Controller
             'tahun' => 'required|integer',
             'bulan' => 'required|integer|min:1|max:12',
             'rincian' => 'required|array|min:1',
+            'rincian.*.rincian_output_id' => 'nullable|exists:rincian_outputs,id', // 🔥 INTEGRASI RO
             'rincian.*.jenis_belanja' => 'required|in:gaji,barang,modal',
             'rincian.*.uraian' => 'required|string|max:255',
             'rincian.*.nominal' => 'required|numeric|min:0',
@@ -424,6 +426,7 @@ class TransaksiController extends Controller
                 if ($item['jenis_belanja'] == 'gaji' && !$isSetjen) continue;
 
                 $realisasi->details()->create([
+                    'rincian_output_id' => $item['rincian_output_id'] ?? null, // 🔥 SIMPAN ID RO
                     'jenis_belanja' => $item['jenis_belanja'],
                     'uraian' => $item['uraian'],
                     'nominal' => (float) $item['nominal']
@@ -463,6 +466,7 @@ class TransaksiController extends Controller
 
         $validator = Validator::make($request->all(), [
             'rincian' => 'required|array|min:1',
+            'rincian.*.rincian_output_id' => 'nullable|exists:rincian_outputs,id', // 🔥 INTEGRASI RO
             'rincian.*.jenis_belanja' => 'required|in:gaji,barang,modal',
             'rincian.*.uraian' => 'required|string|max:255',
             'rincian.*.nominal' => 'required|numeric|min:0',
@@ -509,6 +513,7 @@ class TransaksiController extends Controller
                 if ($item['jenis_belanja'] == 'gaji' && !$isSetjen) continue;
 
                 $realisasi->details()->create([
+                    'rincian_output_id' => $item['rincian_output_id'] ?? null, // 🔥 SIMPAN ID RO
                     'jenis_belanja' => $item['jenis_belanja'],
                     'uraian' => $item['uraian'],
                     'nominal' => (float) $item['nominal']

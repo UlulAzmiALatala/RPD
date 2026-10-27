@@ -45,7 +45,7 @@ export default function MainLayout({ children, tahun }) {
             .get("/api/user")
             .then((response) => {
                 setAuthUser(response.data);
-                setTimeout(() => setIsAuthenticating(false), 500);
+                setTimeout(() => setIsAuthenticating(false), 300);
             })
             .catch((error) => {
                 console.error("Belum login atau sesi habis:", error);
@@ -157,10 +157,12 @@ export default function MainLayout({ children, tahun }) {
 
     return (
         <div
-            className={`relative min-h-screen bg-[#f8fafc] text-slate-700 font-sans transition-colors duration-300 overflow-hidden flex ${isResizing ? "select-none cursor-col-resize" : ""}`}
+            className={`relative min-h-screen bg-[#f8fafc] text-slate-700 font-sans flex overflow-x-hidden ${
+                isResizing ? "select-none cursor-col-resize" : ""
+            }`}
         >
             {/* =====================================================================
-                ANIMASI CUSTOM: ROKET CAHAYA BIRU KUNING (CHALLENGE ACCEPTED) 🔥
+                ANIMASI EFEK ROKET & CAHAYA (DIKEMBALIKAN & DIOPTIMALKAN)
             ===================================================================== */}
             <style>{`
                 @keyframes roket-lintas {
@@ -168,8 +170,8 @@ export default function MainLayout({ children, tahun }) {
                     100% { transform: translateX(-30vw); }
                 }
                 @keyframes roket-gelombang {
-                    0% { transform: translateY(-150px); }
-                    100% { transform: translateY(150px); }
+                    0% { transform: translateY(-100px); }
+                    100% { transform: translateY(100px); }
                 }
                 @keyframes roket-melingkar {
                     0% { transform: rotate(0deg); }
@@ -178,24 +180,18 @@ export default function MainLayout({ children, tahun }) {
             `}</style>
 
             <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-                {/* Pembungkus 1: Lintas dari Kanan ke Kiri (durasi 12 detik) */}
-                <div className="absolute top-[40%] w-[150px] h-[150px] animate-[roket-lintas_12s_linear_infinite]">
-                    {/* Pembungkus 2: Gelombang Naik Turun (durasi 3 detik) */}
-                    <div className="w-full h-full animate-[roket-gelombang_3s_ease-in-out_infinite_alternate]">
-                        {/* Pembungkus 3: Melingkar/Berputar terus menerus (durasi 1 detik) */}
-                        <div className="relative w-full h-full animate-[roket-melingkar_1s_linear_infinite]">
-                            {/* 💙 CAHAYA BIRU 💙 */}
+                <div className="absolute top-[30%] w-[120px] h-[120px] animate-[roket-lintas_15s_linear_infinite]">
+                    <div className="w-full h-full animate-[roket-gelombang_4s_ease-in-out_infinite_alternate]">
+                        <div className="relative w-full h-full animate-[roket-melingkar_2s_linear_infinite]">
+                            {/* Cahaya Biru */}
                             <div className="absolute top-0 left-1/2 -translate-x-1/2">
-                                <div className="w-10 h-10 bg-blue-500 rounded-full blur-xl opacity-80 shadow-[100px_0_80px_20px_rgba(59,130,246,0.4)]"></div>
-                                <div className="absolute top-1 left-1 w-8 h-8 bg-cyan-300 rounded-full blur-md opacity-90 shadow-[0_0_20px_10px_rgba(34,211,238,0.8)]"></div>
-                                <div className="absolute top-3 left-3 w-4 h-4 bg-white rounded-full blur-[2px]"></div>
+                                <div className="w-8 h-8 bg-blue-500 rounded-full blur-xl opacity-70 shadow-[80px_0_60px_15px_rgba(59,130,246,0.3)]"></div>
+                                <div className="absolute top-1 left-1 w-6 h-6 bg-cyan-300 rounded-full blur-md opacity-80"></div>
                             </div>
-
-                            {/* 💛 CAHAYA KUNING 💛 */}
+                            {/* Cahaya Kuning */}
                             <div className="absolute bottom-0 left-1/2 -translate-x-1/2">
-                                <div className="w-10 h-10 bg-yellow-500 rounded-full blur-xl opacity-80 shadow-[100px_0_80px_20px_rgba(234,179,8,0.4)]"></div>
-                                <div className="absolute top-1 left-1 w-8 h-8 bg-amber-400 rounded-full blur-md opacity-90 shadow-[0_0_20px_10px_rgba(251,191,36,0.8)]"></div>
-                                <div className="absolute top-3 left-3 w-4 h-4 bg-white rounded-full blur-[2px]"></div>
+                                <div className="w-8 h-8 bg-yellow-500 rounded-full blur-xl opacity-70 shadow-[80px_0_60px_15px_rgba(234,179,8,0.3)]"></div>
+                                <div className="absolute top-1 left-1 w-6 h-6 bg-amber-400 rounded-full blur-md opacity-80"></div>
                             </div>
                         </div>
                     </div>
@@ -203,7 +199,7 @@ export default function MainLayout({ children, tahun }) {
             </div>
 
             {/* GLOWING AMBIENT DASAR */}
-            <div className="absolute top-0 left-0 w-full h-[600px] bg-gradient-to-b from-indigo-50/60 via-blue-50/20 to-transparent pointer-events-none z-0"></div>
+            <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-indigo-50/50 via-blue-50/10 to-transparent pointer-events-none z-0"></div>
 
             {isMobile && sidebarOpen && (
                 <div
@@ -212,8 +208,21 @@ export default function MainLayout({ children, tahun }) {
                 ></div>
             )}
 
+            {/* SIDEBAR WRAPPER (DENGAN TRANSISI 300MS YANG NGEBUT) */}
             <div
-                className={`${isMobile ? "fixed inset-y-0 left-0 z-50 transition-transform duration-500 ease-out" : "relative z-20"} ${isMobile && !sidebarOpen ? "-translate-x-full" : "translate-x-0"}`}
+                className={`${
+                    isMobile
+                        ? "fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-out"
+                        : "relative z-20 shrink-0"
+                } ${isMobile && !sidebarOpen ? "-translate-x-full" : "translate-x-0"}`}
+                style={{
+                    width: isMobile ? "280px" : `${sidebarWidth}px`,
+                    willChange: "width",
+                    transition:
+                        isLoaded && !isResizing
+                            ? "width 300ms cubic-bezier(0.25, 1, 0.5, 1)"
+                            : "none",
+                }}
             >
                 <Sidebar
                     sidebarOpen={sidebarOpen}
@@ -224,17 +233,25 @@ export default function MainLayout({ children, tahun }) {
                 />
             </div>
 
+            {/* RESIZER BAR */}
             {!isMobile && sidebarOpen && (
                 <div
                     onMouseDown={startResizing}
-                    className="w-1.5 h-screen bg-transparent hover:bg-indigo-500/30 hover:shadow-[0_0_10px_rgba(99,102,241,0.5)] cursor-col-resize absolute z-30 transition-all duration-200 delay-100"
+                    className="w-1.5 h-screen bg-transparent hover:bg-indigo-500/30 hover:shadow-[0_0_10px_rgba(99,102,241,0.5)] cursor-col-resize absolute z-35 transition-all"
                     style={{ left: `${sidebarWidth - 2}px` }}
                 ></div>
             )}
 
+            {/* MAIN CONTENT AREA (DENGAN TRANSISI 300MS YANG NGEBUT) */}
             <div
-                className={`flex-1 flex flex-col h-screen overflow-hidden relative ${isLoaded && !isResizing ? "transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]" : ""}`}
-                style={{ marginLeft: isMobile ? "0px" : `${sidebarWidth}px` }}
+                className="flex-1 flex flex-col h-screen overflow-hidden relative min-w-0"
+                style={{
+                    willChange: "margin-left",
+                    transition:
+                        isLoaded && !isResizing
+                            ? "margin-left 300ms cubic-bezier(0.25, 1, 0.5, 1)"
+                            : "none",
+                }}
             >
                 <Header
                     sidebarOpen={sidebarOpen}

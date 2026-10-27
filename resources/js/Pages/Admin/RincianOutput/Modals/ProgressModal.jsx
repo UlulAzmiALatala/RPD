@@ -5,18 +5,17 @@ import {
     Save,
     TrendingUp,
     Box,
-    Banknote,
     CalendarDays,
     AlertTriangle,
     CheckSquare,
     Loader2,
+    RefreshCcw,
 } from "lucide-react";
 
 export default function ProgressModal({ ro, onClose, onSuccess }) {
     const [bulan, setBulan] = useState((new Date().getMonth() + 1).toString());
     const [formData, setFormData] = useState({
         realisasi_volume: "",
-        realisasi_anggaran: "",
         keterangan: "",
     });
     const [loading, setLoading] = useState(false);
@@ -43,13 +42,11 @@ export default function ProgressModal({ ro, onClose, onSuccess }) {
             const detail = ro.detail_bulanan[bulan];
             setFormData({
                 realisasi_volume: detail.realisasi_volume || "",
-                realisasi_anggaran: detail.realisasi_anggaran || "",
                 keterangan: detail.keterangan || "",
             });
         } else {
             setFormData({
                 realisasi_volume: "",
-                realisasi_anggaran: "",
                 keterangan: "",
             });
         }
@@ -104,7 +101,7 @@ export default function ProgressModal({ ro, onClose, onSuccess }) {
                                 {ro.nama_ro}
                             </h3>
                             <p className="text-[11px] font-bold text-slate-400 mt-1.5 tracking-widest uppercase">
-                                Target Total:{" "}
+                                Target Total Fisik:{" "}
                                 <span className="text-emerald-400 font-black">
                                     {ro.target_volume} {ro.satuan}
                                 </span>
@@ -120,6 +117,25 @@ export default function ProgressModal({ ro, onClose, onSuccess }) {
                 </div>
 
                 <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar bg-white/50 flex-1 relative z-10">
+                    {/* INFO SYNC LEDGER */}
+                    <div className="mb-6 p-4 bg-sky-50 border border-sky-200 rounded-2xl flex items-start gap-3 shadow-sm">
+                        <RefreshCcw
+                            size={20}
+                            className="text-sky-500 mt-0.5 shrink-0"
+                        />
+                        <div>
+                            <h4 className="text-[11px] font-black tracking-widest uppercase text-sky-800">
+                                Mode Sinkronisasi Keuangan Aktif
+                            </h4>
+                            <p className="text-sm font-medium text-sky-700 mt-0.5 leading-snug">
+                                Serapan anggaran untuk RO ini telah terhubung
+                                langsung dengan Transaksi Realisasi. Anda hanya
+                                perlu melaporkan progres{" "}
+                                <strong>Volume Fisik</strong> di sini.
+                            </p>
+                        </div>
+                    </div>
+
                     {errorMsg && (
                         <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 shadow-sm animate-in slide-in-from-top-2">
                             <AlertTriangle
@@ -144,7 +160,7 @@ export default function ProgressModal({ ro, onClose, onSuccess }) {
                                     size={16}
                                     className="text-indigo-500"
                                 />{" "}
-                                Pilih Bulan Pelaporan
+                                Pilih Bulan Pelaporan Fisik
                             </label>
                             <div className="flex flex-wrap gap-2.5">
                                 {[...Array(12)].map((_, i) => {
@@ -175,64 +191,43 @@ export default function ProgressModal({ ro, onClose, onSuccess }) {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            <div className="bg-white p-6 rounded-[2rem] border border-slate-200/80 shadow-sm">
-                                <label className="flex items-center justify-between text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">
-                                    <span className="flex items-center gap-1.5">
-                                        <Box
-                                            size={14}
-                                            className="text-emerald-500"
-                                        />{" "}
-                                        Realisasi Volume
-                                    </span>
-                                </label>
-                                <input
-                                    required
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    name="realisasi_volume"
-                                    placeholder="Contoh: 10"
-                                    value={formData.realisasi_volume}
-                                    onChange={handleChange}
-                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-lg font-black text-emerald-700 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all placeholder:font-normal"
+                        {/* INPUT VOLUME FISIK (LEBAR PENUH) */}
+                        <div className="bg-white p-6 rounded-[2rem] border border-slate-200/80 shadow-sm">
+                            <label className="flex items-center justify-between text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">
+                                <span className="flex items-center gap-1.5">
+                                    <Box
+                                        size={14}
+                                        className="text-emerald-500"
+                                    />{" "}
+                                    Tambahan Capaian Volume Fisik
+                                </span>
+                            </label>
+                            <input
+                                required
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                name="realisasi_volume"
+                                placeholder="Contoh: 10"
+                                value={formData.realisasi_volume}
+                                onChange={handleChange}
+                                className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-xl font-black text-emerald-700 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all placeholder:font-normal"
+                            />
+                            <p className="text-xs text-slate-400 mt-3 font-bold leading-tight flex items-center gap-1.5">
+                                <AlertTriangle
+                                    size={14}
+                                    className="text-amber-500"
                                 />
-                                <p className="text-[10px] text-slate-400 mt-2.5 font-bold leading-tight">
-                                    Tambahan volume khusus bulan{" "}
-                                    {namaBulan[bulan]} ini.
-                                </p>
-                            </div>
-
-                            <div className="bg-white p-6 rounded-[2rem] border border-slate-200/80 shadow-sm">
-                                <label className="flex items-center justify-between text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">
-                                    <span className="flex items-center gap-1.5">
-                                        <Banknote
-                                            size={14}
-                                            className="text-sky-500"
-                                        />{" "}
-                                        Serapan Anggaran
-                                    </span>
-                                </label>
-                                <input
-                                    required
-                                    type="number"
-                                    min="0"
-                                    name="realisasi_anggaran"
-                                    placeholder="Contoh: 5000000"
-                                    value={formData.realisasi_anggaran}
-                                    onChange={handleChange}
-                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-lg font-black text-sky-700 focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 outline-none transition-all placeholder:font-normal"
-                                />
-                                <p className="text-[10px] text-slate-400 mt-2.5 font-bold leading-tight">
-                                    Uang terserap khusus bulan{" "}
-                                    {namaBulan[bulan]}.
-                                </p>
-                            </div>
+                                Masukkan hanya capaian volume fisik yang
+                                dikerjakan pada bulan {namaBulan[bulan]} ini
+                                saja.
+                            </p>
                         </div>
 
+                        {/* KETERANGAN */}
                         <div className="bg-white p-6 rounded-[2rem] border border-slate-200/80 shadow-sm">
                             <label className="flex items-center gap-1.5 text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">
-                                Keterangan / Analisis
+                                Keterangan / Analisis Kendala Fisik
                             </label>
                             <textarea
                                 name="keterangan"
@@ -269,7 +264,7 @@ export default function ProgressModal({ ro, onClose, onSuccess }) {
                         )}
                         {loading
                             ? "Menyimpan..."
-                            : `Simpan Data ${namaBulan[bulan]}`}
+                            : `Simpan Fisik ${namaBulan[bulan]}`}
                     </button>
                 </div>
             </div>

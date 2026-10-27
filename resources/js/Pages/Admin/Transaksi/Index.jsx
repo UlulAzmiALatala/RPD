@@ -16,9 +16,11 @@ import {
     TrendingUp,
     AlertCircle,
     Filter,
-    Activity,
     ShieldAlert,
     Target,
+    ChevronDown,
+    ChevronUp,
+    Layers, // 🔥 ICON TAMBAHAN
 } from "lucide-react";
 
 import AddRpdModal from "./Modals/AddRpdModal";
@@ -66,7 +68,6 @@ const Pagination = ({ meta, onPageChange, accentColor }) => {
         return pages;
     };
 
-    // Tentukan gradien berdasarkan accentColor (RPD = Indigo, Realisasi = Emerald/Blue)
     const activeBg = accentColor.includes("indigo")
         ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)] border-indigo-500"
         : "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-[0_4px_12px_rgba(59,130,246,0.3)] border-blue-500";
@@ -95,11 +96,7 @@ const Pagination = ({ meta, onPageChange, accentColor }) => {
                     <button
                         key={page}
                         onClick={() => onPageChange(page)}
-                        className={`w-10 h-10 rounded-xl text-sm font-black transition-all duration-300 shadow-sm border ${
-                            current_page === page
-                                ? `${activeBg} hover:-translate-y-0.5`
-                                : "bg-white text-slate-600 border-slate-200/60 hover:bg-slate-50"
-                        }`}
+                        className={`w-10 h-10 rounded-xl text-sm font-black transition-all duration-300 shadow-sm border ${current_page === page ? `\${activeBg} hover:-translate-y-0.5` : "bg-white text-slate-600 border-slate-200/60 hover:bg-slate-50"}`}
                     >
                         {page}
                     </button>
@@ -131,6 +128,17 @@ export default function IndexTransaksi({ authUser }) {
 
     const [localAuth, setLocalAuth] = useState(authUser);
     const [summary, setSummary] = useState({ global: {}, per_satker: {} });
+
+    // 🔥 FITUR BARU: STATE UNTUK MENGELOLA BARIS DETAIL YANG DIBUKA (COLLAPSIBLE)
+    const [expandedRows, setExpandedRows] = useState([]);
+
+    const toggleRow = (id) => {
+        setExpandedRows((prev) =>
+            prev.includes(id)
+                ? prev.filter((rowId) => rowId !== id)
+                : [...prev, id],
+        );
+    };
 
     // State Modals
     const [isAddRpdOpen, setIsAddRpdOpen] = useState(false);
@@ -231,6 +239,8 @@ export default function IndexTransaksi({ authUser }) {
                 from: res.data.from,
                 to: res.data.to,
             });
+            // Reset expanded rows saat ganti data
+            setExpandedRows([]);
         } catch (err) {
             showToast("Gagal memuat data", "error");
         } finally {
@@ -324,22 +334,20 @@ export default function IndexTransaksi({ authUser }) {
     const textAccent = isRPD ? "text-indigo-600" : "text-blue-600";
     const isAdmin = localAuth?.role === "admin";
 
-    // =========================================================================
-    // 🔥 LOGIKA KALKULASI SUMMARY
-    // =========================================================================
+    // LOGIKA KALKULASI SUMMARY
     const getMonthsInTW = (tw) => {
         if (tw === "I") return [1, 2, 3];
         if (tw === "II") return [4, 5, 6];
         if (tw === "III") return [7, 8, 9];
         if (tw === "IV") return [10, 11, 12];
-        return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // ALL
+        return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
     };
 
     const getTargetTW = (tw) => {
         if (tw === "I") return { gaji: 20, barang: 15, modal: 10 };
         if (tw === "II") return { gaji: 50, barang: 50, modal: 40 };
         if (tw === "III") return { gaji: 75, barang: 70, modal: 70 };
-        return { gaji: 95, barang: 90, modal: 90 }; // ALL atau IV
+        return { gaji: 95, barang: 90, modal: 90 };
     };
 
     let dispPagu = 0,
@@ -397,9 +405,8 @@ export default function IndexTransaksi({ authUser }) {
                 inputAll52 += b52;
                 inputAll53 += b53;
 
-                if (getMonthsInTW(selectedTW).includes(m)) {
+                if (getMonthsInTW(selectedTW).includes(m))
                     inputTW += totalBulanIni;
-                }
             }
         }
 
@@ -470,16 +477,10 @@ export default function IndexTransaksi({ authUser }) {
                 @keyframes slideOutRight { 0% { transform: translateX(0) scale(1); opacity: 1; } 100% { transform: translateX(120%) scale(0.9); opacity: 0; } }
                 .toast-enter { animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
                 .toast-exit { animation: slideOutRight 0.4s ease-in forwards; }
-                
-                .glass-card {
-                    background: rgba(255, 255, 255, 0.7);
-                    backdrop-filter: blur(16px);
-                    -webkit-backdrop-filter: blur(16px);
-                }
+                .glass-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
             `}</style>
 
             <div className="space-y-6 font-sans text-slate-600 relative overflow-hidden min-h-screen pb-10">
-                {/* --- AMBIENT BACKGROUND GLOW --- */}
                 <div
                     className={`absolute top-0 left-0 w-full h-96 transition-colors duration-700 pointer-events-none -z-10 ${isRPD ? "bg-gradient-to-b from-indigo-500/10 to-transparent" : "bg-gradient-to-b from-blue-500/10 to-transparent"}`}
                 ></div>
@@ -487,7 +488,6 @@ export default function IndexTransaksi({ authUser }) {
                     className={`absolute top-20 right-20 w-96 h-96 rounded-full blur-[100px] transition-colors duration-700 pointer-events-none -z-10 ${isRPD ? "bg-purple-500/10" : "bg-emerald-500/10"}`}
                 ></div>
 
-                {/* --- TOAST NOTIFICATION PREMIUM --- */}
                 {toast.show && (
                     <div
                         className={`fixed top-8 right-8 z-[100] flex items-center p-4 min-w-[340px] rounded-2xl border shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] backdrop-blur-xl ${toast.isExiting ? "toast-exit" : "toast-enter"} ${toast.type === "success" ? "bg-[#0A192F]/95 border-emerald-500/30" : "bg-[#0A192F]/95 border-rose-500/30"}`}
@@ -519,7 +519,6 @@ export default function IndexTransaksi({ authUser }) {
                     </div>
                 )}
 
-                {/* --- HEADER & CONTROL PANEL (GLASSMORPHISM) --- */}
                 <div className="glass-card p-6 md:p-8 rounded-[2rem] shadow-sm border border-white/60 relative overflow-hidden z-10 flex flex-col gap-6">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div className="flex items-center gap-4">
@@ -546,17 +545,12 @@ export default function IndexTransaksi({ authUser }) {
                             </div>
                         </div>
 
-                        {/* NAVIGASI TAB TRIWULAN (PILL STYLE) */}
                         <div className="flex bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 text-xs font-bold shadow-inner">
                             {["ALL", "I", "II", "III", "IV"].map((tw) => (
                                 <button
                                     key={tw}
                                     onClick={() => setSelectedTW(tw)}
-                                    className={`px-5 py-2.5 rounded-xl transition-all duration-300 ${
-                                        selectedTW === tw
-                                            ? "bg-white text-slate-800 shadow-[0_2px_8px_rgba(0,0,0,0.1)] scale-105 border border-slate-100"
-                                            : "text-slate-500 hover:bg-slate-200/50"
-                                    }`}
+                                    className={`px-5 py-2.5 rounded-xl transition-all duration-300 ${selectedTW === tw ? "bg-white text-slate-800 shadow-[0_2px_8px_rgba(0,0,0,0.1)] scale-105 border border-slate-100" : "text-slate-500 hover:bg-slate-200/50"}`}
                                 >
                                     {tw === "ALL" ? "Setahun" : `TW ${tw}`}
                                 </button>
@@ -567,18 +561,13 @@ export default function IndexTransaksi({ authUser }) {
                     <div className="h-px w-full bg-slate-200/60 my-2"></div>
 
                     <div className="flex flex-col xl:flex-row justify-between items-center gap-5">
-                        {/* TOGGLE RPD VS REALISASI (SEGMENTED CONTROL) */}
                         <div className="flex w-full xl:w-auto bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 shadow-inner relative">
                             <button
                                 onClick={() => {
                                     setActiveTab("rpd");
                                     setCurrentPage(1);
                                 }}
-                                className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold text-sm transition-all duration-300 z-10 ${
-                                    isRPD
-                                        ? "text-indigo-600 shadow-[0_4px_12px_rgba(99,102,241,0.15)] bg-white border border-indigo-100 scale-105"
-                                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
-                                }`}
+                                className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold text-sm transition-all duration-300 z-10 ${isRPD ? "text-indigo-600 shadow-[0_4px_12px_rgba(99,102,241,0.15)] bg-white border border-indigo-100 scale-105" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
                             >
                                 <CalendarRange size={18} strokeWidth={2.5} />{" "}
                                 RPD Halaman III
@@ -588,18 +577,13 @@ export default function IndexTransaksi({ authUser }) {
                                     setActiveTab("realisasi");
                                     setCurrentPage(1);
                                 }}
-                                className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold text-sm transition-all duration-300 z-10 ${
-                                    !isRPD
-                                        ? "text-blue-600 shadow-[0_4px_12px_rgba(59,130,246,0.15)] bg-white border border-blue-100 scale-105"
-                                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
-                                }`}
+                                className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold text-sm transition-all duration-300 z-10 ${!isRPD ? "text-blue-600 shadow-[0_4px_12px_rgba(59,130,246,0.15)] bg-white border border-blue-100 scale-105" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
                             >
                                 <Receipt size={18} strokeWidth={2.5} /> Aktual
                                 Realisasi
                             </button>
                         </div>
 
-                        {/* FILTER & SEARCH */}
                         <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto">
                             {isAdmin && (
                                 <div className="relative w-full md:w-56">
@@ -649,11 +633,7 @@ export default function IndexTransaksi({ authUser }) {
                                         ? setIsAddRpdOpen(true)
                                         : setIsAddRealOpen(true)
                                 }
-                                className={`flex items-center justify-center gap-2 px-6 py-3 text-white font-bold rounded-2xl shadow-lg transition-all duration-300 w-full md:w-auto hover:-translate-y-1 ${
-                                    isRPD
-                                        ? "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/30 hover:shadow-indigo-500/40"
-                                        : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/30 hover:shadow-blue-500/40"
-                                }`}
+                                className={`flex items-center justify-center gap-2 px-6 py-3 text-white font-bold rounded-2xl shadow-lg transition-all duration-300 w-full md:w-auto hover:-translate-y-1 ${isRPD ? "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/30 hover:shadow-indigo-500/40" : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/30 hover:shadow-blue-500/40"}`}
                             >
                                 <Plus size={18} strokeWidth={2.5} /> Tambah Data
                             </button>
@@ -661,7 +641,6 @@ export default function IndexTransaksi({ authUser }) {
                     </div>
                 </div>
 
-                {/* 🔥 CARD SUMMARY (DYNAMIC GLOW) 🔥 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 relative z-10">
                     <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all flex items-center gap-5 group">
                         <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300">
@@ -782,7 +761,6 @@ export default function IndexTransaksi({ authUser }) {
                     </div>
                 </div>
 
-                {/* 🔥 TABEL LEDGER FUTURISTIK 🔥 */}
                 <div className="glass-card rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 overflow-hidden relative z-10">
                     <div className="p-5 border-b border-slate-100 bg-slate-50/50 backdrop-blur-sm flex justify-between items-center">
                         <h3
@@ -796,7 +774,7 @@ export default function IndexTransaksi({ authUser }) {
                             Daftar{" "}
                             {isRPD
                                 ? "Rencana Penarikan Dana (RPD)"
-                                : "Realisasi Pengeluaran"}
+                                : "Realisasi Pengeluaran & Kaitan RO"}
                             {selectedTW !== "ALL" && (
                                 <span className="ml-2 px-2.5 py-1 bg-slate-800 text-white rounded-lg text-[9px] shadow-sm">
                                     Filter: TW {selectedTW}
@@ -811,6 +789,10 @@ export default function IndexTransaksi({ authUser }) {
                                 className={`${lightBg} border-b border-slate-100 text-[10px] uppercase text-slate-500 font-black tracking-widest`}
                             >
                                 <tr>
+                                    {!isRPD && (
+                                        <th className="px-4 py-5 w-10"></th>
+                                    )}{" "}
+                                    {/* Spasi untuk tombol ekspansi */}
                                     <th className="px-6 py-5 align-top">
                                         Bulan
                                     </th>
@@ -864,7 +846,7 @@ export default function IndexTransaksi({ authUser }) {
                                 {loading ? (
                                     <tr>
                                         <td
-                                            colSpan="8"
+                                            colSpan="9"
                                             className="px-6 py-20 text-center"
                                         >
                                             <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent shadow-md"></div>
@@ -876,7 +858,7 @@ export default function IndexTransaksi({ authUser }) {
                                 ) : data.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan="8"
+                                            colSpan="9"
                                             className="px-6 py-20 text-center"
                                         >
                                             <div className="w-20 h-20 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-4">
@@ -908,195 +890,348 @@ export default function IndexTransaksi({ authUser }) {
                                             Number(item.belanja_gaji) +
                                             Number(item.belanja_barang) +
                                             Number(item.belanja_modal);
+                                        const isExpanded =
+                                            expandedRows.includes(item.id);
+
                                         return (
-                                            <tr
-                                                key={item.id}
-                                                className="hover:bg-slate-50/80 transition-colors duration-200 group"
-                                            >
-                                                <td className="px-6 py-5 font-black text-slate-800 text-base">
-                                                    {namaBulan[item.bulan]}
-                                                </td>
-                                                <td className="px-6 py-5">
-                                                    <div className="font-extrabold text-slate-800 text-sm max-w-[200px] truncate">
-                                                        {
-                                                            item.satker
-                                                                ?.nama_satker
-                                                        }
-                                                    </div>
-                                                    <div className="text-[10px] font-black tracking-widest text-slate-400 uppercase mt-1">
-                                                        {
-                                                            item.satker
-                                                                ?.kode_satker
-                                                        }
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-5 text-right font-bold text-slate-600">
-                                                    {formatCurrency(
-                                                        item.belanja_gaji,
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-5 text-right font-bold text-slate-600">
-                                                    {formatCurrency(
-                                                        item.belanja_barang,
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-5 text-right font-bold text-slate-600">
-                                                    {formatCurrency(
-                                                        item.belanja_modal,
-                                                    )}
-                                                </td>
-                                                <td
-                                                    className={`px-6 py-5 text-right font-black text-base ${lightBg} ${textAccent}`}
+                                            <React.Fragment key={item.id}>
+                                                <tr
+                                                    className={`hover:bg-slate-50/80 transition-colors duration-200 group ${isExpanded ? "bg-blue-50/30" : ""}`}
                                                 >
-                                                    {formatCurrency(total)}
-                                                </td>
-                                                <td className="px-6 py-5 text-center">
-                                                    {item.status ===
-                                                        "approved" && (
-                                                        <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm">
-                                                            Disetujui
-                                                        </span>
-                                                    )}
-                                                    {item.status ===
-                                                        "rejected" && (
-                                                        <div className="flex flex-col items-center">
-                                                            <span
-                                                                className="bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest mb-1.5 shadow-sm cursor-help"
-                                                                title={
-                                                                    item.catatan_revisi
+                                                    {/* 🔥 TOMBOL EXPAND (KHUSUS REALISASI) 🔥 */}
+                                                    {!isRPD && (
+                                                        <td className="px-4 py-5 text-center">
+                                                            <button
+                                                                onClick={() =>
+                                                                    toggleRow(
+                                                                        item.id,
+                                                                    )
                                                                 }
+                                                                className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-300 shadow-sm transition-all focus:outline-none"
+                                                                title="Lihat Rincian RO"
                                                             >
-                                                                Ditolak
+                                                                {isExpanded ? (
+                                                                    <ChevronUp
+                                                                        size={
+                                                                            16
+                                                                        }
+                                                                        strokeWidth={
+                                                                            3
+                                                                        }
+                                                                    />
+                                                                ) : (
+                                                                    <ChevronDown
+                                                                        size={
+                                                                            16
+                                                                        }
+                                                                        strokeWidth={
+                                                                            3
+                                                                        }
+                                                                    />
+                                                                )}
+                                                            </button>
+                                                        </td>
+                                                    )}
+
+                                                    <td className="px-6 py-5 font-black text-slate-800 text-base">
+                                                        {namaBulan[item.bulan]}
+                                                    </td>
+                                                    <td className="px-6 py-5">
+                                                        <div className="font-extrabold text-slate-800 text-sm max-w-[200px] truncate">
+                                                            {
+                                                                item.satker
+                                                                    ?.nama_satker
+                                                            }
+                                                        </div>
+                                                        <div className="text-[10px] font-black tracking-widest text-slate-400 uppercase mt-1">
+                                                            {
+                                                                item.satker
+                                                                    ?.kode_satker
+                                                            }
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-5 text-right font-bold text-slate-600">
+                                                        {formatCurrency(
+                                                            item.belanja_gaji,
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-5 text-right font-bold text-slate-600">
+                                                        {formatCurrency(
+                                                            item.belanja_barang,
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-5 text-right font-bold text-slate-600">
+                                                        {formatCurrency(
+                                                            item.belanja_modal,
+                                                        )}
+                                                    </td>
+                                                    <td
+                                                        className={`px-6 py-5 text-right font-black text-base ${lightBg} ${textAccent}`}
+                                                    >
+                                                        {formatCurrency(total)}
+                                                    </td>
+                                                    <td className="px-6 py-5 text-center">
+                                                        {item.status ===
+                                                            "approved" && (
+                                                            <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm">
+                                                                Disetujui
                                                             </span>
-                                                            {item.catatan_revisi && (
-                                                                <span className="text-[9px] text-rose-500 w-28 truncate font-medium bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
-                                                                    "
-                                                                    {
+                                                        )}
+                                                        {item.status ===
+                                                            "rejected" && (
+                                                            <div className="flex flex-col items-center">
+                                                                <span
+                                                                    className="bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest mb-1.5 shadow-sm cursor-help"
+                                                                    title={
                                                                         item.catatan_revisi
                                                                     }
-                                                                    "
+                                                                >
+                                                                    Ditolak
                                                                 </span>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                    {(!item.status ||
-                                                        item.status ===
-                                                            "draft") && (
-                                                        <span className="bg-amber-100 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm">
-                                                            Menunggu
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-5 text-center">
-                                                    <div className="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-all duration-300">
-                                                        {(item.status !==
-                                                            "approved" ||
-                                                            isAdmin) && (
-                                                            <>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setSelectedData(
-                                                                            item,
-                                                                        );
-                                                                        isRPD
-                                                                            ? setIsEditRpdOpen(
-                                                                                  true,
-                                                                              )
-                                                                            : setIsEditRealOpen(
-                                                                                  true,
-                                                                              );
-                                                                    }}
-                                                                    className="p-2 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 hover:scale-110 transition-all shadow-sm border border-indigo-100"
-                                                                    title="Edit Data"
-                                                                >
-                                                                    <Edit
-                                                                        size={
-                                                                            16
+                                                                {item.catatan_revisi && (
+                                                                    <span className="text-[9px] text-rose-500 w-28 truncate font-medium bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                                                                        "
+                                                                        {
+                                                                            item.catatan_revisi
                                                                         }
-                                                                        strokeWidth={
-                                                                            2.5
-                                                                        }
-                                                                    />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setDeleteId(
-                                                                            item.id,
-                                                                        );
-                                                                        setIsDeleteOpen(
-                                                                            true,
-                                                                        );
-                                                                    }}
-                                                                    className="p-2 bg-white text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-rose-100"
-                                                                    title="Hapus Data"
-                                                                >
-                                                                    <Trash2
-                                                                        size={
-                                                                            16
-                                                                        }
-                                                                        strokeWidth={
-                                                                            2.5
-                                                                        }
-                                                                    />
-                                                                </button>
-                                                            </>
+                                                                        "
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         )}
-                                                        {isAdmin &&
-                                                            item.status !==
-                                                                "approved" && (
-                                                                <button
-                                                                    onClick={() =>
-                                                                        handleApprove(
-                                                                            item.id,
-                                                                            "approved",
+                                                        {(!item.status ||
+                                                            item.status ===
+                                                                "draft") && (
+                                                            <span className="bg-amber-100 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm">
+                                                                Menunggu
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-5 text-center">
+                                                        <div className="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-all duration-300">
+                                                            {(item.status !==
+                                                                "approved" ||
+                                                                isAdmin) && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setSelectedData(
+                                                                                item,
+                                                                            );
+                                                                            isRPD
+                                                                                ? setIsEditRpdOpen(
+                                                                                      true,
+                                                                                  )
+                                                                                : setIsEditRealOpen(
+                                                                                      true,
+                                                                                  );
+                                                                        }}
+                                                                        className="p-2 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 hover:scale-110 transition-all shadow-sm border border-indigo-100"
+                                                                        title="Edit Data"
+                                                                    >
+                                                                        <Edit
+                                                                            size={
+                                                                                16
+                                                                            }
+                                                                            strokeWidth={
+                                                                                2.5
+                                                                            }
+                                                                        />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setDeleteId(
+                                                                                item.id,
+                                                                            );
+                                                                            setIsDeleteOpen(
+                                                                                true,
+                                                                            );
+                                                                        }}
+                                                                        className="p-2 bg-white text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-rose-100"
+                                                                        title="Hapus Data"
+                                                                    >
+                                                                        <Trash2
+                                                                            size={
+                                                                                16
+                                                                            }
+                                                                            strokeWidth={
+                                                                                2.5
+                                                                            }
+                                                                        />
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                            {isAdmin &&
+                                                                item.status !==
+                                                                    "approved" && (
+                                                                    <button
+                                                                        onClick={() =>
+                                                                            handleApprove(
+                                                                                item.id,
+                                                                                "approved",
+                                                                            )
+                                                                        }
+                                                                        className="p-2 bg-white text-emerald-500 rounded-xl hover:bg-emerald-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-emerald-100 ml-1"
+                                                                        title="Setujui Data Ini"
+                                                                    >
+                                                                        <CheckCircle
+                                                                            size={
+                                                                                16
+                                                                            }
+                                                                            strokeWidth={
+                                                                                2.5
+                                                                            }
+                                                                        />
+                                                                    </button>
+                                                                )}
+                                                            {isAdmin &&
+                                                                item.status !==
+                                                                    "rejected" && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setRejectData(
+                                                                                item,
+                                                                            );
+                                                                            setIsRejectOpen(
+                                                                                true,
+                                                                            );
+                                                                        }}
+                                                                        className="p-2 bg-white text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-amber-100"
+                                                                        title={
+                                                                            item.status ===
+                                                                            "approved"
+                                                                                ? "Cabut Persetujuan"
+                                                                                : "Tolak Data Ini"
+                                                                        }
+                                                                    >
+                                                                        <XCircle
+                                                                            size={
+                                                                                16
+                                                                            }
+                                                                            strokeWidth={
+                                                                                2.5
+                                                                            }
+                                                                        />
+                                                                    </button>
+                                                                )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+
+                                                {/* 🔥 BARIS RINCIAN TRANSAKSI (COLLAPSIBLE) 🔥 */}
+                                                {!isRPD && isExpanded && (
+                                                    <tr className="bg-slate-50 border-b border-slate-200">
+                                                        <td
+                                                            colSpan="9"
+                                                            className="p-6"
+                                                        >
+                                                            <div className="bg-white rounded-2xl border border-slate-200 shadow-inner p-5 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                                <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
+                                                                    <Layers
+                                                                        size={
+                                                                            16
+                                                                        }
+                                                                        className="text-blue-500"
+                                                                    />{" "}
+                                                                    Keterlacakan
+                                                                    Transaksi &
+                                                                    Rincian
+                                                                    Output
+                                                                </h4>
+                                                                <div className="grid grid-cols-1 gap-3">
+                                                                    {item.details &&
+                                                                    item.details
+                                                                        .length >
+                                                                        0 ? (
+                                                                        item.details.map(
+                                                                            (
+                                                                                detail,
+                                                                                idx,
+                                                                            ) => (
+                                                                                <div
+                                                                                    key={
+                                                                                        detail.id ||
+                                                                                        idx
+                                                                                    }
+                                                                                    className="flex flex-col sm:flex-row items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-blue-200 hover:bg-blue-50/30 transition-colors"
+                                                                                >
+                                                                                    <div className="flex items-center gap-4 w-full sm:w-auto">
+                                                                                        <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center font-black text-[10px] text-slate-400 uppercase tracking-widest border border-slate-100">
+                                                                                            {detail.jenis_belanja ===
+                                                                                            "gaji"
+                                                                                                ? "51"
+                                                                                                : detail.jenis_belanja ===
+                                                                                                    "barang"
+                                                                                                  ? "52"
+                                                                                                  : "53"}
+                                                                                        </div>
+                                                                                        <div>
+                                                                                            <p className="text-sm font-bold text-slate-800 leading-tight">
+                                                                                                {
+                                                                                                    detail.uraian
+                                                                                                }
+                                                                                            </p>
+
+                                                                                            {/* 🔥 BADGE RO PREMIUM 🔥 */}
+                                                                                            {detail.rincian_output ? (
+                                                                                                <div className="inline-flex items-center gap-1.5 mt-1.5 px-2 py-0.5 bg-indigo-100 border border-indigo-200 text-indigo-700 rounded text-[10px] font-bold shadow-sm">
+                                                                                                    <Target
+                                                                                                        size={
+                                                                                                            10
+                                                                                                        }
+                                                                                                        className="text-indigo-500"
+                                                                                                    />
+                                                                                                    RO:
+                                                                                                    [
+                                                                                                    {
+                                                                                                        detail
+                                                                                                            .rincian_output
+                                                                                                            .kode_ro
+                                                                                                    }
+                                                                                                    ]{" "}
+                                                                                                    {
+                                                                                                        detail
+                                                                                                            .rincian_output
+                                                                                                            .nama_ro
+                                                                                                    }
+                                                                                                </div>
+                                                                                            ) : (
+                                                                                                <div className="inline-flex items-center mt-1.5 px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded text-[10px] font-bold">
+                                                                                                    Tanpa
+                                                                                                    Rincian
+                                                                                                    Output
+                                                                                                    (Umum)
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="mt-3 sm:mt-0 text-right w-full sm:w-auto">
+                                                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+                                                                                            Nominal
+                                                                                        </p>
+                                                                                        <p className="text-sm font-black text-slate-800 font-mono">
+                                                                                            {formatCurrency(
+                                                                                                detail.nominal,
+                                                                                            )}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </div>
+                                                                            ),
                                                                         )
-                                                                    }
-                                                                    className="p-2 bg-white text-emerald-500 rounded-xl hover:bg-emerald-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-emerald-100 ml-1"
-                                                                    title="Setujui Data Ini"
-                                                                >
-                                                                    <CheckCircle
-                                                                        size={
-                                                                            16
-                                                                        }
-                                                                        strokeWidth={
-                                                                            2.5
-                                                                        }
-                                                                    />
-                                                                </button>
-                                                            )}
-                                                        {isAdmin &&
-                                                            item.status !==
-                                                                "rejected" && (
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setRejectData(
-                                                                            item,
-                                                                        );
-                                                                        setIsRejectOpen(
-                                                                            true,
-                                                                        );
-                                                                    }}
-                                                                    className="p-2 bg-white text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-amber-100"
-                                                                    title={
-                                                                        item.status ===
-                                                                        "approved"
-                                                                            ? "Cabut Persetujuan"
-                                                                            : "Tolak Data Ini"
-                                                                    }
-                                                                >
-                                                                    <XCircle
-                                                                        size={
-                                                                            16
-                                                                        }
-                                                                        strokeWidth={
-                                                                            2.5
-                                                                        }
-                                                                    />
-                                                                </button>
-                                                            )}
-                                                    </div>
-                                                </td>
-                                            </tr>
+                                                                    ) : (
+                                                                        <div className="text-center p-4 text-slate-400 text-sm font-bold">
+                                                                            Tidak
+                                                                            ada
+                                                                            rincian
+                                                                            transaksi.
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
                                         );
                                     })
                                 )}

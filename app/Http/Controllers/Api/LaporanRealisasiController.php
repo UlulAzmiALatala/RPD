@@ -97,7 +97,6 @@ class LaporanRealisasiController extends Controller
 
                 $satkerSummary[$sid] = [
                     'pagu_efektif' => $ang->pagu_efektif,
-                    // 🔥 PAGU HARUS KOTOR (SEBELUM BLOKIR) UNTUK HITUNG TARGET KEMENKEU
                     'pagu_gaji' => $isSetjen ? $ang->belanja_gaji : 0,
                     'pagu_barang' => $ang->belanja_barang,
                     'pagu_modal' => $ang->belanja_modal,
@@ -152,21 +151,26 @@ class LaporanRealisasiController extends Controller
 
         $anggaran = Anggaran::where('satker_id', $satkerId)->where('tahun', $tahun)->first();
 
-        // 🔥 PAGU TOTAL KOTOR (Digunakan sebagai pembagi proporsi bobot, bukan pagu efektif)
         $paguGaji = ($isSetjen && $anggaran) ? $anggaran->belanja_gaji : 0;
         $paguBarang = $anggaran ? $anggaran->belanja_barang : 0;
         $paguModal = $anggaran ? $anggaran->belanja_modal : 0;
         $paguKotorTotal = $paguGaji + $paguBarang + $paguModal;
 
-        $paguEfektifTotal = $anggaran ? $anggaran->pagu_efektif : 0; // Buat Sisa Dompet saja
+        $paguEfektifTotal = $anggaran ? $anggaran->pagu_efektif : 0;
 
-        // PROPORSI BERDASARKAN PAGU KOTOR! (Bukan Pagu Efektif)
         $proporsi51 = $paguKotorTotal > 0 ? ($paguGaji / $paguKotorTotal) * 100 : 0;
         $proporsi52 = $paguKotorTotal > 0 ? ($paguBarang / $paguKotorTotal) * 100 : 0;
         $proporsi53 = $paguKotorTotal > 0 ? ($paguModal / $paguKotorTotal) * 100 : 0;
 
         $rpdList = RencanaPenarikan::where('satker_id', $satkerId)->where('tahun', $tahun)->where('status', 'approved')->get()->keyBy('bulan');
-        $realisasiList = Realisasi::where('satker_id', $satkerId)->where('tahun', $tahun)->where('status', 'approved')->get()->keyBy('bulan');
+
+        // 🔥 LOAD RELASI 'details.rincianOutput' UNTUK KETERLACAKAN TRANSAKSI
+        $realisasiList = Realisasi::with(['details.rincianOutput'])
+            ->where('satker_id', $satkerId)
+            ->where('tahun', $tahun)
+            ->where('status', 'approved')
+            ->get()
+            ->keyBy('bulan');
 
         $rincianOutputs = RincianOutput::where('satker_id', $satkerId)->where('tahun', $tahun)->get();
         $roIds = $rincianOutputs->pluck('id');
@@ -252,7 +256,8 @@ class LaporanRealisasiController extends Controller
                 ],
                 'persen_seluruh' => ($totRpd > 0 || $totReal > 0) ? round($totalDeviasiTertimbangBulanIni, 2) : '-',
                 'rata_kumulatif' => ($totRpd > 0 || $totReal > 0) ? round($rataKumulatif, 2) : '-',
-                'ikpa' => $ikpa === '-' ? '-' : round($ikpa, 2)
+                'ikpa' => $ikpa === '-' ? '-' : round($ikpa, 2),
+                'realisasi_details' => $realisasi ? $realisasi->details : [] // 🔥 KIRIM DETAIL KE FRONTEND
             ];
         }
 
@@ -277,7 +282,6 @@ class LaporanRealisasiController extends Controller
             $target52 = $this->getTargetKemenkeu($tw, '52');
             $target53 = $this->getTargetKemenkeu($tw, '53');
 
-            // TARGET MURNI KEMENKEU DARI PAGU KOTOR
             $targetNominal51 = $paguGaji * ($target51 / 100);
             $targetNominal52 = $paguBarang * ($target52 / 100);
             $targetNominal53 = $paguModal * ($target53 / 100);
@@ -286,7 +290,6 @@ class LaporanRealisasiController extends Controller
             $persenSerap52 = $targetNominal52 > 0 ? min(($real52_kumulatif / $targetNominal52) * 100, 100) : ($paguBarang > 0 ? 0 : 100);
             $persenSerap53 = $targetNominal53 > 0 ? min(($real53_kumulatif / $targetNominal53) * 100, 100) : ($paguModal > 0 ? 0 : 100);
 
-            // --- PERHITUNGAN NILAI KINERJA PENYERAPAN (IKPA SERAPAN) ---
             $totalTargetNominalTW = $targetNominal51 + $targetNominal52 + $targetNominal53;
             $totalRealisasiKumulatifTW = $real51_kumulatif + $real52_kumulatif + $real53_kumulatif;
 
@@ -299,7 +302,6 @@ class LaporanRealisasiController extends Controller
                 $nilai_penyerapan = 100;
             }
 
-            // Ambil Nilai IKPA Hal III 
             $ikpa_hal_iii = $laporan[$bulanAkhir - 1]['ikpa'];
             $ikpa_hal_iii = $ikpa_hal_iii === '-' ? 0 : (float)$ikpa_hal_iii;
 
@@ -367,7 +369,7 @@ class LaporanRealisasiController extends Controller
             'data' => [
                 'satker' => $satker,
                 'tahun' => $tahun,
-                'pagu_total' => $paguKotorTotal, // Kirim Pagu Kotor ke Frontend!
+                'pagu_total' => $paguKotorTotal,
                 'pagu_efektif' => $paguEfektifTotal,
                 'laporan_bulanan' => $laporan,
                 'evaluasi_tw' => $evaluasi_tw
@@ -401,13 +403,21 @@ class LaporanRealisasiController extends Controller
         $paguBarang = $anggaran ? $anggaran->belanja_barang : 0;
         $paguModal = $anggaran ? $anggaran->belanja_modal : 0;
         $paguKotorTotal = $paguGaji + $paguBarang + $paguModal;
+        $paguEfektifTotal = $anggaran ? $anggaran->pagu_efektif : 0;
 
         $proporsi51 = $paguKotorTotal > 0 ? ($paguGaji / $paguKotorTotal) * 100 : 0;
         $proporsi52 = $paguKotorTotal > 0 ? ($paguBarang / $paguKotorTotal) * 100 : 0;
         $proporsi53 = $paguKotorTotal > 0 ? ($paguModal / $paguKotorTotal) * 100 : 0;
 
         $rpdList = RencanaPenarikan::where('satker_id', $satkerId)->where('tahun', $tahun)->where('status', 'approved')->get()->keyBy('bulan');
-        $realisasiList = Realisasi::where('satker_id', $satkerId)->where('tahun', $tahun)->where('status', 'approved')->get()->keyBy('bulan');
+        
+        // 🔥 LOAD RELASI 'details.rincianOutput' AGAR TAMPIL DI LAMPIRAN PDF SATKER
+        $realisasiList = Realisasi::with(['details.rincianOutput'])
+            ->where('satker_id', $satkerId)
+            ->where('tahun', $tahun)
+            ->where('status', 'approved')
+            ->get()
+            ->keyBy('bulan');
 
         $rincianOutputs = RincianOutput::where('satker_id', $satkerId)->where('tahun', $tahun)->get();
         $roIds = $rincianOutputs->pluck('id');
@@ -494,7 +504,8 @@ class LaporanRealisasiController extends Controller
                 'dev_tertimbang_53' => round($devTertimbang53, 2),
                 'persen_seluruh' => ($totRpd > 0 || $totReal > 0) ? round($totalDeviasiTertimbangBulanIni, 2) : '-',
                 'rata_kumulatif' => ($totRpd > 0 || $totReal > 0) ? round($rataKumulatif, 2) : '-',
-                'ikpa' => $ikpa === '-' ? '-' : round($ikpa, 2)
+                'ikpa' => $ikpa === '-' ? '-' : round($ikpa, 2),
+                'realisasi_details' => $realisasi ? $realisasi->details : [] // 🔥 KIRIM RINCIAN TRANSAKSI KE PDF
             ];
         }
 
@@ -607,6 +618,7 @@ class LaporanRealisasiController extends Controller
             'satker' => $satker,
             'tahun' => $tahun,
             'pagu_total' => $paguKotorTotal,
+            'pagu_efektif' => $paguEfektifTotal, // 🔥 KIRIM PAGU EFEKTIF KE VIEW PDF
             'laporan' => $laporan,
             'evaluasi_tw' => $evaluasi_tw,
             'tanggal_cetak' => $tanggalCetak

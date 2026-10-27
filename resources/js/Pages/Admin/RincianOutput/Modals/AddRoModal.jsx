@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import axios from "axios";
 import {
     X,
@@ -11,6 +12,8 @@ import {
     AlertTriangle,
     Building2,
     Loader2,
+    Wallet,
+    Info,
 } from "lucide-react";
 
 export default function AddRoModal({
@@ -20,7 +23,9 @@ export default function AddRoModal({
     tahun,
     authUser,
     daftarSatker,
+    satkerSummary,
 }) {
+    const [mounted, setMounted] = useState(false);
     const [formData, setFormData] = useState({
         satker_id: satkerId || "",
         kode_ro: "",
@@ -32,6 +37,89 @@ export default function AddRoModal({
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
+    // State untuk menampung total pagu dan total RO yang sudah terdaftar
+    const [satkerPaguInfo, setSatkerPaguInfo] = useState({
+        totalPagu: 0,
+        teralokasi: 0,
+    });
+
+    useEffect(() => {
+        setMounted(true);
+        if (isOpen) document.body.style.overflow = "hidden";
+        else document.body.style.overflow = "unset";
+        return () => {
+            document.body.style.overflow = "unset";
+        };
+    }, []);
+
+    const isOpen = true;
+
+    // 🔥 AMBIL INFORMASI PAGU & ALOKASI RO SAAT SATKER DIPILIH
+    useEffect(() => {
+        if (formData.satker_id && tahun) {
+            axios
+                .get(`/api/rincian-output`, {
+                    params: { satker_id: formData.satker_id, tahun: tahun },
+                })
+                .then((res) => {
+                    const roList = res.data.data || [];
+                    // Hitung total pagu yang sudah teralokasi ke RO lain
+                    const totalTeralokasi = roList.reduce(
+                        (sum, item) => sum + Number(item.pagu_anggaran || 0),
+                        0,
+                    );
+
+                    // Ambil data pagu efektif satker dari ringkasan atau endpoint anggaran
+                    axios
+                        .get(`/api/anggaran?tahun=${tahun}`)
+                        .then((angRes) => {
+                            // Cari pagu satker yang bersangkutan
+                            const listAnggaran =
+                                angRes.data.data || angRes.data;
+                            // Sesuaikan dengan struktur endpoint anggaran Anda, atau ambil dari satkerSummary jika ada
+                            const targetAnggaran = Array.isArray(listAnggaran)
+                                ? listAnggaran.find(
+                                      (a) =>
+                                          a.satker_id.toString() ===
+                                          formData.satker_id.toString(),
+                                  )
+                                : null;
+
+                            const paguEfektifSatker = targetAnggaran
+                                ? Number(targetAnggaran.pagu_efektif || 0)
+                                : 0;
+
+                            setSatkerPaguInfo({
+                                totalPagu: paguEfektifSatker,
+                                teralokasi: totalTeralokasi,
+                            });
+                        })
+                        .catch(() => {
+                            setSatkerPaguInfo({
+                                totalPagu: 0,
+                                teralokasi: totalTeralokasi,
+                            });
+                        });
+                })
+                .catch((err) =>
+                    console.error("Gagal menghitung alokasi RO:", err),
+                );
+        } else {
+            setSatkerPaguInfo({ totalPagu: 0, teralokasi: 0 });
+        }
+    }, [formData.satker_id, tahun]);
+
+    const formatCurrency = (amount) =>
+        new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0,
+        }).format(amount || 0);
+
+    const sisaPaguSatker = satkerPaguInfo.totalPagu - satkerPaguInfo.teralokasi;
+    const inputPaguRo = Number(formData.pagu_anggaran || 0);
+    const isExceeding = sisaPaguSatker > 0 && inputPaguRo > sisaPaguSatker;
+
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
         if (errorMsg) setErrorMsg("");
@@ -39,6 +127,13 @@ export default function AddRoModal({
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        if (isExceeding) {
+            setErrorMsg(
+                "Pagu Rincian Output (RO) ini melebihi Sisa Pagu Induk Satuan Kerja!",
+            );
+            return;
+        }
+
         setLoading(true);
         setErrorMsg("");
 
@@ -56,10 +151,11 @@ export default function AddRoModal({
             });
     };
 
-    return (
-        <div className="fixed top-0 left-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 sm:p-6 bg-[#0B1120]/80 backdrop-blur-md transition-all duration-300">
+    if (!mounted) return null;
+
+    return createPortal(
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 sm:p-6 bg-[#0B1120]/80 backdrop-blur-md transition-all duration-300">
             <div className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] w-full max-w-2xl overflow-hidden border border-white/60 flex flex-col max-h-[95vh] animate-in zoom-in-95 fade-in duration-300 relative">
-                {/* AMBIENT GLOW */}
                 <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
 
                 <div className="flex justify-between items-center p-6 md:p-8 border-b border-slate-100/60 bg-slate-50/30 shrink-0 relative z-10">
@@ -94,6 +190,49 @@ export default function AddRoModal({
                             <p className="text-sm font-bold text-rose-800">
                                 {errorMsg}
                             </p>
+                        </div>
+                    )}
+
+                    {/* 🔥 SECTION INFORMASI SISA PAGU SATKER (HUD) */}
+                    {formData.satker_id && satkerPaguInfo.totalPagu > 0 && (
+                        <div className="mb-6 p-5 bg-gradient-to-br from-slate-900 to-[#0A192F] text-white rounded-[2rem] shadow-md border border-slate-800 relative overflow-hidden">
+                            <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-3">
+                                <Wallet size={14} /> Ringkasan Pagu Satker &
+                                Alokasi RO
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 border-t border-slate-800 pt-3">
+                                <div>
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                        Total Pagu Dipa
+                                    </span>
+                                    <p className="text-sm font-black text-white">
+                                        {formatCurrency(
+                                            satkerPaguInfo.totalPagu,
+                                        )}
+                                    </p>
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                        Sudah Teralokasi RO Lain
+                                    </span>
+                                    <p className="text-sm font-black text-amber-400">
+                                        {formatCurrency(
+                                            satkerPaguInfo.teralokasi,
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between items-center">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                                    Sisa Pagu Bisa Dibagi:
+                                </span>
+                                <span
+                                    className={`text-base font-black font-mono ${sisaPaguSatker < 0 ? "text-rose-400 animate-pulse" : "text-emerald-400"}`}
+                                >
+                                    {formatCurrency(sisaPaguSatker)}
+                                </span>
+                            </div>
                         </div>
                     )}
 
@@ -199,9 +338,9 @@ export default function AddRoModal({
                                     required
                                     type="number"
                                     step="0.01"
-                                    min="1"
+                                    min="0.01"
                                     name="target_volume"
-                                    placeholder="Contoh: 50"
+                                    placeholder="Contoh: 50.5"
                                     value={formData.target_volume}
                                     onChange={handleChange}
                                     className="w-full px-5 py-3.5 bg-white border border-indigo-200 rounded-2xl text-lg font-black text-indigo-700 shadow-sm focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all placeholder:font-normal"
@@ -219,12 +358,22 @@ export default function AddRoModal({
                                     required
                                     type="number"
                                     min="0"
+                                    max={
+                                        sisaPaguSatker > 0
+                                            ? sisaPaguSatker
+                                            : undefined
+                                    }
                                     name="pagu_anggaran"
                                     placeholder="Contoh: 150000000"
                                     value={formData.pagu_anggaran}
                                     onChange={handleChange}
-                                    className="w-full px-5 py-3.5 bg-white border border-emerald-200 rounded-2xl text-lg font-black text-emerald-700 shadow-sm focus:ring-4 focus:ring-emerald-500/20 outline-none transition-all placeholder:font-normal"
+                                    className={`w-full px-5 py-3.5 bg-white border rounded-2xl text-lg font-black shadow-sm focus:ring-4 outline-none transition-all placeholder:font-normal ${isExceeding ? "border-rose-300 text-rose-600 focus:ring-rose-500/20" : "border-emerald-200 text-emerald-700 focus:ring-emerald-500/20"}`}
                                 />
+                                {isExceeding && (
+                                    <p className="text-[9px] font-bold text-rose-500 mt-1.5 ml-1">
+                                        Melebihi sisa pagu efektif!
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </form>
@@ -242,8 +391,8 @@ export default function AddRoModal({
                     <button
                         type="submit"
                         form="form-add-ro"
-                        disabled={loading}
-                        className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl font-bold text-white transition-all duration-300 outline-none ${loading ? "bg-slate-400 cursor-not-allowed shadow-none" : "bg-gradient-to-br from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 shadow-[0_8px_16px_rgba(79,70,229,0.25)] hover:shadow-[0_8px_20px_rgba(79,70,229,0.4)] hover:-translate-y-0.5"}`}
+                        disabled={loading || isExceeding}
+                        className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl font-bold text-white transition-all duration-300 outline-none ${loading || isExceeding ? "bg-slate-400 cursor-not-allowed shadow-none" : "bg-gradient-to-br from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 shadow-[0_8px_16px_rgba(79,70,229,0.25)] hover:shadow-[0_8px_20px_rgba(79,70,229,0.4)] hover:-translate-y-0.5"}`}
                     >
                         {loading ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
@@ -254,6 +403,8 @@ export default function AddRoModal({
                     </button>
                 </div>
             </div>
-        </div>
+            <style>{`.custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }`}</style>
+        </div>,
+        document.body,
     );
 }
