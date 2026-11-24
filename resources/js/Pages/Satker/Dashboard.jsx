@@ -9,7 +9,6 @@ import {
     TrendingUp,
     PlusCircle,
     PieChart,
-    Info,
     X,
     Target,
     CheckCircle2,
@@ -23,6 +22,10 @@ import {
     FileText,
     Trophy,
     AlertTriangle,
+    FileClock,
+    ShieldCheck,
+    Layers,
+    ClipboardCheck,
 } from "lucide-react";
 import {
     BarChart,
@@ -40,7 +43,6 @@ export default function DashboardSatker({ authUser }) {
     const [loading, setLoading] = useState(true);
     const [tahun, setTahun] = useState(new Date().getFullYear().toString());
 
-    // --- STATE FILTER ---
     const currentMonth = new Date().getMonth() + 1;
     const initialTW =
         currentMonth <= 3
@@ -52,7 +54,6 @@ export default function DashboardSatker({ authUser }) {
                 : "IV";
     const [selectedTW, setSelectedTW] = useState(initialTW);
 
-    // --- STATE INSIGHT POPUP ---
     const [showInsightPopup, setShowInsightPopup] = useState(false);
 
     useEffect(() => {
@@ -112,6 +113,12 @@ export default function DashboardSatker({ authUser }) {
         if (!dashboardData) return null;
         const poin = dashboardData.analisis_tw.poin.total_poin;
         const serap = dashboardData.summary.persentase_realisasi;
+        const anomali =
+            dashboardData.tata_kelola?.kesehatan_ro?.ro_anomali || 0;
+        const extraAnomali =
+            anomali > 0
+                ? ` Perhatian: ${anomali} RO mengalami Anomali Fisik (capaian fisik tertinggal >15% dari serapan anggaran).`
+                : "";
 
         if (dashboardData.summary.total_anggaran === 0) {
             return {
@@ -123,19 +130,19 @@ export default function DashboardSatker({ authUser }) {
             };
         }
 
-        if (poin >= 45) {
+        if (poin >= 54) {
             return {
                 type: "success",
                 title: "Kinerja Eksekusi Brilian!",
-                text: `Luar biasa! Performa anggaran Satker Anda sangat memuaskan di TW ${selectedTW}. Dengan Poin SIRA mencapai ${formatDecimal(poin)}/55, serapan menyentuh ${serap}%, dan IKPA ${dashboardData.summary.ikpa}, Anda berada di jalur juara!`,
+                text: `Luar biasa! Performa anggaran Satker Anda sangat memuaskan di TW ${selectedTW}. Dengan Poin SIRA mencapai ${formatDecimal(poin)}/65, serapan menyentuh ${serap}%, dan IKPA Hal III ${dashboardData.summary.ikpa}, Anda berada di jalur juara!${extraAnomali}`,
                 glow: "shadow-[0_0_60px_rgba(16,185,129,0.4)]",
                 border: "border-emerald-500/50",
             };
-        } else if (poin >= 35) {
+        } else if (poin >= 42) {
             return {
                 type: "warning",
                 title: "Potensi Kehilangan Poin",
-                text: `Kinerja anggaran Anda cukup stabil (SIRA: ${formatDecimal(poin)}/55), namun sistem mendeteksi adanya deviasi atau keterlambatan output yang menghambat nilai maksimal. Segera sinkronkan RPD dan tagihan Anda!`,
+                text: `Kinerja anggaran Anda cukup stabil (SIRA: ${formatDecimal(poin)}/65), namun sistem mendeteksi adanya deviasi, revisi DIPA, atau keterlambatan output yang menghambat nilai maksimal. Segera sinkronkan RPD dan capaian RO!${extraAnomali}`,
                 glow: "shadow-[0_0_60px_rgba(245,158,11,0.4)]",
                 border: "border-amber-500/50",
             };
@@ -143,7 +150,7 @@ export default function DashboardSatker({ authUser }) {
             return {
                 type: "danger",
                 title: "Zona Kritis Anggaran!",
-                text: `WARNING! Nilai SIRA Satker Anda anjlok di angka ${formatDecimal(poin)}/55. Deviasi Halaman III DIPA, minimnya Serapan (${serap}%), atau tertundanya Capaian RO menjadi penyebab utama. Segera lakukan konsolidasi!`,
+                text: `WARNING! Nilai SIRA Satker Anda berada di angka ${formatDecimal(poin)}/65. Deviasi Halaman III DIPA, minimnya Serapan (${serap}%), atau tertundanya Capaian RO menjadi penyebab utama. Segera lakukan konsolidasi!${extraAnomali}`,
                 glow: "shadow-[0_0_60px_rgba(225,29,72,0.4)]",
                 border: "border-rose-500/50",
             };
@@ -151,11 +158,11 @@ export default function DashboardSatker({ authUser }) {
     };
 
     const insight = generateInsight();
+    const tk = dashboardData?.tata_kelola;
 
     return (
         <>
             <div className="space-y-8 text-slate-700 font-sans relative pb-12 min-h-screen">
-                {/* --- AMBIENT BACKGROUND GLOW --- */}
                 <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none -z-10"></div>
                 <div className="absolute top-20 right-20 w-96 h-96 bg-teal-500/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
 
@@ -188,7 +195,7 @@ export default function DashboardSatker({ authUser }) {
                     </div>
                 </div>
 
-                {/* --- FILTER BAR & QUICK ACTIONS PREMIUM --- */}
+                {/* --- FILTER BAR & QUICK ACTIONS --- */}
                 <div className="flex flex-col lg:flex-row gap-5">
                     <div className="flex-1 bg-white/80 backdrop-blur-xl p-5 rounded-[2rem] shadow-sm border border-white flex flex-col md:flex-row gap-5 items-center justify-between relative z-10">
                         <div className="flex bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 text-xs font-bold w-full lg:w-auto shadow-inner">
@@ -267,7 +274,7 @@ export default function DashboardSatker({ authUser }) {
                             />
                         </div>
                         <p className="text-indigo-900 font-black text-sm tracking-[0.2em] uppercase animate-pulse">
-                            Menganalisis Kinerja Satker...
+                            Menganalisis Kinerja Satker (65 Poin)...
                         </p>
                     </div>
                 ) : (
@@ -300,7 +307,7 @@ export default function DashboardSatker({ authUser }) {
                                                     size={14}
                                                     className="animate-pulse"
                                                 />{" "}
-                                                SIRA AI Assistant
+                                                SIRA AI Assistant (65 Pts)
                                             </div>
 
                                             <div
@@ -349,9 +356,8 @@ export default function DashboardSatker({ authUser }) {
                                 </div>
                             )}
 
-                            {/* --- 1. SUPER SUMMARY CARDS (55 POIN) --- */}
+                            {/* --- 1. SUPER SUMMARY CARDS (65 POIN) --- */}
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-6 relative z-10">
-                                {/* 🔥 SUPER CARD: TOTAL POIN SIRA 🔥 */}
                                 <div className="xl:col-span-2 bg-gradient-to-br from-slate-900 via-[#0B1120] to-slate-900 p-8 rounded-[2.5rem] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] flex flex-col justify-center relative overflow-hidden group border border-slate-800">
                                     <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/10 rounded-full blur-[50px] pointer-events-none group-hover:bg-yellow-500/20 transition-colors duration-700"></div>
                                     <div className="absolute -top-12 -right-12 opacity-10 group-hover:opacity-20 transition-all duration-700 group-hover:rotate-12 group-hover:scale-110">
@@ -383,15 +389,14 @@ export default function DashboardSatker({ authUser }) {
                                                             .total_poin,
                                                     )}
                                                 </h3>
-                                                <span className="text-xl font-bold text-slate-600">
-                                                    / 55
+                                                <span className="text-xl font-bold text-slate-500">
+                                                    / 65
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* CARD: PAGU */}
                                 <div className="bg-white/80 backdrop-blur-md rounded-[2.5rem] shadow-sm p-7 border border-white hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 flex flex-col justify-center group relative overflow-hidden">
                                     <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500">
                                         <Wallet size={100} />
@@ -417,7 +422,6 @@ export default function DashboardSatker({ authUser }) {
                                     </h2>
                                 </div>
 
-                                {/* CARD: REALISASI */}
                                 <div className="bg-white/80 backdrop-blur-md rounded-[2.5rem] shadow-sm p-7 border border-white hover:shadow-xl hover:shadow-emerald-500/5 transition-all duration-300 flex flex-col justify-center group relative overflow-hidden">
                                     <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500 text-emerald-500">
                                         <Receipt size={100} />
@@ -457,7 +461,6 @@ export default function DashboardSatker({ authUser }) {
                                     </div>
                                 </div>
 
-                                {/* CARD: IKPA */}
                                 <div className="bg-white/80 backdrop-blur-md rounded-[2.5rem] shadow-sm p-7 border border-white hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-300 flex flex-col justify-center group relative overflow-hidden">
                                     <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500 text-blue-500">
                                         <Award size={100} />
@@ -474,7 +477,7 @@ export default function DashboardSatker({ authUser }) {
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">
                                             Nilai
                                             <br />
-                                            IKPA
+                                            IKPA Hal III
                                         </h3>
                                     </div>
                                     <h2
@@ -486,7 +489,6 @@ export default function DashboardSatker({ authUser }) {
                                     </h2>
                                 </div>
 
-                                {/* CARD: RO */}
                                 <div className="bg-white/80 backdrop-blur-md rounded-[2.5rem] shadow-sm p-7 border border-white hover:shadow-xl hover:shadow-purple-500/5 transition-all duration-300 flex flex-col justify-center group relative overflow-hidden">
                                     <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500 text-purple-500">
                                         <Target size={100} />
@@ -520,7 +522,7 @@ export default function DashboardSatker({ authUser }) {
                                 </div>
                             </div>
 
-                            {/* --- 2. TARGET KEMENKEU (NEON PROGRESS BARS) --- */}
+                            {/* --- 2. BEDAH INDIKATOR SMART (4 PILAR = 65 POIN) --- */}
                             {dashboardData.analisis_tw && (
                                 <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-sm p-8 md:p-10 border border-white mt-8 relative overflow-hidden">
                                     <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-400/5 rounded-full blur-[80px] pointer-events-none translate-x-1/2 -translate-y-1/2"></div>
@@ -540,8 +542,9 @@ export default function DashboardSatker({ authUser }) {
                                                 </h3>
                                                 <p className="text-sm text-slate-500 font-medium mt-1">
                                                     Transparansi parameter
-                                                    Penyerapan (20%), IKPA
-                                                    (10%), & RO (25%).
+                                                    Penyerapan (20%), Hal. III
+                                                    DIPA (10%), Output RO (25%),
+                                                    & Revisi DIPA (10%).
                                                 </p>
                                             </div>
                                         </div>
@@ -654,19 +657,18 @@ export default function DashboardSatker({ authUser }) {
                                         })}
                                     </div>
 
-                                    {/* 🔥 BOX KALKULATOR SIRA (NEON THEME) 🔥 */}
+                                    {/* BOX KALKULATOR SIRA (NEON 4 PILAR = 65 POIN) */}
                                     <div className="bg-[#0B1120] rounded-[2rem] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] border border-slate-800 text-white relative overflow-hidden z-10">
                                         <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#4f46e5_1px,transparent_1px),linear-gradient(to_bottom,#4f46e5_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_70%,transparent_100%)]"></div>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
-                                            {/* SKOR PENYERAPAN */}
-                                            <div className="bg-slate-900/80 backdrop-blur-md p-5 rounded-3xl border border-slate-700/80 hover:border-emerald-500/50 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] transition-all duration-300">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 relative z-10">
+                                            <div className="bg-slate-900/80 backdrop-blur-md p-5 rounded-3xl border border-slate-700/80 hover:border-emerald-500/50 transition-all duration-300">
                                                 <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                                    <Target size={16} /> Skor
+                                                    <Target size={16} />{" "}
                                                     Penyerapan
                                                 </div>
-                                                <div className="flex items-end gap-3">
+                                                <div className="flex items-end justify-between gap-2">
                                                     <span
-                                                        className={`text-4xl font-black tracking-tight ${dashboardData.summary.total_anggaran === 0 ? "text-slate-600" : "text-white"}`}
+                                                        className={`text-3xl font-black tracking-tight ${dashboardData.summary.total_anggaran === 0 ? "text-slate-600" : "text-white"}`}
                                                     >
                                                         {formatDecimal(
                                                             dashboardData
@@ -675,11 +677,9 @@ export default function DashboardSatker({ authUser }) {
                                                                 .nilai_penyerapan,
                                                         )}
                                                     </span>
-                                                    <span className="text-xs text-slate-400 font-bold mb-1.5 flex items-center gap-1.5">
-                                                        x 20% ={" "}
-                                                        <span
-                                                            className={`px-2.5 py-1 rounded-lg border ${dashboardData.summary.total_anggaran === 0 ? "bg-slate-800 text-slate-500 border-slate-700" : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"}`}
-                                                        >
+                                                    <span className="text-[11px] text-slate-400 font-bold mb-1 flex items-center gap-1">
+                                                        x20% =
+                                                        <span className="px-2 py-0.5 rounded-lg border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
                                                             {formatDecimal(
                                                                 dashboardData
                                                                     .analisis_tw
@@ -692,15 +692,14 @@ export default function DashboardSatker({ authUser }) {
                                                 </div>
                                             </div>
 
-                                            {/* SKOR HAL III */}
-                                            <div className="bg-slate-900/80 backdrop-blur-md p-5 rounded-3xl border border-slate-700/80 hover:border-blue-500/50 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] transition-all duration-300">
+                                            <div className="bg-slate-900/80 backdrop-blur-md p-5 rounded-3xl border border-slate-700/80 hover:border-blue-500/50 transition-all duration-300">
                                                 <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                                    <Award size={16} /> Skor
-                                                    Hal. III DIPA
+                                                    <Award size={16} /> Hal. III
+                                                    DIPA
                                                 </div>
-                                                <div className="flex items-end gap-3">
+                                                <div className="flex items-end justify-between gap-2">
                                                     <span
-                                                        className={`text-4xl font-black tracking-tight ${dashboardData.summary.total_anggaran === 0 ? "text-slate-600" : "text-white"}`}
+                                                        className={`text-3xl font-black tracking-tight ${dashboardData.summary.total_anggaran === 0 ? "text-slate-600" : "text-white"}`}
                                                     >
                                                         {formatDecimal(
                                                             dashboardData
@@ -709,11 +708,9 @@ export default function DashboardSatker({ authUser }) {
                                                                 .ikpa_hal_iii,
                                                         )}
                                                     </span>
-                                                    <span className="text-xs text-slate-400 font-bold mb-1.5 flex items-center gap-1.5">
-                                                        x 10% ={" "}
-                                                        <span
-                                                            className={`px-2.5 py-1 rounded-lg border ${dashboardData.summary.total_anggaran === 0 ? "bg-slate-800 text-slate-500 border-slate-700" : "text-blue-400 bg-blue-500/10 border-blue-500/20"}`}
-                                                        >
+                                                    <span className="text-[11px] text-slate-400 font-bold mb-1 flex items-center gap-1">
+                                                        x10% =
+                                                        <span className="px-2 py-0.5 rounded-lg border text-blue-400 bg-blue-500/10 border-blue-500/20">
                                                             {formatDecimal(
                                                                 dashboardData
                                                                     .analisis_tw
@@ -726,15 +723,14 @@ export default function DashboardSatker({ authUser }) {
                                                 </div>
                                             </div>
 
-                                            {/* SKOR RO */}
-                                            <div className="bg-slate-900/80 backdrop-blur-md p-5 rounded-3xl border border-slate-700/80 hover:border-purple-500/50 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] transition-all duration-300">
+                                            <div className="bg-slate-900/80 backdrop-blur-md p-5 rounded-3xl border border-slate-700/80 hover:border-purple-500/50 transition-all duration-300">
                                                 <div className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                                    <FileText size={16} /> Skor
+                                                    <FileText size={16} />{" "}
                                                     Output RO
                                                 </div>
-                                                <div className="flex items-end gap-3">
+                                                <div className="flex items-end justify-between gap-2">
                                                     <span
-                                                        className={`text-4xl font-black tracking-tight ${dashboardData.summary.total_anggaran === 0 ? "text-slate-600" : "text-white"}`}
+                                                        className={`text-3xl font-black tracking-tight ${dashboardData.summary.total_anggaran === 0 ? "text-slate-600" : "text-white"}`}
                                                     >
                                                         {formatDecimal(
                                                             dashboardData
@@ -742,11 +738,9 @@ export default function DashboardSatker({ authUser }) {
                                                                 .poin.nilai_ro,
                                                         )}
                                                     </span>
-                                                    <span className="text-xs text-slate-400 font-bold mb-1.5 flex items-center gap-1.5">
-                                                        x 25% ={" "}
-                                                        <span
-                                                            className={`px-2.5 py-1 rounded-lg border ${dashboardData.summary.total_anggaran === 0 ? "bg-slate-800 text-slate-500 border-slate-700" : "text-purple-400 bg-purple-500/10 border-purple-500/20"}`}
-                                                        >
+                                                    <span className="text-[11px] text-slate-400 font-bold mb-1 flex items-center gap-1">
+                                                        x25% =
+                                                        <span className="px-2 py-0.5 rounded-lg border text-purple-400 bg-purple-500/10 border-purple-500/20">
                                                             {formatDecimal(
                                                                 dashboardData
                                                                     .analisis_tw
@@ -758,6 +752,232 @@ export default function DashboardSatker({ authUser }) {
                                                     </span>
                                                 </div>
                                             </div>
+
+                                            <div className="bg-slate-900/80 backdrop-blur-md p-5 rounded-3xl border border-slate-700/80 hover:border-amber-500/50 transition-all duration-300">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                                                        <FileClock size={16} />{" "}
+                                                        Revisi DIPA
+                                                    </div>
+                                                    <span className="text-[9px] font-black px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                                        {dashboardData
+                                                            .analisis_tw.poin
+                                                            .frekuensi_revisi_tetap ||
+                                                            0}
+                                                        x Tetap
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-end justify-between gap-2">
+                                                    <span
+                                                        className={`text-3xl font-black tracking-tight ${dashboardData.summary.total_anggaran === 0 ? "text-slate-600" : "text-white"}`}
+                                                    >
+                                                        {formatDecimal(
+                                                            dashboardData
+                                                                .analisis_tw
+                                                                .poin
+                                                                .nilai_revisi_dipa ||
+                                                                0,
+                                                        )}
+                                                    </span>
+                                                    <span className="text-[11px] text-slate-400 font-bold mb-1 flex items-center gap-1">
+                                                        x10% =
+                                                        <span className="px-2 py-0.5 rounded-lg border text-amber-400 bg-amber-500/10 border-amber-500/20">
+                                                            {formatDecimal(
+                                                                dashboardData
+                                                                    .analisis_tw
+                                                                    .poin
+                                                                    .tertimbang_revisi_dipa ||
+                                                                    0,
+                                                            )}{" "}
+                                                            pts
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* --- 2B. PANEL INDEKS TATA KELOLA INTERNAL SATKER --- */}
+                            {tk && (
+                                <div className="bg-white/75 backdrop-blur-xl rounded-[2.5rem] shadow-sm p-8 border border-white relative overflow-hidden z-10">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-3.5 bg-gradient-to-br from-teal-500 to-emerald-600 text-white rounded-2xl shadow-[0_8px_16px_rgba(16,185,129,0.25)]">
+                                                <ShieldCheck
+                                                    size={26}
+                                                    strokeWidth={2.5}
+                                                />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                                                    Indeks Tata Kelola Satker
+                                                </h3>
+                                                <p className="text-sm text-slate-500 font-medium mt-0.5">
+                                                    Pemantauan otomatis
+                                                    sinkronisasi fisik-keuangan
+                                                    RO & kedisiplinan pelaporan.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="px-5 py-3 rounded-2xl bg-slate-900 text-white flex items-center gap-3 self-start md:self-auto shadow-md">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                Skor Tata Kelola
+                                            </span>
+                                            <span className="text-2xl font-black text-emerald-400">
+                                                {formatDecimal(
+                                                    tk.skor_tata_kelola,
+                                                )}
+                                            </span>
+                                            <span className="text-xs font-bold text-slate-500">
+                                                / 100
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="p-6 rounded-[2rem] bg-slate-50/90 border border-slate-200/80 flex flex-col justify-between gap-4">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2.5 bg-purple-100 text-purple-600 rounded-xl">
+                                                        <Layers
+                                                            size={20}
+                                                            strokeWidth={2.5}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-base font-black text-slate-800">
+                                                            Kesehatan
+                                                            Sinkronisasi RO
+                                                        </h4>
+                                                        <span className="inline-block mt-1 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest rounded-md border bg-purple-50 text-purple-700 border-purple-200">
+                                                            {
+                                                                tk.kesehatan_ro
+                                                                    .status
+                                                            }
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-3xl font-black text-purple-700">
+                                                        {formatDecimal(
+                                                            tk.kesehatan_ro
+                                                                .skor,
+                                                        )}
+                                                    </span>
+                                                    <span className="text-xs font-bold text-slate-400">
+                                                        %
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-3 text-center">
+                                                <div className="p-3 bg-white rounded-xl border border-slate-200/70">
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                                        Total RO
+                                                    </p>
+                                                    <p className="text-lg font-black text-slate-800 mt-0.5">
+                                                        {
+                                                            tk.kesehatan_ro
+                                                                .total_ro
+                                                        }
+                                                    </p>
+                                                </div>
+                                                <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-100">
+                                                    <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">
+                                                        RO Sinkron
+                                                    </p>
+                                                    <p className="text-lg font-black text-emerald-700 mt-0.5">
+                                                        {
+                                                            tk.kesehatan_ro
+                                                                .ro_sehat
+                                                        }
+                                                    </p>
+                                                </div>
+                                                <div className="p-3 bg-rose-50/70 rounded-xl border border-rose-100">
+                                                    <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest">
+                                                        Anomali Fisik
+                                                    </p>
+                                                    <p className="text-lg font-black text-rose-600 mt-0.5">
+                                                        {
+                                                            tk.kesehatan_ro
+                                                                .ro_anomali
+                                                        }
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-6 rounded-[2rem] bg-slate-50/90 border border-slate-200/80 flex flex-col justify-between gap-4">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2.5 bg-teal-100 text-teal-600 rounded-xl">
+                                                        <ClipboardCheck
+                                                            size={20}
+                                                            strokeWidth={2.5}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-base font-black text-slate-800">
+                                                            Kedisiplinan
+                                                            Pelaporan
+                                                        </h4>
+                                                        <span className="inline-block mt-1 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest rounded-md border bg-teal-50 text-teal-700 border-teal-200">
+                                                            {
+                                                                tk.kedisiplinan
+                                                                    .status
+                                                            }
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-3xl font-black text-teal-700">
+                                                        {formatDecimal(
+                                                            tk.kedisiplinan
+                                                                .skor,
+                                                        )}
+                                                    </span>
+                                                    <span className="text-xs font-bold text-slate-400">
+                                                        /100
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-3 text-center">
+                                                <div className="p-3 bg-white rounded-xl border border-slate-200/70">
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                                        Kelengkapan
+                                                    </p>
+                                                    <p className="text-lg font-black text-teal-700 mt-0.5">
+                                                        {formatDecimal(
+                                                            tk.kedisiplinan
+                                                                .persen_kelengkapan,
+                                                        )}
+                                                        %
+                                                    </p>
+                                                </div>
+                                                <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-100">
+                                                    <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">
+                                                        Draft Antre
+                                                    </p>
+                                                    <p className="text-lg font-black text-amber-700 mt-0.5">
+                                                        {
+                                                            tk.kedisiplinan
+                                                                .total_draft
+                                                        }
+                                                    </p>
+                                                </div>
+                                                <div className="p-3 bg-rose-50/70 rounded-xl border border-rose-100">
+                                                    <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest">
+                                                        Ditolak
+                                                    </p>
+                                                    <p className="text-lg font-black text-rose-600 mt-0.5">
+                                                        {
+                                                            tk.kedisiplinan
+                                                                .total_ditolak
+                                                        }
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -765,7 +985,6 @@ export default function DashboardSatker({ authUser }) {
 
                             {/* --- 3. GRAFIK & RINCIAN BELANJA --- */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-                                {/* GRAFIK */}
                                 <div className="lg:col-span-2 bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-sm p-8 border border-white relative overflow-hidden z-10">
                                     <div className="flex items-center gap-4 mb-8">
                                         <div className="p-3.5 bg-indigo-50 rounded-2xl text-indigo-600 shadow-inner">
@@ -864,7 +1083,7 @@ export default function DashboardSatker({ authUser }) {
                                                 />
                                                 <Bar
                                                     dataKey="Target_RPD"
-                                                    name="Pagu DIPA"
+                                                    name="Target RPD"
                                                     fill="#818cf8"
                                                     radius={[8, 8, 0, 0]}
                                                     maxBarSize={35}
@@ -895,7 +1114,6 @@ export default function DashboardSatker({ authUser }) {
                                     </div>
                                 </div>
 
-                                {/* RINCIAN BELANJA */}
                                 <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-sm p-8 border border-white flex flex-col h-full relative z-10 overflow-hidden">
                                     <div className="flex items-center gap-4 mb-6">
                                         <div className="p-3.5 bg-blue-50 rounded-2xl text-blue-600 shadow-inner">

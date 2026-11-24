@@ -49,10 +49,9 @@
         /* ==========================================
            TABEL DATA UTAMA (GRID)
            ========================================== */
-        .tabel-data { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .tabel-data { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
         .tabel-data th, .tabel-data td { border: 1px solid #cbd5e1; padding: 4px; text-align: center; vertical-align: middle; font-size: 8px; }
         
-        /* Premium Header Colors */
         .bg-navy { background-color: #0f172a; color: #fff; border-color: #0f172a; font-weight: 900; }
         .bg-blue { background-color: #1e3a8a; color: #fff; border-color: #1e3a8a; font-weight: 900; }
         .bg-green { background-color: #065f46; color: #fff; border-color: #065f46; font-weight: 900; }
@@ -64,13 +63,19 @@
         .bg-gray-light { background-color: #f8fafc; font-weight: bold; color: #0f172a; }
         
         .text-yellow { color: #fde047; }
+        .text-green { color: #059669; }
+        .text-red { color: #e11d48; }
+        .text-blue { color: #2563eb; }
+        .text-purple { color: #7e22ce; }
+        .text-amber { color: #b45309; }
+        .text-teal { color: #0f766e; }
         .text-left { text-align: left; }
         .text-right { text-align: right; }
         .font-bold { font-weight: bold; }
         .font-black { font-weight: 900; }
         
         /* ==========================================
-           TABEL EVALUASI TW (55 POIN) & RINCIAN RO
+           TABEL EVALUASI TW (65 POIN) & RINCIAN RO
            ========================================== */
         .section-title { font-size: 10px; font-weight: 900; color: #0f172a; margin-bottom: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 15px; }
         
@@ -85,15 +90,16 @@
         .badge-gagal { background-color: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; }
         .badge-na { background-color: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
         .badge-ro { background-color: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; font-weight: bold; padding: 2px 5px; border-radius: 3px; font-size: 7.5px; display: inline-block; }
+        .badge-amber { background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a; font-weight: bold; padding: 2px 5px; border-radius: 3px; font-size: 7px; display: inline-block; }
 
-        /* Breakdown Perhitungan Poin (Invoice Style) */
+        /* Breakdown Perhitungan Poin */
         .box-poin { width: 100%; background-color: #ffffff; padding: 4px; box-sizing: border-box; }
         .box-poin table { width: 100%; border-collapse: collapse; margin: 0; }
-        .box-poin th, .box-poin td { padding: 3px 4px; text-align: left; border: none; }
-        .box-poin .poin-title { font-weight: bold; color: #334155; font-size: 8.5px; }
-        .box-poin .poin-result { font-weight: 900; color: #0f172a; text-align: right; font-size: 9px; }
-        .box-poin .poin-multiplier { padding-left: 10px; font-style: italic; color: #64748b; font-size: 7.5px; }
-        .box-poin .poin-total { border-top: 2px solid #0f172a; font-weight: 900; font-size: 10.5px; color: #0f172a; padding-top: 6px; margin-top: 3px; }
+        .box-poin th, .box-poin td { padding: 2.5px 4px; text-align: left; border: none; }
+        .box-poin .poin-title { font-weight: bold; color: #334155; font-size: 8px; }
+        .box-poin .poin-result { font-weight: 900; color: #0f172a; text-align: right; font-size: 8.5px; }
+        .box-poin .poin-multiplier { padding-left: 8px; font-style: italic; color: #64748b; font-size: 7px; }
+        .box-poin .poin-total { border-top: 2px solid #0f172a; font-weight: 900; font-size: 10px; color: #0f172a; padding-top: 5px; margin-top: 3px; }
 
         /* ==========================================
            FOOTER & TTD
@@ -108,17 +114,17 @@
     </style>
 </head>
 <body>
-    <!-- KOP SURAT ELEGANT -->
+    <!-- KOP SURAT -->
     <div class="header-container">
         <h2>KEMENTERIAN HUKUM REPUBLIK INDONESIA</h2>
         <h1>KANTOR WILAYAH SULAWESI TENGAH</h1>
         <p>Jalan Dewi Sartika No. 74, Palu Selatan, Kota Palu, Sulawesi Tengah 94114 | Laman: silakum.kemenkumsulteng.cloud</p>
     </div>
 
-    <!-- INFO SATKER (INVOICE STYLE) -->
+    <!-- INFO SATKER -->
     <div class="info-panel">
         <div class="info-left">
-            <div class="info-title">EXECUTIVE REPORT - KINERJA ANGGARAN</div>
+            <div class="info-title">EXECUTIVE REPORT - KINERJA ANGGARAN (SKALA 65 POIN)</div>
             <div class="info-subtitle">TAHUN ANGGARAN {{ $tahun }}</div>
             <div style="margin-top: 6px;">
                 <div class="satker-name">{{ strtoupper($satker->nama_satker) }} ({{ $satker->kode_satker }})</div>
@@ -137,13 +143,13 @@
         </div>
     </div>
 
-    <!-- TABEL UTAMA (PREMIUM GRID) -->
+    <!-- TABEL UTAMA (GRID 12 BULAN) -->
     <table class="tabel-data">
         <thead>
             <tr>
                 <th rowspan="2" class="bg-navy" style="width: 4%;">Bulan</th>
                 <th colspan="3" class="bg-blue">Rencana Penarikan (RPD)</th>
-                <th colspan="6" class="bg-green">Aktual Penyerapan & % Deviasi</th>
+                <th colspan="6" class="bg-green">Aktual Penyerapan &amp; % Deviasi</th>
                 <th colspan="3" class="bg-red">Deviasi Nominal (Rp)</th>
                 <th rowspan="2" class="bg-amber" style="width: 4.5%;">% Proporsi<br>Pagu</th>
                 <th rowspan="2" class="bg-indigo" style="width: 4.5%;">% Deviasi<br>Tertimbang</th>
@@ -170,12 +176,10 @@
             <tr>
                 <td class="font-black bg-gray-light">{{ strtoupper(substr($row['nama_bulan'], 0, 3)) }}</td>
                 
-                <!-- Rencana -->
                 <td class="text-right">{{ number_format($row['rpd_51'], 0, ',', '.') }}</td>
                 <td class="text-right">{{ number_format($row['rpd_52'], 0, ',', '.') }}</td>
                 <td class="text-right">{{ number_format($row['rpd_53'], 0, ',', '.') }}</td>
                 
-                <!-- Realisasi & Deviasi -->
                 <td class="text-right font-bold" style="color: #065f46;">{{ number_format($row['realisasi_51'], 0, ',', '.') }}</td>
                 <td style="color: #b45309; font-weight: bold;">{{ is_numeric($row['persen_deviasi_51']) ? number_format($row['persen_deviasi_51'], 2, ',', '.') : '-' }}</td>
                 
@@ -185,45 +189,37 @@
                 <td class="text-right font-bold" style="color: #065f46;">{{ number_format($row['realisasi_53'], 0, ',', '.') }}</td>
                 <td style="color: #b45309; font-weight: bold;">{{ is_numeric($row['persen_deviasi_53']) ? number_format($row['persen_deviasi_53'], 2, ',', '.') : '-' }}</td>
                 
-                <!-- Deviasi Nominal -->
                 <td class="text-right" style="color: #9f1239;">{{ number_format($row['deviasi_51'], 0, ',', '.') }}</td>
                 <td class="text-right" style="color: #9f1239;">{{ number_format($row['deviasi_52'], 0, ',', '.') }}</td>
                 <td class="text-right" style="color: #9f1239;">{{ number_format($row['deviasi_53'], 0, ',', '.') }}</td>
                 
-                <!-- Proporsi Pagu -->
                 @php
                     $totalRpdBulanIni = $row['rpd_51'] + $row['rpd_52'] + $row['rpd_53'];
                     $proporsiBulanIni = ($pagu_total > 0 && $totalRpdBulanIni > 0) ? ($totalRpdBulanIni / $pagu_total) * 100 : 0;
                 @endphp
-                <td class="font-bold text-gray-dark">{{ $proporsiBulanIni > 0 ? number_format($proporsiBulanIni, 2, ',', '.') : '-' }}</td>
-                
-                <!-- Deviasi Tertimbang -->
+                <td class="font-bold">{{ $proporsiBulanIni > 0 ? number_format($proporsiBulanIni, 2, ',', '.') : '-' }}</td>
                 <td class="font-bold" style="color: #3730a3;">{{ is_numeric($row['persen_seluruh']) ? number_format($row['persen_seluruh'], 2, ',', '.') : '-' }}</td>
-                
-                <!-- Rata-rata Kumulatif -->
                 <td class="font-bold" style="color: #3730a3;">{{ is_numeric($row['rata_kumulatif']) ? number_format($row['rata_kumulatif'], 2, ',', '.') : '-' }}</td>
-                
-                <!-- Nilai IKPA -->
                 <td class="font-black bg-gray-light" style="font-size: 9px;">{{ is_numeric($row['ikpa']) ? number_format($row['ikpa'], 2, ',', '.') : '-' }}</td>
             </tr>
             @endforeach
         </tbody>
     </table>
 
-    <!-- TABEL EVALUASI TARGET KEMENKEU & POIN SIRA (55 POIN) -->
+    <!-- TABEL EVALUASI TARGET KEMENKEU & POIN SIRA (65 POIN) -->
     @if(isset($evaluasi_tw))
     <div style="page-break-inside: avoid;">
-        <div class="section-title">EVALUASI KEPATUHAN TARGET DAN KALKULASI POIN SIRA (BERDASARKAN TRIWULAN)</div>
+        <div class="section-title">EVALUASI KEPATUHAN TARGET DAN KALKULASI POIN SIRA (SKALA 65 POIN PER TRIWULAN)</div>
         <table class="tabel-evaluasi">
             <thead>
                 <tr>
-                    <th style="width: 7%;">Periode</th>
-                    <th style="width: 17%;">Jenis Belanja</th>
-                    <th style="width: 16%;">Realisasi Kumulatif (Rp)</th>
-                    <th style="width: 17%;">Target Minimal Kemenkeu</th>
-                    <th style="width: 10%;">Aktual (%)</th>
+                    <th style="width: 6%;">Periode</th>
+                    <th style="width: 16%;">Jenis Belanja</th>
+                    <th style="width: 15%;">Realisasi Kumulatif (Rp)</th>
+                    <th style="width: 16%;">Target Minimal Kemenkeu</th>
+                    <th style="width: 9%;">Aktual (%)</th>
                     <th style="width: 10%;">Status</th>
-                    <th style="width: 23%;">Kalkulasi Poin SIRA (Maks 55)</th>
+                    <th style="width: 28%;">Kalkulasi Poin SIRA (Maks 65)</th>
                 </tr>
             </thead>
             @foreach(['I', 'II', 'III', 'IV'] as $tw)
@@ -269,32 +265,40 @@
                                 <div class="box-poin">
                                     <table>
                                         <tr>
-                                            <td class="poin-title text-green">1. Skor Penyerapan (Maks 100)</td>
-                                            <td class="poin-result">{{ number_format($poin['nilai_penyerapan'], 2, ',', '.') }}</td>
+                                            <td class="poin-title text-green">1. Penyerapan (Maks 100)</td>
+                                            <td class="poin-result">{{ number_format($poin['nilai_penyerapan'] ?? 0, 2, ',', '.') }}</td>
                                         </tr>
                                         <tr>
                                             <td class="poin-multiplier">x Bobot 20%</td>
-                                            <td class="poin-result" style="color: #059669;">{{ number_format($poin['tertimbang_penyerapan'], 2, ',', '.') }} pts</td>
+                                            <td class="poin-result text-green">{{ number_format($poin['tertimbang_penyerapan'] ?? 0, 2, ',', '.') }} pts</td>
                                         </tr>
                                         <tr>
-                                            <td class="poin-title text-blue" style="padding-top: 4px;">2. Skor Hal. III DIPA (Maks 100)</td>
-                                            <td class="poin-result" style="padding-top: 4px;">{{ number_format($poin['ikpa_hal_iii'], 2, ',', '.') }}</td>
+                                            <td class="poin-title text-blue">2. Hal. III DIPA (Maks 100)</td>
+                                            <td class="poin-result">{{ number_format($poin['ikpa_hal_iii'] ?? 0, 2, ',', '.') }}</td>
                                         </tr>
                                         <tr>
                                             <td class="poin-multiplier">x Bobot 10%</td>
-                                            <td class="poin-result" style="color: #2563eb;">{{ number_format($poin['tertimbang_hal_iii'], 2, ',', '.') }} pts</td>
+                                            <td class="poin-result text-blue">{{ number_format($poin['tertimbang_hal_iii'] ?? 0, 2, ',', '.') }} pts</td>
                                         </tr>
                                         <tr>
-                                            <td class="poin-title text-purple" style="padding-top: 4px;">3. Capaian Output RO (Maks 100)</td>
-                                            <td class="poin-result" style="padding-top: 4px;">{{ number_format($poin['nilai_ro'], 2, ',', '.') }}</td>
+                                            <td class="poin-title text-purple">3. Output RO (Maks 100)</td>
+                                            <td class="poin-result">{{ number_format($poin['nilai_ro'] ?? 0, 2, ',', '.') }}</td>
                                         </tr>
                                         <tr>
-                                            <td class="poin-multiplier" style="padding-bottom: 4px;">x Bobot 25%</td>
-                                            <td class="poin-result" style="padding-bottom: 4px; color: #7e22ce;">{{ number_format($poin['tertimbang_ro'], 2, ',', '.') }} pts</td>
+                                            <td class="poin-multiplier">x Bobot 25%</td>
+                                            <td class="poin-result text-purple">{{ number_format($poin['tertimbang_ro'] ?? 0, 2, ',', '.') }} pts</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="poin-title text-amber">4. Revisi DIPA ({{ $poin['frekuensi_revisi_tetap'] ?? 0 }}x Tetap)</td>
+                                            <td class="poin-result">{{ number_format($poin['nilai_revisi_dipa'] ?? 0, 2, ',', '.') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="poin-multiplier" style="padding-bottom: 3px;">x Bobot 10%</td>
+                                            <td class="poin-result text-amber" style="padding-bottom: 3px;">{{ number_format($poin['tertimbang_revisi_dipa'] ?? 0, 2, ',', '.') }} pts</td>
                                         </tr>
                                         <tr>
                                             <td class="poin-total">TOTAL POIN SIRA TW {{ $tw }}</td>
-                                            <td class="poin-total text-right" style="color: #b45309; font-size: 11.5px;">{{ number_format($poin['total_poin'], 2, ',', '.') }} <span style="font-size: 7.5px; color: #94a3b8;">/ 55</span></td>
+                                            <td class="poin-total text-right text-amber" style="font-size: 11px;">{{ number_format($poin['total_poin'] ?? 0, 2, ',', '.') }} <span style="font-size: 7.5px; color: #94a3b8;">/ 65</span></td>
                                         </tr>
                                     </table>
                                 </div>
@@ -308,7 +312,69 @@
     </div>
     @endif
 
-    <!-- 🔥 LAMPIRAN KETERLACAKAN TRANSAKSI & RINCIAN OUTPUT (RO) 🔥 -->
+    <!-- RINGKASAN TATA KELOLA INTERNAL & RIWAYAT REVISI DIPA -->
+    @if(!empty($tata_kelola))
+    <div style="page-break-inside: avoid; margin-top: 12px;">
+        <div class="section-title">RINGKASAN INDEKS TATA KELOLA INTERNAL &amp; LOG REVISI DIPA</div>
+        <table class="tabel-evaluasi">
+            <thead>
+                <tr>
+                    <th style="width: 34%; background-color: #115e59; border-color: #115e59;">Kesehatan Sinkronisasi RO</th>
+                    <th style="width: 38%; background-color: #115e59; border-color: #115e59;">Indeks Kedisiplinan Pelaporan</th>
+                    <th style="width: 28%; background-color: #115e59; border-color: #115e59;">Skor Tata Kelola Gabungan</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <strong class="text-purple" style="font-size: 11px;">{{ number_format($tata_kelola['kesehatan_ro']['skor'] ?? 0, 2, ',', '.') }}%</strong>
+                        ({{ $tata_kelola['kesehatan_ro']['status'] ?? '-' }})<br>
+                        <span style="color: #475569;">{{ $tata_kelola['kesehatan_ro']['ro_sehat'] ?? 0 }}/{{ $tata_kelola['kesehatan_ro']['total_ro'] ?? 0 }} RO Sinkron • {{ $tata_kelola['kesehatan_ro']['ro_anomali'] ?? 0 }} Anomali Fisik</span>
+                    </td>
+                    <td>
+                        <strong class="text-teal" style="font-size: 11px;">{{ number_format($tata_kelola['kedisiplinan']['skor'] ?? 0, 2, ',', '.') }} / 100</strong>
+                        ({{ $tata_kelola['kedisiplinan']['status'] ?? '-' }})<br>
+                        <span style="color: #475569;">Kelengkapan {{ number_format($tata_kelola['kedisiplinan']['persen_kelengkapan'] ?? 0, 2, ',', '.') }}% • Draft: {{ $tata_kelola['kedisiplinan']['total_draft'] ?? 0 }} • Ditolak: {{ $tata_kelola['kedisiplinan']['total_ditolak'] ?? 0 }}</span>
+                    </td>
+                    <td style="background-color: #f0fdfa;">
+                        <strong class="text-teal" style="font-size: 13px;">{{ number_format($tata_kelola['skor_tata_kelola'] ?? 0, 2, ',', '.') }} / 100</strong>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        @if(isset($riwayat_revisi) && count($riwayat_revisi) > 0)
+        <table class="tabel-evaluasi" style="margin-top: 6px;">
+            <thead>
+                <tr>
+                    <th style="width: 8%; background-color: #92400e; border-color: #92400e;">TW</th>
+                    <th style="width: 13%; background-color: #92400e; border-color: #92400e;">Tanggal</th>
+                    <th style="width: 16%; background-color: #92400e; border-color: #92400e;">Nomor / SK</th>
+                    <th style="width: 18%; background-color: #92400e; border-color: #92400e;">Kategori</th>
+                    <th style="width: 45%; background-color: #92400e; border-color: #92400e;" class="text-left">Keterangan Revisi DIPA</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($riwayat_revisi as $rev)
+                <tr>
+                    <td class="font-black">TW {{ $rev->triwulan }}</td>
+                    <td>{{ optional($rev->tanggal_revisi)->format('d/m/Y') ?? $rev->tanggal_revisi }}</td>
+                    <td class="font-bold">{{ $rev->nomor_revisi ?: '-' }}</td>
+                    <td>
+                        <span class="badge-amber">
+                            {{ $rev->jenis_revisi === 'pagu_tetap' ? 'PAGU TETAP (IKPA)' : 'PAGU BERUBAH' }}
+                        </span>
+                    </td>
+                    <td class="text-left">{{ $rev->keterangan }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+        @endif
+    </div>
+    @endif
+
+    <!-- LAMPIRAN KETERLACAKAN TRANSAKSI & RINCIAN OUTPUT (RO) -->
     @php
         $adaDetailTransaksi = collect($laporan)->contains(function ($r) {
             return isset($r['realisasi_details']) && count($r['realisasi_details']) > 0;
@@ -317,7 +383,7 @@
 
     @if($adaDetailTransaksi)
     <div style="page-break-inside: avoid; margin-top: 15px;">
-        <div class="section-title">LAMPIRAN KETERLACAKAN TRANSAKSI AKTUAL & ALOKASI RINCIAN OUTPUT (RO)</div>
+        <div class="section-title">LAMPIRAN KETERLACAKAN TRANSAKSI AKTUAL &amp; ALOKASI RINCIAN OUTPUT (RO)</div>
         <table class="tabel-evaluasi">
             <thead>
                 <tr>
@@ -374,7 +440,7 @@
     </div>
     
     <div class="footer-note">
-        * Dokumen dicetak secara otomatis dari Sistem Informasi Realisasi Anggaran (SIRA) 2.0. Tidak memerlukan cap basah.
+        * Dokumen dicetak secara otomatis dari Sistem Informasi Realisasi Anggaran (SIRA) 2.0 (Skala 65 Poin). Tidak memerlukan cap basah.
     </div>
 </body>
 </html>

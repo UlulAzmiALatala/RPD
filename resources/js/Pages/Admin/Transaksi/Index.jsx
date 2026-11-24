@@ -20,7 +20,10 @@ import {
     Target,
     ChevronDown,
     ChevronUp,
-    Layers, // 🔥 ICON TAMBAHAN
+    Layers,
+    FileSpreadsheet,
+    SlidersHorizontal,
+    Calendar,
 } from "lucide-react";
 
 import AddRpdModal from "./Modals/AddRpdModal";
@@ -29,13 +32,14 @@ import AddRealisasiModal from "./Modals/AddRealisasiModal";
 import EditRealisasiModal from "./Modals/EditRealisasiModal";
 import DeleteModal from "./Modals/DeleteModal";
 import RejectModal from "./Modals/RejectModal";
+import ImportExcelModal from "./Modals/ImportExcelModal";
 
 const formatCurrency = (amount) =>
     new Intl.NumberFormat("id-ID", {
         style: "currency",
         currency: "IDR",
         minimumFractionDigits: 0,
-    }).format(amount);
+    }).format(amount || 0);
 
 const namaBulan = [
     "",
@@ -59,10 +63,11 @@ const namaBulan = [
 const Pagination = ({ meta, onPageChange, accentColor }) => {
     if (!meta || meta.total === 0) return null;
     const { current_page, last_page, from, to, total } = meta;
+
     const getPageNumbers = () => {
         let pages = [];
-        let start = Math.max(1, current_page - 2),
-            end = Math.min(last_page, start + 4);
+        let start = Math.max(1, current_page - 2);
+        let end = Math.min(last_page, start + 4);
         if (end - start < 4) start = Math.max(1, end - 4);
         for (let i = start; i <= end; i++) pages.push(i);
         return pages;
@@ -73,8 +78,8 @@ const Pagination = ({ meta, onPageChange, accentColor }) => {
         : "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-[0_4px_12px_rgba(59,130,246,0.3)] border-blue-500";
 
     return (
-        <div className="px-6 py-5 border-t border-slate-100/50 flex flex-col md:flex-row items-center justify-between gap-4 bg-white/30 backdrop-blur-sm rounded-b-[2rem]">
-            <p className="text-sm text-slate-500 font-medium">
+        <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 rounded-b-[2rem]">
+            <p className="text-xs sm:text-sm text-slate-500 font-medium">
                 Menampilkan{" "}
                 <span className="font-extrabold text-slate-800">
                     {from || 0}
@@ -82,31 +87,39 @@ const Pagination = ({ meta, onPageChange, accentColor }) => {
                 -{" "}
                 <span className="font-extrabold text-slate-800">{to || 0}</span>{" "}
                 dari{" "}
-                <span className="font-extrabold text-slate-800">{total}</span>
+                <span className="font-extrabold text-slate-800">{total}</span>{" "}
+                data
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
                 <button
+                    type="button"
                     onClick={() => onPageChange(current_page - 1)}
                     disabled={current_page === 1}
-                    className="p-2 rounded-xl border border-slate-200/60 text-slate-500 hover:bg-white hover:shadow-sm disabled:opacity-40 transition-all"
+                    className="p-2 rounded-xl border border-slate-200 text-slate-500 bg-white hover:bg-slate-50 hover:shadow-sm disabled:opacity-40 transition-all cursor-pointer"
                 >
-                    <ChevronLeft size={18} strokeWidth={2.5} />
+                    <ChevronLeft size={16} strokeWidth={2.5} />
                 </button>
                 {getPageNumbers().map((page) => (
                     <button
+                        type="button"
                         key={page}
                         onClick={() => onPageChange(page)}
-                        className={`w-10 h-10 rounded-xl text-sm font-black transition-all duration-300 shadow-sm border ${current_page === page ? `\${activeBg} hover:-translate-y-0.5` : "bg-white text-slate-600 border-slate-200/60 hover:bg-slate-50"}`}
+                        className={`w-9 h-9 rounded-xl text-xs font-black transition-all duration-200 shadow-sm border cursor-pointer ${
+                            current_page === page
+                                ? `${activeBg}`
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        }`}
                     >
                         {page}
                     </button>
                 ))}
                 <button
+                    type="button"
                     onClick={() => onPageChange(current_page + 1)}
                     disabled={current_page === last_page}
-                    className="p-2 rounded-xl border border-slate-200/60 text-slate-500 hover:bg-white hover:shadow-sm disabled:opacity-40 transition-all"
+                    className="p-2 rounded-xl border border-slate-200 text-slate-500 bg-white hover:bg-slate-50 hover:shadow-sm disabled:opacity-40 transition-all cursor-pointer"
                 >
-                    <ChevronRight size={18} strokeWidth={2.5} />
+                    <ChevronRight size={16} strokeWidth={2.5} />
                 </button>
             </div>
         </div>
@@ -116,6 +129,7 @@ const Pagination = ({ meta, onPageChange, accentColor }) => {
 export default function IndexTransaksi({ authUser }) {
     const [activeTab, setActiveTab] = useState("rpd");
     const [selectedTW, setSelectedTW] = useState("ALL");
+    const [selectedStatus, setSelectedStatus] = useState("");
     const [data, setData] = useState([]);
     const [satkers, setSatkers] = useState([]);
     const [pagination, setPagination] = useState({});
@@ -129,7 +143,6 @@ export default function IndexTransaksi({ authUser }) {
     const [localAuth, setLocalAuth] = useState(authUser);
     const [summary, setSummary] = useState({ global: {}, per_satker: {} });
 
-    // 🔥 FITUR BARU: STATE UNTUK MENGELOLA BARIS DETAIL YANG DIBUKA (COLLAPSIBLE)
     const [expandedRows, setExpandedRows] = useState([]);
 
     const toggleRow = (id) => {
@@ -145,6 +158,7 @@ export default function IndexTransaksi({ authUser }) {
     const [isEditRpdOpen, setIsEditRpdOpen] = useState(false);
     const [isAddRealOpen, setIsAddRealOpen] = useState(false);
     const [isEditRealOpen, setIsEditRealOpen] = useState(false);
+    const [isImportOpen, setIsImportOpen] = useState(false);
     const [selectedData, setSelectedData] = useState(null);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [deleteId, setDeleteId] = useState(null);
@@ -170,7 +184,13 @@ export default function IndexTransaksi({ authUser }) {
             3500,
         );
         toastTimeout.current = setTimeout(
-            () => setToast({ show: false }),
+            () =>
+                setToast({
+                    show: false,
+                    message: "",
+                    type: "success",
+                    isExiting: false,
+                }),
             4000,
         );
     };
@@ -205,6 +225,7 @@ export default function IndexTransaksi({ authUser }) {
             })
             .catch((err) => console.log(err));
         fetchSummary();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tahun]);
 
     const fetchData = async (page = 1, search = "", satker = "") => {
@@ -227,11 +248,17 @@ export default function IndexTransaksi({ authUser }) {
                 activeTab === "rpd"
                     ? "/api/transaksi/rpd"
                     : "/api/transaksi/realisasi";
-            let url = `${endpoint}?page=${page}&search=${search}&tahun=${tahun}&satker_id=${actualSatker}`;
-            if (selectedTW !== "ALL") url += `&tw=${selectedTW}`;
+            const params = new URLSearchParams({
+                page: String(page),
+                search: search || "",
+                tahun: String(tahun),
+                satker_id: actualSatker ? String(actualSatker) : "",
+            });
+            if (selectedTW !== "ALL") params.append("tw", selectedTW);
+            if (selectedStatus) params.append("status", selectedStatus);
 
-            const res = await axios.get(url);
-            setData(res.data.data);
+            const res = await axios.get(`${endpoint}?${params.toString()}`);
+            setData(res.data.data || []);
             setPagination({
                 current_page: res.data.current_page,
                 last_page: res.data.last_page,
@@ -239,7 +266,6 @@ export default function IndexTransaksi({ authUser }) {
                 from: res.data.from,
                 to: res.data.to,
             });
-            // Reset expanded rows saat ganti data
             setExpandedRows([]);
         } catch (err) {
             showToast("Gagal memuat data", "error");
@@ -251,13 +277,15 @@ export default function IndexTransaksi({ authUser }) {
     useEffect(() => {
         const timer = setTimeout(
             () => fetchData(currentPage, searchTerm, selectedSatker),
-            500,
+            350,
         );
         return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         currentPage,
         searchTerm,
         selectedSatker,
+        selectedStatus,
         activeTab,
         selectedTW,
         tahun,
@@ -330,11 +358,10 @@ export default function IndexTransaksi({ authUser }) {
     const accentColor = isRPD
         ? "bg-indigo-600 border-indigo-600"
         : "bg-blue-600 border-blue-600";
-    const lightBg = isRPD ? "bg-indigo-50/50" : "bg-blue-50/50";
+    const lightBg = isRPD ? "bg-indigo-50/60" : "bg-blue-50/60";
     const textAccent = isRPD ? "text-indigo-600" : "text-blue-600";
     const isAdmin = localAuth?.role === "admin";
 
-    // LOGIKA KALKULASI SUMMARY
     const getMonthsInTW = (tw) => {
         if (tw === "I") return [1, 2, 3];
         if (tw === "II") return [4, 5, 6];
@@ -470,6 +497,8 @@ export default function IndexTransaksi({ authUser }) {
         dispTargetIKPARp > 0 ? (dispTotalInputTW / dispTargetIKPARp) * 100 : 0;
     const isTargetAchieved = dispTotalInputTW >= dispTargetIKPARp;
 
+    const totalCols = isRPD ? 8 : 9;
+
     return (
         <MainLayout authUser={authUser} tahun={tahun}>
             <style>{`
@@ -477,38 +506,54 @@ export default function IndexTransaksi({ authUser }) {
                 @keyframes slideOutRight { 0% { transform: translateX(0) scale(1); opacity: 1; } 100% { transform: translateX(120%) scale(0.9); opacity: 0; } }
                 .toast-enter { animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
                 .toast-exit { animation: slideOutRight 0.4s ease-in forwards; }
-                .glass-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+                .glass-card { background: rgba(255, 255, 255, 0.78); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+                .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
             `}</style>
 
-            <div className="space-y-6 font-sans text-slate-600 relative overflow-hidden min-h-screen pb-10">
+            <div className="space-y-6 font-sans text-slate-600 relative min-h-screen pb-10">
+                {/* Ambient Background */}
                 <div
-                    className={`absolute top-0 left-0 w-full h-96 transition-colors duration-700 pointer-events-none -z-10 ${isRPD ? "bg-gradient-to-b from-indigo-500/10 to-transparent" : "bg-gradient-to-b from-blue-500/10 to-transparent"}`}
-                ></div>
-                <div
-                    className={`absolute top-20 right-20 w-96 h-96 rounded-full blur-[100px] transition-colors duration-700 pointer-events-none -z-10 ${isRPD ? "bg-purple-500/10" : "bg-emerald-500/10"}`}
+                    className={`absolute top-0 left-0 w-full h-80 transition-colors duration-700 pointer-events-none -z-10 ${
+                        isRPD
+                            ? "bg-gradient-to-b from-indigo-500/10 to-transparent"
+                            : "bg-gradient-to-b from-blue-500/10 to-transparent"
+                    }`}
                 ></div>
 
+                {/* TOAST NOTIFICATION */}
                 {toast.show && (
                     <div
-                        className={`fixed top-8 right-8 z-[100] flex items-center p-4 min-w-[340px] rounded-2xl border shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] backdrop-blur-xl ${toast.isExiting ? "toast-exit" : "toast-enter"} ${toast.type === "success" ? "bg-[#0A192F]/95 border-emerald-500/30" : "bg-[#0A192F]/95 border-rose-500/30"}`}
+                        className={`fixed top-8 right-8 z-[100] flex items-center p-4 min-w-[320px] max-w-md rounded-2xl border shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] backdrop-blur-xl ${
+                            toast.isExiting ? "toast-exit" : "toast-enter"
+                        } ${
+                            toast.type === "success"
+                                ? "bg-[#0A192F]/95 border-emerald-500/30"
+                                : "bg-[#0A192F]/95 border-rose-500/30"
+                        }`}
                     >
-                        <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-                            <div
-                                className={`absolute -top-10 -right-10 w-32 h-32 opacity-20 blur-2xl rounded-full ${toast.type === "success" ? "bg-emerald-500" : "bg-rose-500"}`}
-                            ></div>
-                        </div>
                         <div
-                            className={`relative flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl border ${toast.type === "success" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border-rose-500/20"}`}
+                            className={`relative flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl border ${
+                                toast.type === "success"
+                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                    : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                            }`}
                         >
                             {toast.type === "success" ? (
-                                <CheckCircle className="w-6 h-6" />
+                                <CheckCircle className="w-5 h-5" />
                             ) : (
-                                <XCircle className="w-6 h-6" />
+                                <XCircle className="w-5 h-5" />
                             )}
                         </div>
-                        <div className="ml-4 relative">
+                        <div className="ml-3.5 min-w-0">
                             <h4
-                                className={`text-[10px] font-black tracking-widest uppercase ${toast.type === "success" ? "text-emerald-400" : "text-rose-400"}`}
+                                className={`text-[10px] font-black tracking-widest uppercase ${
+                                    toast.type === "success"
+                                        ? "text-emerald-400"
+                                        : "text-rose-400"
+                                }`}
                             >
                                 {toast.type === "success" ? "Sukses" : "Gagal"}
                             </h4>
@@ -519,84 +564,430 @@ export default function IndexTransaksi({ authUser }) {
                     </div>
                 )}
 
-                <div className="glass-card p-6 md:p-8 rounded-[2rem] shadow-sm border border-white/60 relative overflow-hidden z-10 flex flex-col gap-6">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div className="flex items-center gap-4">
+                {/* =====================================================================
+                    1. HERO COMMAND BAR (TERSTRUKTUR RAPI — TANPA SALING TINDIH)
+                ===================================================================== */}
+                <div className="glass-card p-6 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/80 relative z-10 space-y-5">
+                    {/* BARIS 1: JUDUL + TOMBOL AKSI UTAMA */}
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4 min-w-0">
                             <div
-                                className={`p-3.5 text-white rounded-2xl shadow-lg transition-colors duration-500 ${isRPD ? "bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-indigo-500/30" : "bg-gradient-to-br from-blue-500 to-blue-600 shadow-blue-500/30"}`}
+                                className={`w-13 h-13 p-3.5 text-white rounded-2xl shadow-lg shrink-0 flex items-center justify-center transition-colors duration-500 ${
+                                    isRPD
+                                        ? "bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-indigo-500/30"
+                                        : "bg-gradient-to-br from-blue-500 to-blue-600 shadow-blue-500/30"
+                                }`}
                             >
                                 {isRPD ? (
                                     <CalendarRange
-                                        size={28}
+                                        size={24}
                                         strokeWidth={2.5}
                                     />
                                 ) : (
-                                    <Receipt size={28} strokeWidth={2.5} />
+                                    <Receipt size={24} strokeWidth={2.5} />
                                 )}
                             </div>
-                            <div>
-                                <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+                            <div className="min-w-0">
+                                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight truncate">
                                     Ledger Transaksi
                                 </h2>
-                                <p className="text-sm text-slate-500 font-medium mt-1 flex items-center gap-2">
-                                    Kelola Rencana Penarikan Dana (RPD) &
-                                    Realisasi Anggaran.
+                                <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+                                    Kelola Rencana Penarikan Dana (RPD),
+                                    Realisasi Anggaran, &amp; Impor Excel
+                                    massal.
                                 </p>
                             </div>
                         </div>
 
-                        <div className="flex bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 text-xs font-bold shadow-inner">
-                            {["ALL", "I", "II", "III", "IV"].map((tw) => (
-                                <button
-                                    key={tw}
-                                    onClick={() => setSelectedTW(tw)}
-                                    className={`px-5 py-2.5 rounded-xl transition-all duration-300 ${selectedTW === tw ? "bg-white text-slate-800 shadow-[0_2px_8px_rgba(0,0,0,0.1)] scale-105 border border-slate-100" : "text-slate-500 hover:bg-slate-200/50"}`}
-                                >
-                                    {tw === "ALL" ? "Setahun" : `TW ${tw}`}
-                                </button>
-                            ))}
+                        {/* TOMBOL AKSI (TERKUNCI SEJAJAR & ANTI-WRAP ANEH) */}
+                        <div className="flex items-center gap-2.5 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setIsImportOpen(true)}
+                                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white font-bold text-xs sm:text-sm rounded-2xl border border-emerald-200/90 shadow-sm transition-all duration-200 whitespace-nowrap cursor-pointer hover:-translate-y-0.5"
+                                title="Impor massal dari file Excel rekap SAKTI/OMSPAN"
+                            >
+                                <FileSpreadsheet size={17} strokeWidth={2.5} />
+                                <span>Impor Excel</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    isRPD
+                                        ? setIsAddRpdOpen(true)
+                                        : setIsAddRealOpen(true)
+                                }
+                                className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-3 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-lg transition-all duration-200 whitespace-nowrap cursor-pointer hover:-translate-y-0.5 ${
+                                    isRPD
+                                        ? "bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 shadow-indigo-500/25"
+                                        : "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-blue-500/25"
+                                }`}
+                            >
+                                <Plus size={17} strokeWidth={2.5} />
+                                <span>
+                                    Tambah {isRPD ? "RPD" : "Realisasi"}
+                                </span>
+                            </button>
                         </div>
                     </div>
 
-                    <div className="h-px w-full bg-slate-200/60 my-2"></div>
+                    <div className="h-px w-full bg-slate-200/70"></div>
 
-                    <div className="flex flex-col xl:flex-row justify-between items-center gap-5">
-                        <div className="flex w-full xl:w-auto bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 shadow-inner relative">
+                    {/* BARIS 2: TAB MODE (KIRI) + FILTER TRIWULAN & TAHUN (KANAN) */}
+                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                        {/* Segmented Tab Switcher (Tanpa scale-105 agar tidak tabrakan) */}
+                        <div className="inline-flex w-full sm:w-auto bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/70 shadow-inner">
                             <button
+                                type="button"
                                 onClick={() => {
                                     setActiveTab("rpd");
                                     setCurrentPage(1);
                                 }}
-                                className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold text-sm transition-all duration-300 z-10 ${isRPD ? "text-indigo-600 shadow-[0_4px_12px_rgba(99,102,241,0.15)] bg-white border border-indigo-100 scale-105" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
+                                className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 whitespace-nowrap cursor-pointer ${
+                                    isRPD
+                                        ? "bg-white text-indigo-600 shadow-sm border border-indigo-100"
+                                        : "text-slate-500 hover:text-slate-700"
+                                }`}
                             >
-                                <CalendarRange size={18} strokeWidth={2.5} />{" "}
-                                RPD Halaman III
+                                <CalendarRange size={16} strokeWidth={2.5} />
+                                <span>RPD Halaman III</span>
                             </button>
                             <button
+                                type="button"
                                 onClick={() => {
                                     setActiveTab("realisasi");
                                     setCurrentPage(1);
                                 }}
-                                className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold text-sm transition-all duration-300 z-10 ${!isRPD ? "text-blue-600 shadow-[0_4px_12px_rgba(59,130,246,0.15)] bg-white border border-blue-100 scale-105" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
+                                className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 whitespace-nowrap cursor-pointer ${
+                                    !isRPD
+                                        ? "bg-white text-blue-600 shadow-sm border border-blue-100"
+                                        : "text-slate-500 hover:text-slate-700"
+                                }`}
                             >
-                                <Receipt size={18} strokeWidth={2.5} /> Aktual
-                                Realisasi
+                                <Receipt size={16} strokeWidth={2.5} />
+                                <span>Aktual Realisasi</span>
                             </button>
                         </div>
 
-                        <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto">
-                            {isAdmin && (
-                                <div className="relative w-full md:w-56">
-                                    <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                                        <Filter className="w-4 h-4 text-slate-400" />
-                                    </div>
+                        {/* Filter Triwulan + Tahun */}
+                        <div className="flex flex-wrap items-center gap-2.5">
+                            <div className="flex flex-1 sm:flex-none bg-slate-100/90 p-1 rounded-2xl border border-slate-200/70 text-xs font-bold shadow-inner overflow-x-auto">
+                                {["ALL", "I", "II", "III", "IV"].map((tw) => (
+                                    <button
+                                        type="button"
+                                        key={tw}
+                                        onClick={() => {
+                                            setSelectedTW(tw);
+                                            setCurrentPage(1);
+                                        }}
+                                        className={`flex-1 sm:flex-none px-3.5 py-2 rounded-xl transition-all duration-200 whitespace-nowrap cursor-pointer ${
+                                            selectedTW === tw
+                                                ? "bg-white text-slate-900 shadow-sm border border-slate-200/80"
+                                                : "text-slate-500 hover:text-slate-700"
+                                        }`}
+                                    >
+                                        {tw === "ALL" ? "Setahun" : `TW ${tw}`}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="relative shrink-0">
+                                <Calendar
+                                    size={14}
+                                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none"
+                                />
+                                <select
+                                    value={tahun}
+                                    onChange={(e) => {
+                                        setTahun(e.target.value);
+                                        setCurrentPage(1);
+                                    }}
+                                    className="pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 shadow-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 cursor-pointer appearance-none"
+                                >
+                                    {[...Array(5)].map((_, i) => {
+                                        const yr =
+                                            new Date().getFullYear() - 2 + i;
+                                        return (
+                                            <option key={yr} value={yr}>
+                                                T.A {yr}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                                <ChevronDown
+                                    size={14}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* =====================================================================
+                    2. 4 KARTU KPI SUMMARY (STACKED EXECUTIVE — ANTI-GEPENG & ANTI-POTONG)
+                ===================================================================== */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 relative z-10">
+                    {/* KARTU 1: PAGU EFEKTIF */}
+                    <div className="bg-white/90 backdrop-blur-md p-5 rounded-[1.75rem] border border-white shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">
+                                {!isAdmin || selectedSatker
+                                    ? "Pagu Efektif Satker"
+                                    : "Total Pagu Efektif"}
+                            </p>
+                            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                                <Wallet size={18} strokeWidth={2.2} />
+                            </div>
+                        </div>
+                        <div className="min-w-0">
+                            <h3
+                                title={formatCurrency(dispPagu)}
+                                className="text-lg 2xl:text-xl font-black text-slate-900 tracking-tight tabular-nums truncate"
+                            >
+                                {formatCurrency(dispPagu)}
+                            </h3>
+                            <p className="text-[10px] font-semibold text-slate-400 mt-1">
+                                Plafon aktif Tahun Anggaran {tahun}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* KARTU 2: TOTAL INPUT RPD / REALISASI */}
+                    <div className="bg-white/90 backdrop-blur-md p-5 rounded-[1.75rem] border border-white shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">
+                                Total {isRPD ? "RPD" : "Realisasi"}{" "}
+                                {selectedTW !== "ALL"
+                                    ? `(TW ${selectedTW})`
+                                    : "(Setahun)"}
+                            </p>
+                            <div
+                                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                                    isRPD
+                                        ? "bg-indigo-50 text-indigo-600"
+                                        : "bg-blue-50 text-blue-600"
+                                }`}
+                            >
+                                <TrendingUp size={18} strokeWidth={2.2} />
+                            </div>
+                        </div>
+                        <div className="min-w-0">
+                            <h3
+                                title={formatCurrency(dispTotalInputTW)}
+                                className={`text-lg 2xl:text-xl font-black tracking-tight tabular-nums truncate ${
+                                    isRPD ? "text-indigo-700" : "text-blue-700"
+                                }`}
+                            >
+                                {formatCurrency(dispTotalInputTW)}
+                            </h3>
+                            <p className="text-[10px] font-semibold text-slate-400 mt-1">
+                                Akumulasi status Disetujui (Approved)
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* KARTU 3: SISA DOMPET PAGU */}
+                    <div
+                        className={`bg-white/90 backdrop-blur-md p-5 rounded-[1.75rem] border transition-all flex flex-col justify-between gap-3 min-w-0 ${
+                            dispSisaReal < 0
+                                ? "border-rose-200 shadow-[0_0_25px_rgba(225,29,72,0.12)]"
+                                : "border-white shadow-sm hover:shadow-md"
+                        }`}
+                    >
+                        <div className="flex items-center justify-between gap-2">
+                            <p
+                                className={`text-[10px] font-black uppercase tracking-widest truncate ${
+                                    dispSisaReal < 0
+                                        ? "text-rose-500"
+                                        : "text-slate-400"
+                                }`}
+                            >
+                                Sisa Dompet Pagu
+                            </p>
+                            <div
+                                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                                    dispSisaReal < 0
+                                        ? "bg-rose-100 text-rose-600"
+                                        : "bg-emerald-50 text-emerald-600"
+                                }`}
+                            >
+                                {dispSisaReal < 0 ? (
+                                    <ShieldAlert size={18} strokeWidth={2.2} />
+                                ) : (
+                                    <AlertCircle size={18} strokeWidth={2.2} />
+                                )}
+                            </div>
+                        </div>
+                        <div className="min-w-0">
+                            <h3
+                                title={formatCurrency(dispSisaReal)}
+                                className={`text-lg 2xl:text-xl font-black tracking-tight tabular-nums truncate ${
+                                    dispSisaReal < 0
+                                        ? "text-rose-600"
+                                        : "text-emerald-700"
+                                }`}
+                            >
+                                {formatCurrency(dispSisaReal)}
+                            </h3>
+                            <p className="text-[10px] font-semibold text-slate-400 mt-1">
+                                {dispSisaReal < 0
+                                    ? "Melebihi batas pagu efektif!"
+                                    : "Saldo efektif masih tersedia"}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* KARTU 4: SERAPAN & PROGRESS BAR */}
+                    <div className="bg-white/90 backdrop-blur-md p-5 rounded-[1.75rem] border border-white shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">
+                                    Serapan {isRPD ? "RPD" : "Realisasi"}{" "}
+                                    {selectedTW !== "ALL" && `TW ${selectedTW}`}
+                                </p>
+                                {!isRPD && (
+                                    <p className="text-[9px] font-extrabold text-blue-500 mt-0.5 tracking-wider flex items-center gap-1">
+                                        <Target size={10} /> TARGET KEMENKEU
+                                    </p>
+                                )}
+                            </div>
+                            <span
+                                className={`text-xs font-black px-2.5 py-1 rounded-xl shrink-0 tabular-nums ${
+                                    !isRPD && !isTargetAchieved
+                                        ? "bg-rose-100 text-rose-700"
+                                        : "bg-emerald-100 text-emerald-700"
+                                }`}
+                            >
+                                {dispPersen.toFixed(1)}%
+                            </span>
+                        </div>
+
+                        <div>
+                            <div className="w-full bg-slate-200/80 rounded-full h-2.5 relative shadow-inner overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-700 ${
+                                        !isRPD && !isTargetAchieved
+                                            ? "bg-gradient-to-r from-rose-400 to-rose-500"
+                                            : "bg-gradient-to-r from-emerald-400 to-emerald-500"
+                                    }`}
+                                    style={{
+                                        width: `${Math.min(dispPersen, 100)}%`,
+                                    }}
+                                ></div>
+                            </div>
+                            <p
+                                className={`text-[10px] font-bold mt-2 truncate flex items-center gap-1 ${
+                                    !isRPD
+                                        ? isTargetAchieved
+                                            ? "text-emerald-600"
+                                            : "text-rose-500"
+                                        : "text-slate-400"
+                                }`}
+                                title={
+                                    !isRPD
+                                        ? isTargetAchieved
+                                            ? `Memenuhi Target (${formatCurrency(dispTargetIKPARp)})`
+                                            : `Kurang ${formatCurrency(dispTargetIKPARp - dispTotalInputTW)}`
+                                        : `Target: ${formatCurrency(dispTargetIKPARp)}`
+                                }
+                            >
+                                {!isRPD ? (
+                                    isTargetAchieved ? (
+                                        <>
+                                            <CheckCircle
+                                                size={11}
+                                                className="shrink-0"
+                                            />
+                                            <span className="truncate">
+                                                Lulus Target (
+                                                {formatCurrency(
+                                                    dispTargetIKPARp,
+                                                )}
+                                                )
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <XCircle
+                                                size={11}
+                                                className="shrink-0"
+                                            />
+                                            <span className="truncate">
+                                                Kurang{" "}
+                                                {formatCurrency(
+                                                    dispTargetIKPARp -
+                                                        dispTotalInputTW,
+                                                )}
+                                            </span>
+                                        </>
+                                    )
+                                ) : (
+                                    <span className="truncate">
+                                        Acuan Target:{" "}
+                                        {formatCurrency(dispTargetIKPARp)}
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* =====================================================================
+                    3. DATA TABLE CARD + INTEGRATED FILTER STRIP
+                ===================================================================== */}
+                <div className="glass-card rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/80 overflow-hidden relative z-10">
+                    {/* Header Tabel + Filter Bar Terintegrasi */}
+                    <div className="p-5 sm:px-6 border-b border-slate-100 bg-slate-50/70 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                                className={`p-2 rounded-xl shrink-0 ${
+                                    isRPD
+                                        ? "bg-indigo-100 text-indigo-600"
+                                        : "bg-blue-100 text-blue-600"
+                                }`}
+                            >
+                                {isRPD ? (
+                                    <CalendarRange
+                                        size={18}
+                                        strokeWidth={2.5}
+                                    />
+                                ) : (
+                                    <Receipt size={18} strokeWidth={2.5} />
+                                )}
+                            </span>
+                            <div className="min-w-0">
+                                <h3
+                                    className={`text-xs sm:text-sm font-black uppercase tracking-wider truncate ${textAccent}`}
+                                >
+                                    Daftar{" "}
+                                    {isRPD
+                                        ? "Rencana Penarikan Dana (RPD)"
+                                        : "Realisasi Pengeluaran & Kaitan RO"}
+                                </h3>
+                                <p className="text-[11px] font-medium text-slate-400">
+                                    Periode:{" "}
+                                    <strong className="text-slate-600">
+                                        {selectedTW === "ALL"
+                                            ? `Setahun (${tahun})`
+                                            : `Triwulan ${selectedTW} (${tahun})`}
+                                    </strong>
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Filter Strip: Satker + Status + Search (Grid Rapi) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full lg:w-auto lg:min-w-[540px]">
+                            {isAdmin ? (
+                                <div className="relative">
+                                    <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                                     <select
                                         value={selectedSatker}
                                         onChange={(e) => {
                                             setSelectedSatker(e.target.value);
                                             setCurrentPage(1);
                                         }}
-                                        className="w-full pl-10 pr-4 py-3 bg-white/80 border border-slate-200/80 rounded-2xl focus:ring-4 focus:ring-slate-200/50 text-sm font-bold text-slate-700 appearance-none cursor-pointer shadow-sm outline-none transition-all"
+                                        className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 appearance-none cursor-pointer shadow-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 truncate"
                                     >
                                         <option value="">
                                             Semua Satker (Global)
@@ -608,280 +999,194 @@ export default function IndexTransaksi({ authUser }) {
                                             </option>
                                         ))}
                                     </select>
+                                    <ChevronDown
+                                        size={14}
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                                    />
                                 </div>
+                            ) : (
+                                <div className="hidden sm:block"></div>
                             )}
 
-                            <div className="relative w-full md:w-56">
-                                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                                    <Search className="w-4 h-4 text-slate-400" />
-                                </div>
+                            <div className="relative">
+                                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                <select
+                                    value={selectedStatus}
+                                    onChange={(e) => {
+                                        setSelectedStatus(e.target.value);
+                                        setCurrentPage(1);
+                                    }}
+                                    className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 appearance-none cursor-pointer shadow-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400"
+                                >
+                                    <option value="">Semua Status</option>
+                                    <option value="approved">Disetujui</option>
+                                    <option value="draft">Menunggu</option>
+                                    <option value="rejected">Ditolak</option>
+                                </select>
+                                <ChevronDown
+                                    size={14}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                                />
+                            </div>
+
+                            <div className="relative">
+                                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                                 <input
                                     type="text"
-                                    placeholder="Cari Uraian..."
+                                    placeholder="Cari Satker..."
                                     value={searchTerm}
                                     onChange={(e) => {
                                         setSearchTerm(e.target.value);
                                         setCurrentPage(1);
                                     }}
-                                    className="w-full pl-10 pr-4 py-3 bg-white/80 border border-slate-200/80 rounded-2xl focus:ring-4 focus:ring-slate-200/50 text-sm font-semibold shadow-sm outline-none transition-all placeholder:font-normal"
+                                    className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 placeholder:font-normal"
                                 />
                             </div>
-
-                            <button
-                                onClick={() =>
-                                    isRPD
-                                        ? setIsAddRpdOpen(true)
-                                        : setIsAddRealOpen(true)
-                                }
-                                className={`flex items-center justify-center gap-2 px-6 py-3 text-white font-bold rounded-2xl shadow-lg transition-all duration-300 w-full md:w-auto hover:-translate-y-1 ${isRPD ? "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/30 hover:shadow-indigo-500/40" : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/30 hover:shadow-blue-500/40"}`}
-                            >
-                                <Plus size={18} strokeWidth={2.5} /> Tambah Data
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 relative z-10">
-                    <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all flex items-center gap-5 group">
-                        <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300">
-                            <Wallet size={26} strokeWidth={2} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                {!isAdmin || selectedSatker
-                                    ? "Pagu Efektif Satker"
-                                    : "Total Pagu Efektif"}
-                            </p>
-                            <h3 className="text-xl font-black text-slate-800 mt-1 tracking-tight">
-                                {formatCurrency(dispPagu)}
-                            </h3>
                         </div>
                     </div>
 
-                    <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all flex items-center gap-5 group">
-                        <div
-                            className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300 ${isRPD ? "bg-indigo-50 text-indigo-500" : "bg-blue-50 text-blue-500"}`}
-                        >
-                            <TrendingUp size={26} strokeWidth={2} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                Total Input {isRPD ? "RPD" : "Realisasi"}{" "}
-                                {selectedTW !== "ALL"
-                                    ? `(TW ${selectedTW})`
-                                    : "(Setahun)"}
-                            </p>
-                            <h3 className="text-xl font-black text-slate-800 mt-1 tracking-tight">
-                                {formatCurrency(dispTotalInputTW)}
-                            </h3>
-                        </div>
-                    </div>
-
-                    <div
-                        className={`bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-slate-100 transition-all flex items-center gap-5 group ${dispSisaReal < 0 ? "shadow-[0_0_30px_rgba(225,29,72,0.15)] border-rose-200" : "shadow-sm hover:shadow-lg"}`}
-                    >
-                        <div
-                            className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300 ${dispSisaReal < 0 ? "bg-rose-100 text-rose-600" : "bg-emerald-50 text-emerald-500"}`}
-                        >
-                            {dispSisaReal < 0 ? (
-                                <ShieldAlert size={26} strokeWidth={2} />
-                            ) : (
-                                <AlertCircle size={26} strokeWidth={2} />
-                            )}
-                        </div>
-                        <div>
-                            <p
-                                className={`text-[10px] font-black uppercase tracking-widest ${dispSisaReal < 0 ? "text-rose-400" : "text-slate-400"}`}
-                            >
-                                Sisa Dompet Pagu
-                            </p>
-                            <h3
-                                className={`text-xl font-black mt-1 tracking-tight ${dispSisaReal < 0 ? "text-rose-600" : "text-slate-800"}`}
-                            >
-                                {formatCurrency(dispSisaReal)}
-                            </h3>
-                        </div>
-                    </div>
-
-                    <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all flex flex-col justify-center relative overflow-hidden">
-                        <div className="flex justify-between items-center mb-3">
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Serapan {isRPD ? "RPD" : "Realisasi"}{" "}
-                                    {selectedTW !== "ALL" && `TW ${selectedTW}`}
-                                </p>
-                                {!isRPD && (
-                                    <p className="text-[9px] font-extrabold text-blue-500 mt-0.5 tracking-widest flex items-center gap-1">
-                                        <Target size={10} /> TARGET KEMENKEU
-                                    </p>
-                                )}
-                            </div>
-                            <div className="text-right">
-                                <span
-                                    className={`text-sm font-black px-2.5 py-1 rounded-lg shadow-sm ${!isRPD && !isTargetAchieved ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}
-                                >
-                                    {dispPersen.toFixed(1)}%
-                                </span>
-                            </div>
-                        </div>
-                        <div className="w-full bg-slate-200/80 rounded-full h-2.5 mt-1 relative shadow-inner overflow-hidden">
-                            {!isRPD && (
-                                <div
-                                    className="absolute top-0 bottom-0 border-r-2 border-slate-800 z-10 shadow-[0_0_5px_rgba(0,0,0,0.5)]"
-                                    style={{ left: "100%" }}
-                                ></div>
-                            )}
-                            <div
-                                className={`h-full rounded-full transition-all duration-1000 ${!isRPD && !isTargetAchieved ? "bg-gradient-to-r from-rose-400 to-rose-500 shadow-[0_0_10px_rgba(225,29,72,0.8)]" : "bg-gradient-to-r from-emerald-400 to-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"}`}
-                                style={{
-                                    width: `${Math.min(dispPersen, 100)}%`,
-                                }}
-                            ></div>
-                        </div>
-                        {!isRPD && (
-                            <p
-                                className={`text-[10px] font-black mt-3 text-right flex items-center justify-end gap-1 ${isTargetAchieved ? "text-emerald-600" : "text-rose-500"}`}
-                            >
-                                {isTargetAchieved ? (
-                                    <>
-                                        <CheckCircle size={12} /> Memenuhi
-                                        Target (
-                                        {formatCurrency(dispTargetIKPARp)})
-                                    </>
-                                ) : (
-                                    <>
-                                        <XCircle size={12} /> Kurang{" "}
-                                        {formatCurrency(
-                                            dispTargetIKPARp - dispTotalInputTW,
-                                        )}
-                                    </>
-                                )}
-                            </p>
-                        )}
-                    </div>
-                </div>
-
-                <div className="glass-card rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 overflow-hidden relative z-10">
-                    <div className="p-5 border-b border-slate-100 bg-slate-50/50 backdrop-blur-sm flex justify-between items-center">
-                        <h3
-                            className={`text-sm font-black flex items-center gap-2 ${textAccent} uppercase tracking-widest`}
-                        >
-                            {isRPD ? (
-                                <CalendarRange size={20} strokeWidth={2.5} />
-                            ) : (
-                                <Receipt size={20} strokeWidth={2.5} />
-                            )}
-                            Daftar{" "}
-                            {isRPD
-                                ? "Rencana Penarikan Dana (RPD)"
-                                : "Realisasi Pengeluaran & Kaitan RO"}
-                            {selectedTW !== "ALL" && (
-                                <span className="ml-2 px-2.5 py-1 bg-slate-800 text-white rounded-lg text-[9px] shadow-sm">
-                                    Filter: TW {selectedTW}
-                                </span>
-                            )}
-                        </h3>
-                    </div>
-
-                    <div className="overflow-x-auto">
+                    {/* DATA TABLE */}
+                    <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left text-sm whitespace-nowrap">
                             <thead
-                                className={`${lightBg} border-b border-slate-100 text-[10px] uppercase text-slate-500 font-black tracking-widest`}
+                                className={`${lightBg} border-b border-slate-200/70 text-[10px] uppercase text-slate-500 font-black tracking-wider`}
                             >
                                 <tr>
                                     {!isRPD && (
-                                        <th className="px-4 py-5 w-10"></th>
-                                    )}{" "}
-                                    {/* Spasi untuk tombol ekspansi */}
-                                    <th className="px-6 py-5 align-top">
+                                        <th className="px-3 py-4 w-10 text-center"></th>
+                                    )}
+                                    <th className="px-4 py-4 align-top">
                                         Bulan
                                     </th>
-                                    <th className="px-6 py-5 align-top">
+                                    <th className="px-4 py-4 align-top">
                                         Satuan Kerja
                                     </th>
-                                    <th className="px-6 py-5 text-right align-top">
-                                        <div className="mb-2 text-slate-700">
+                                    <th className="px-4 py-4 text-right align-top">
+                                        <div className="mb-1.5 text-slate-700">
                                             Belanja Pegawai (51)
                                         </div>
                                         <div
-                                            className={`text-[9px] font-bold tracking-wider inline-block px-2.5 py-1 rounded-lg shadow-sm border ${dispSisa51 < 0 ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-white text-emerald-600 border-emerald-100"}`}
+                                            className={`text-[9px] font-bold tracking-normal tabular-nums inline-block px-2 py-0.5 rounded-md border ${
+                                                dispSisa51 < 0
+                                                    ? "bg-rose-50 text-rose-600 border-rose-200"
+                                                    : "bg-white text-emerald-600 border-emerald-200/80"
+                                            }`}
                                         >
                                             Sisa: {formatCurrency(dispSisa51)}
                                         </div>
                                     </th>
-                                    <th className="px-6 py-5 text-right align-top">
-                                        <div className="mb-2 text-slate-700">
+                                    <th className="px-4 py-4 text-right align-top">
+                                        <div className="mb-1.5 text-slate-700">
                                             Belanja Barang (52)
                                         </div>
                                         <div
-                                            className={`text-[9px] font-bold tracking-wider inline-block px-2.5 py-1 rounded-lg shadow-sm border ${dispSisa52 < 0 ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-white text-emerald-600 border-emerald-100"}`}
+                                            className={`text-[9px] font-bold tracking-normal tabular-nums inline-block px-2 py-0.5 rounded-md border ${
+                                                dispSisa52 < 0
+                                                    ? "bg-rose-50 text-rose-600 border-rose-200"
+                                                    : "bg-white text-emerald-600 border-emerald-200/80"
+                                            }`}
                                         >
                                             Sisa: {formatCurrency(dispSisa52)}
                                         </div>
                                     </th>
-                                    <th className="px-6 py-5 text-right align-top">
-                                        <div className="mb-2 text-slate-700">
+                                    <th className="px-4 py-4 text-right align-top">
+                                        <div className="mb-1.5 text-slate-700">
                                             Belanja Modal (53)
                                         </div>
                                         <div
-                                            className={`text-[9px] font-bold tracking-wider inline-block px-2.5 py-1 rounded-lg shadow-sm border ${dispSisa53 < 0 ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-white text-emerald-600 border-emerald-100"}`}
+                                            className={`text-[9px] font-bold tracking-normal tabular-nums inline-block px-2 py-0.5 rounded-md border ${
+                                                dispSisa53 < 0
+                                                    ? "bg-rose-50 text-rose-600 border-rose-200"
+                                                    : "bg-white text-emerald-600 border-emerald-200/80"
+                                            }`}
                                         >
                                             Sisa: {formatCurrency(dispSisa53)}
                                         </div>
                                     </th>
                                     <th
-                                        className={`px-6 py-5 text-right align-top ${textAccent}`}
+                                        className={`px-4 py-4 text-right align-top ${textAccent}`}
                                     >
                                         Total Transaksi
                                     </th>
-                                    <th className="px-6 py-5 text-center align-top">
+                                    <th className="px-4 py-4 text-center align-top">
                                         Status
                                     </th>
-                                    <th className="px-6 py-5 text-center align-top">
+                                    <th className="px-4 py-4 text-center align-top">
                                         Aksi
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+
+                            <tbody className="divide-y divide-slate-100 bg-white">
                                 {loading ? (
                                     <tr>
                                         <td
-                                            colSpan="9"
+                                            colSpan={totalCols}
                                             className="px-6 py-20 text-center"
                                         >
                                             <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent shadow-md"></div>
-                                            <p className="mt-4 text-sm font-bold text-slate-400 tracking-wider">
-                                                MENGAMBIL DATA LEDGER...
+                                            <p className="mt-4 text-xs font-black text-slate-400 tracking-widest uppercase">
+                                                Mengambil Data Ledger...
                                             </p>
                                         </td>
                                     </tr>
                                 ) : data.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan="9"
-                                            className="px-6 py-20 text-center"
+                                            colSpan={totalCols}
+                                            className="px-6 py-16 text-center"
                                         >
-                                            <div className="w-20 h-20 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                                            <div className="w-16 h-16 mx-auto bg-slate-100 rounded-2xl flex items-center justify-center mb-4 text-slate-400">
                                                 {isRPD ? (
-                                                    <CalendarRange
-                                                        size={32}
-                                                        className="text-slate-400"
-                                                    />
+                                                    <CalendarRange size={28} />
                                                 ) : (
-                                                    <Receipt
-                                                        size={32}
-                                                        className="text-slate-400"
-                                                    />
+                                                    <Receipt size={28} />
                                                 )}
                                             </div>
-                                            <p className="text-base font-bold text-slate-500">
-                                                Belum ada data transaksi
-                                                ditemukan.
+                                            <p className="text-base font-black text-slate-700">
+                                                Belum ada data{" "}
+                                                {isRPD ? "RPD" : "Realisasi"}{" "}
+                                                ditemukan
                                             </p>
-                                            <p className="text-sm text-slate-400 mt-1">
-                                                Ganti filter triwulan atau klik
-                                                tombol Tambah Data.
+                                            <p className="text-xs text-slate-400 font-medium mt-1 mb-5">
+                                                Tambahkan data baru secara
+                                                manual atau impor rekap Excel
+                                                sekaligus.
                                             </p>
+                                            <div className="inline-flex flex-wrap items-center justify-center gap-2.5">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setIsImportOpen(true)
+                                                    }
+                                                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-200 text-xs font-bold transition-colors cursor-pointer"
+                                                >
+                                                    <FileSpreadsheet
+                                                        size={14}
+                                                    />{" "}
+                                                    Impor Excel
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        isRPD
+                                                            ? setIsAddRpdOpen(
+                                                                  true,
+                                                              )
+                                                            : setIsAddRealOpen(
+                                                                  true,
+                                                              )
+                                                    }
+                                                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-xs font-bold transition-colors cursor-pointer ${
+                                                        isRPD
+                                                            ? "bg-indigo-600 hover:bg-indigo-700"
+                                                            : "bg-blue-600 hover:bg-blue-700"
+                                                    }`}
+                                                >
+                                                    <Plus size={14} /> Tambah
+                                                    Data
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ) : (
@@ -896,24 +1201,32 @@ export default function IndexTransaksi({ authUser }) {
                                         return (
                                             <React.Fragment key={item.id}>
                                                 <tr
-                                                    className={`hover:bg-slate-50/80 transition-colors duration-200 group ${isExpanded ? "bg-blue-50/30" : ""}`}
+                                                    className={`hover:bg-slate-50/90 transition-colors duration-150 group ${
+                                                        isExpanded
+                                                            ? "bg-blue-50/40"
+                                                            : ""
+                                                    }`}
                                                 >
-                                                    {/* 🔥 TOMBOL EXPAND (KHUSUS REALISASI) 🔥 */}
                                                     {!isRPD && (
-                                                        <td className="px-4 py-5 text-center">
+                                                        <td className="px-3 py-4 text-center">
                                                             <button
+                                                                type="button"
                                                                 onClick={() =>
                                                                     toggleRow(
                                                                         item.id,
                                                                     )
                                                                 }
-                                                                className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-300 shadow-sm transition-all focus:outline-none"
+                                                                className={`p-1.5 rounded-lg border shadow-sm transition-all cursor-pointer focus:outline-none ${
+                                                                    isExpanded
+                                                                        ? "bg-blue-600 border-blue-600 text-white"
+                                                                        : "bg-white border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-300"
+                                                                }`}
                                                                 title="Lihat Rincian RO"
                                                             >
                                                                 {isExpanded ? (
                                                                     <ChevronUp
                                                                         size={
-                                                                            16
+                                                                            15
                                                                         }
                                                                         strokeWidth={
                                                                             3
@@ -922,7 +1235,7 @@ export default function IndexTransaksi({ authUser }) {
                                                                 ) : (
                                                                     <ChevronDown
                                                                         size={
-                                                                            16
+                                                                            15
                                                                         }
                                                                         strokeWidth={
                                                                             3
@@ -933,47 +1246,47 @@ export default function IndexTransaksi({ authUser }) {
                                                         </td>
                                                     )}
 
-                                                    <td className="px-6 py-5 font-black text-slate-800 text-base">
+                                                    <td className="px-4 py-4 font-black text-slate-800 text-sm">
                                                         {namaBulan[item.bulan]}
                                                     </td>
-                                                    <td className="px-6 py-5">
-                                                        <div className="font-extrabold text-slate-800 text-sm max-w-[200px] truncate">
+                                                    <td className="px-4 py-4">
+                                                        <div className="font-extrabold text-slate-800 text-xs sm:text-sm max-w-[200px] truncate">
                                                             {
                                                                 item.satker
                                                                     ?.nama_satker
                                                             }
                                                         </div>
-                                                        <div className="text-[10px] font-black tracking-widest text-slate-400 uppercase mt-1">
+                                                        <div className="text-[10px] font-black tracking-widest text-slate-400 uppercase mt-0.5">
                                                             {
                                                                 item.satker
                                                                     ?.kode_satker
                                                             }
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-5 text-right font-bold text-slate-600">
+                                                    <td className="px-4 py-4 text-right font-bold text-slate-600 tabular-nums text-xs sm:text-sm">
                                                         {formatCurrency(
                                                             item.belanja_gaji,
                                                         )}
                                                     </td>
-                                                    <td className="px-6 py-5 text-right font-bold text-slate-600">
+                                                    <td className="px-4 py-4 text-right font-bold text-slate-600 tabular-nums text-xs sm:text-sm">
                                                         {formatCurrency(
                                                             item.belanja_barang,
                                                         )}
                                                     </td>
-                                                    <td className="px-6 py-5 text-right font-bold text-slate-600">
+                                                    <td className="px-4 py-4 text-right font-bold text-slate-600 tabular-nums text-xs sm:text-sm">
                                                         {formatCurrency(
                                                             item.belanja_modal,
                                                         )}
                                                     </td>
                                                     <td
-                                                        className={`px-6 py-5 text-right font-black text-base ${lightBg} ${textAccent}`}
+                                                        className={`px-4 py-4 text-right font-black tabular-nums text-sm ${lightBg} ${textAccent}`}
                                                     >
                                                         {formatCurrency(total)}
                                                     </td>
-                                                    <td className="px-6 py-5 text-center">
+                                                    <td className="px-4 py-4 text-center">
                                                         {item.status ===
                                                             "approved" && (
-                                                            <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm">
+                                                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-wider">
                                                                 Disetujui
                                                             </span>
                                                         )}
@@ -981,7 +1294,7 @@ export default function IndexTransaksi({ authUser }) {
                                                             "rejected" && (
                                                             <div className="flex flex-col items-center">
                                                                 <span
-                                                                    className="bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest mb-1.5 shadow-sm cursor-help"
+                                                                    className="inline-flex items-center px-2.5 py-1 rounded-lg bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-black uppercase tracking-wider mb-1 cursor-help"
                                                                     title={
                                                                         item.catatan_revisi
                                                                     }
@@ -989,7 +1302,7 @@ export default function IndexTransaksi({ authUser }) {
                                                                     Ditolak
                                                                 </span>
                                                                 {item.catatan_revisi && (
-                                                                    <span className="text-[9px] text-rose-500 w-28 truncate font-medium bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                                                                    <span className="text-[9px] text-rose-500 max-w-[110px] truncate font-medium bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">
                                                                         "
                                                                         {
                                                                             item.catatan_revisi
@@ -1002,18 +1315,19 @@ export default function IndexTransaksi({ authUser }) {
                                                         {(!item.status ||
                                                             item.status ===
                                                                 "draft") && (
-                                                            <span className="bg-amber-100 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm">
+                                                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-black uppercase tracking-wider">
                                                                 Menunggu
                                                             </span>
                                                         )}
                                                     </td>
-                                                    <td className="px-6 py-5 text-center">
-                                                        <div className="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-all duration-300">
+                                                    <td className="px-4 py-4 text-center">
+                                                        <div className="flex items-center justify-center gap-1.5">
                                                             {(item.status !==
                                                                 "approved" ||
                                                                 isAdmin) && (
                                                                 <>
                                                                     <button
+                                                                        type="button"
                                                                         onClick={() => {
                                                                             setSelectedData(
                                                                                 item,
@@ -1026,12 +1340,12 @@ export default function IndexTransaksi({ authUser }) {
                                                                                       true,
                                                                                   );
                                                                         }}
-                                                                        className="p-2 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 hover:scale-110 transition-all shadow-sm border border-indigo-100"
+                                                                        className="p-2 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 transition-all shadow-sm border border-indigo-100 cursor-pointer"
                                                                         title="Edit Data"
                                                                     >
                                                                         <Edit
                                                                             size={
-                                                                                16
+                                                                                15
                                                                             }
                                                                             strokeWidth={
                                                                                 2.5
@@ -1039,6 +1353,7 @@ export default function IndexTransaksi({ authUser }) {
                                                                         />
                                                                     </button>
                                                                     <button
+                                                                        type="button"
                                                                         onClick={() => {
                                                                             setDeleteId(
                                                                                 item.id,
@@ -1047,12 +1362,12 @@ export default function IndexTransaksi({ authUser }) {
                                                                                 true,
                                                                             );
                                                                         }}
-                                                                        className="p-2 bg-white text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-rose-100"
+                                                                        className="p-2 bg-white text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm border border-rose-100 cursor-pointer"
                                                                         title="Hapus Data"
                                                                     >
                                                                         <Trash2
                                                                             size={
-                                                                                16
+                                                                                15
                                                                             }
                                                                             strokeWidth={
                                                                                 2.5
@@ -1065,18 +1380,19 @@ export default function IndexTransaksi({ authUser }) {
                                                                 item.status !==
                                                                     "approved" && (
                                                                     <button
+                                                                        type="button"
                                                                         onClick={() =>
                                                                             handleApprove(
                                                                                 item.id,
                                                                                 "approved",
                                                                             )
                                                                         }
-                                                                        className="p-2 bg-white text-emerald-500 rounded-xl hover:bg-emerald-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-emerald-100 ml-1"
+                                                                        className="p-2 bg-white text-emerald-600 rounded-xl hover:bg-emerald-500 hover:text-white transition-all shadow-sm border border-emerald-100 cursor-pointer"
                                                                         title="Setujui Data Ini"
                                                                     >
                                                                         <CheckCircle
                                                                             size={
-                                                                                16
+                                                                                15
                                                                             }
                                                                             strokeWidth={
                                                                                 2.5
@@ -1088,6 +1404,7 @@ export default function IndexTransaksi({ authUser }) {
                                                                 item.status !==
                                                                     "rejected" && (
                                                                     <button
+                                                                        type="button"
                                                                         onClick={() => {
                                                                             setRejectData(
                                                                                 item,
@@ -1096,7 +1413,7 @@ export default function IndexTransaksi({ authUser }) {
                                                                                 true,
                                                                             );
                                                                         }}
-                                                                        className="p-2 bg-white text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-amber-100"
+                                                                        className="p-2 bg-white text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white transition-all shadow-sm border border-amber-100 cursor-pointer"
                                                                         title={
                                                                             item.status ===
                                                                             "approved"
@@ -1106,7 +1423,7 @@ export default function IndexTransaksi({ authUser }) {
                                                                     >
                                                                         <XCircle
                                                                             size={
-                                                                                16
+                                                                                15
                                                                             }
                                                                             strokeWidth={
                                                                                 2.5
@@ -1118,27 +1435,28 @@ export default function IndexTransaksi({ authUser }) {
                                                     </td>
                                                 </tr>
 
-                                                {/* 🔥 BARIS RINCIAN TRANSAKSI (COLLAPSIBLE) 🔥 */}
+                                                {/* BARIS RINCIAN TRANSAKSI & RO (COLLAPSIBLE) */}
                                                 {!isRPD && isExpanded && (
-                                                    <tr className="bg-slate-50 border-b border-slate-200">
+                                                    <tr className="bg-slate-50/90 border-b border-slate-200">
                                                         <td
-                                                            colSpan="9"
-                                                            className="p-6"
+                                                            colSpan={totalCols}
+                                                            className="p-5 whitespace-normal"
                                                         >
-                                                            <div className="bg-white rounded-2xl border border-slate-200 shadow-inner p-5 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                            <div className="bg-white rounded-2xl border border-slate-200 shadow-inner p-5">
                                                                 <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
                                                                     <Layers
                                                                         size={
                                                                             16
                                                                         }
                                                                         className="text-blue-500"
-                                                                    />{" "}
+                                                                    />
                                                                     Keterlacakan
-                                                                    Transaksi &
+                                                                    Transaksi
+                                                                    &amp;
                                                                     Rincian
-                                                                    Output
+                                                                    Output (RO)
                                                                 </h4>
-                                                                <div className="grid grid-cols-1 gap-3">
+                                                                <div className="grid grid-cols-1 gap-2.5">
                                                                     {item.details &&
                                                                     item.details
                                                                         .length >
@@ -1153,10 +1471,10 @@ export default function IndexTransaksi({ authUser }) {
                                                                                         detail.id ||
                                                                                         idx
                                                                                     }
-                                                                                    className="flex flex-col sm:flex-row items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-blue-200 hover:bg-blue-50/30 transition-colors"
+                                                                                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-100 rounded-xl hover:border-blue-200 hover:bg-blue-50/30 transition-colors"
                                                                                 >
-                                                                                    <div className="flex items-center gap-4 w-full sm:w-auto">
-                                                                                        <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center font-black text-[10px] text-slate-400 uppercase tracking-widest border border-slate-100">
+                                                                                    <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                                                                                        <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center font-black text-[11px] text-slate-500 border border-slate-200 shrink-0">
                                                                                             {detail.jenis_belanja ===
                                                                                             "gaji"
                                                                                                 ? "51"
@@ -1165,38 +1483,39 @@ export default function IndexTransaksi({ authUser }) {
                                                                                                   ? "52"
                                                                                                   : "53"}
                                                                                         </div>
-                                                                                        <div>
-                                                                                            <p className="text-sm font-bold text-slate-800 leading-tight">
+                                                                                        <div className="min-w-0">
+                                                                                            <p className="text-sm font-bold text-slate-800 leading-snug">
                                                                                                 {
                                                                                                     detail.uraian
                                                                                                 }
                                                                                             </p>
-
-                                                                                            {/* 🔥 BADGE RO PREMIUM 🔥 */}
                                                                                             {detail.rincian_output ? (
-                                                                                                <div className="inline-flex items-center gap-1.5 mt-1.5 px-2 py-0.5 bg-indigo-100 border border-indigo-200 text-indigo-700 rounded text-[10px] font-bold shadow-sm">
+                                                                                                <div className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-0.5 bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-md text-[10px] font-bold">
                                                                                                     <Target
                                                                                                         size={
                                                                                                             10
                                                                                                         }
-                                                                                                        className="text-indigo-500"
+                                                                                                        className="text-indigo-500 shrink-0"
                                                                                                     />
-                                                                                                    RO:
-                                                                                                    [
-                                                                                                    {
-                                                                                                        detail
-                                                                                                            .rincian_output
-                                                                                                            .kode_ro
-                                                                                                    }
-                                                                                                    ]{" "}
-                                                                                                    {
-                                                                                                        detail
-                                                                                                            .rincian_output
-                                                                                                            .nama_ro
-                                                                                                    }
+                                                                                                    <span>
+                                                                                                        RO:
+                                                                                                        [
+                                                                                                        {
+                                                                                                            detail
+                                                                                                                .rincian_output
+                                                                                                                .kode_ro
+                                                                                                        }
+
+                                                                                                        ]{" "}
+                                                                                                        {
+                                                                                                            detail
+                                                                                                                .rincian_output
+                                                                                                                .nama_ro
+                                                                                                        }
+                                                                                                    </span>
                                                                                                 </div>
                                                                                             ) : (
-                                                                                                <div className="inline-flex items-center mt-1.5 px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded text-[10px] font-bold">
+                                                                                                <div className="inline-flex items-center mt-1.5 px-2.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded-md text-[10px] font-bold">
                                                                                                     Tanpa
                                                                                                     Rincian
                                                                                                     Output
@@ -1205,11 +1524,11 @@ export default function IndexTransaksi({ authUser }) {
                                                                                             )}
                                                                                         </div>
                                                                                     </div>
-                                                                                    <div className="mt-3 sm:mt-0 text-right w-full sm:w-auto">
-                                                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+                                                                                    <div className="sm:text-right pl-13 sm:pl-0 shrink-0">
+                                                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                                                                                             Nominal
                                                                                         </p>
-                                                                                        <p className="text-sm font-black text-slate-800 font-mono">
+                                                                                        <p className="text-sm font-black text-slate-800 font-mono tabular-nums">
                                                                                             {formatCurrency(
                                                                                                 detail.nominal,
                                                                                             )}
@@ -1219,7 +1538,7 @@ export default function IndexTransaksi({ authUser }) {
                                                                             ),
                                                                         )
                                                                     ) : (
-                                                                        <div className="text-center p-4 text-slate-400 text-sm font-bold">
+                                                                        <div className="text-center p-4 text-slate-400 text-xs font-bold">
                                                                             Tidak
                                                                             ada
                                                                             rincian
@@ -1238,6 +1557,7 @@ export default function IndexTransaksi({ authUser }) {
                             </tbody>
                         </table>
                     </div>
+
                     <Pagination
                         meta={pagination}
                         onPageChange={setCurrentPage}
@@ -1245,6 +1565,7 @@ export default function IndexTransaksi({ authUser }) {
                     />
                 </div>
 
+                {/* MODALS */}
                 <AddRpdModal
                     isOpen={isAddRpdOpen}
                     onClose={() => setIsAddRpdOpen(false)}
@@ -1279,6 +1600,15 @@ export default function IndexTransaksi({ authUser }) {
                     editData={selectedData}
                     onSuccess={handleSuccess}
                     satkerSummary={summary.per_satker}
+                    localAuth={localAuth}
+                />
+                <ImportExcelModal
+                    isOpen={isImportOpen}
+                    onClose={() => setIsImportOpen(false)}
+                    onSuccess={handleSuccess}
+                    activeTab={activeTab}
+                    satkers={satkers}
+                    defaultTahun={tahun}
                     localAuth={localAuth}
                 />
                 <DeleteModal

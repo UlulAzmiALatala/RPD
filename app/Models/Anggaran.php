@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Anggaran extends Model
 {
@@ -15,16 +17,21 @@ class Anggaran extends Model
         'belanja_gaji',
         'belanja_barang',
         'belanja_modal',
-        'blokir_gaji',      // 🔥 KOLOM BARU
-        'blokir_barang',    // 🔥 KOLOM BARU
-        'blokir_modal',     // 🔥 KOLOM BARU
+        'blokir_gaji',
+        'blokir_barang',
+        'blokir_modal',
         'total_pagu',
         'pagu_blokir',
         'pagu_efektif'
     ];
 
-    public function satker()
+    public function satker(): BelongsTo
     {
         return $this->belongsTo(Satker::class);
+    }
+
+    public function revisiDipas(): HasMany
+    {
+        return $this->hasMany(RevisiDipa::class, 'anggaran_id');
     }
 }

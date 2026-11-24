@@ -10,9 +10,14 @@ use App\Models\Satker;
 use App\Models\Anggaran;
 use App\Models\RincianOutput;
 use App\Models\RealisasiOutput;
+use App\Models\RevisiDipa;
+use App\Models\CutOff;
+use App\Traits\SiraAnalyticsTrait;
 
 class LaporanRealisasiController extends Controller
 {
+    use SiraAnalyticsTrait;
+
     // =====================================================================
     // 🧠 HELPER: TARGET TRIWULAN KEMENKEU (FIX 100% SESUAI PERDIRJEN)
     // =====================================================================
@@ -130,7 +135,7 @@ class LaporanRealisasiController extends Controller
     }
 
     // =====================================================================
-    // 🔥 LAPORAN REALISASI PER SATKER (DETAIL KOMPONEN IKPA & EVALUASI TW)
+    // 🔥 LAPORAN REALISASI PER SATKER (65 POIN + REVISI DIPA + TATA KELOLA)
     // =====================================================================
     public function getLaporanRealisasi(Request $request)
     {
@@ -155,26 +160,32 @@ class LaporanRealisasiController extends Controller
         $paguBarang = $anggaran ? $anggaran->belanja_barang : 0;
         $paguModal = $anggaran ? $anggaran->belanja_modal : 0;
         $paguKotorTotal = $paguGaji + $paguBarang + $paguModal;
-
         $paguEfektifTotal = $anggaran ? $anggaran->pagu_efektif : 0;
 
         $proporsi51 = $paguKotorTotal > 0 ? ($paguGaji / $paguKotorTotal) * 100 : 0;
         $proporsi52 = $paguKotorTotal > 0 ? ($paguBarang / $paguKotorTotal) * 100 : 0;
         $proporsi53 = $paguKotorTotal > 0 ? ($paguModal / $paguKotorTotal) * 100 : 0;
 
-        $rpdList = RencanaPenarikan::where('satker_id', $satkerId)->where('tahun', $tahun)->where('status', 'approved')->get()->keyBy('bulan');
-
-        // 🔥 LOAD RELASI 'details.rincianOutput' UNTUK KETERLACAKAN TRANSAKSI
-        $realisasiList = Realisasi::with(['details.rincianOutput'])
+        // Ambil semua status untuk Indeks Kedisiplinan, lalu filter approved untuk IKPA
+        $allRpdSatker = RencanaPenarikan::where('satker_id', $satkerId)->where('tahun', $tahun)->get();
+        $allRealSatker = Realisasi::with(['details.rincianOutput'])
             ->where('satker_id', $satkerId)
             ->where('tahun', $tahun)
-            ->where('status', 'approved')
-            ->get()
-            ->keyBy('bulan');
+            ->get();
+
+        $rpdList = $allRpdSatker->where('status', 'approved')->keyBy('bulan');
+        $realisasiList = $allRealSatker->where('status', 'approved')->keyBy('bulan');
 
         $rincianOutputs = RincianOutput::where('satker_id', $satkerId)->where('tahun', $tahun)->get();
         $roIds = $rincianOutputs->pluck('id');
         $realisasiOutputs = RealisasiOutput::whereIn('rincian_output_id', $roIds)->get();
+
+        $allRevisiDipas = RevisiDipa::where('satker_id', $satkerId)
+            ->where('tahun', $tahun)
+            ->orderBy('tanggal_revisi', 'asc')
+            ->get();
+
+        $allCutOffs = CutOff::where('tahun', $tahun)->get();
 
         $laporan = [];
         $sumDeviasiTertimbangSeluruhBulan = 0;
@@ -197,7 +208,6 @@ class LaporanRealisasiController extends Controller
             $d51 = abs($r51 - $p51);
             $d52 = abs($r52 - $p52);
             $d53 = abs($r53 - $p53);
-            $totDeviasi = $d51 + $d52 + $d53;
 
             $hitungPersenDeviasi = function ($rpdNominal, $realisasiNominal) {
                 $deviasiNominal = abs($rpdNominal - $realisasiNominal);
@@ -257,12 +267,12 @@ class LaporanRealisasiController extends Controller
                 'persen_seluruh' => ($totRpd > 0 || $totReal > 0) ? round($totalDeviasiTertimbangBulanIni, 2) : '-',
                 'rata_kumulatif' => ($totRpd > 0 || $totReal > 0) ? round($rataKumulatif, 2) : '-',
                 'ikpa' => $ikpa === '-' ? '-' : round($ikpa, 2),
-                'realisasi_details' => $realisasi ? $realisasi->details : [] // 🔥 KIRIM DETAIL KE FRONTEND
+                'realisasi_details' => $realisasi ? $realisasi->details : []
             ];
         }
 
         // =====================================================================
-        // 🔥 EVALUASI TARGET & POIN TERTIMBANG KEMENKEU (I, II, III, IV)
+        // 🔥 EVALUASI TARGET & POIN TERTIMBANG KEMENKEU (MAX 65 POIN)
         // =====================================================================
         $evaluasi_tw = [];
         $tw_list = ['I', 'II', 'III', 'IV'];
@@ -305,7 +315,6 @@ class LaporanRealisasiController extends Controller
             $ikpa_hal_iii = $laporan[$bulanAkhir - 1]['ikpa'];
             $ikpa_hal_iii = $ikpa_hal_iii === '-' ? 0 : (float)$ikpa_hal_iii;
 
-            // --- 🔥 KALKULASI CAPAIAN OUTPUT (RO) MAX 100 🔥 ---
             $total_pc_ro = 0;
             $jumlah_ro = $rincianOutputs->count();
             $nilai_ro = 0;
@@ -323,12 +332,32 @@ class LaporanRealisasiController extends Controller
                 $nilai_ro = $total_pc_ro / $jumlah_ro;
             }
 
-            // --- 🔥 KALKULASI TOTAL POIN SIRA (10% + 20% + 25%) = 55 POIN 🔥 ---
+            // 🔥 REVISI DIPA (10%) & TATA KELOLA INTERNAL
+            $revTw = $this->hitungSkorRevisiDipa((int)$satkerId, $tw, $paguKotorTotal > 0, $allRevisiDipas);
+            $ledgerDetailsTw = $realisasiTWFiltered->flatMap(fn($r) => $r->details ?? collect());
+            $tkTw = $this->hitungTataKelolaInternal(
+                (int)$satkerId,
+                $tahun,
+                $bulanAkhir,
+                $paguKotorTotal > 0,
+                $rincianOutputs,
+                $realisasiOutputs,
+                $ledgerDetailsTw,
+                $allRpdSatker,
+                $allRealSatker,
+                $allCutOffs
+            );
+
+            // TOTAL POIN SIRA (10% + 20% + 25% + 10% = MAX 65 POIN)
             $tertimbang_hal_iii = round(($ikpa_hal_iii * 10) / 100, 2);
             $tertimbang_penyerapan = round(($nilai_penyerapan * 20) / 100, 2);
             $tertimbang_ro = round(($nilai_ro * 25) / 100, 2);
+            $tertimbang_revisi_dipa = $revTw['tertimbang_revisi_dipa'];
 
-            $total_poin_sira = round($tertimbang_hal_iii + $tertimbang_penyerapan + $tertimbang_ro, 2);
+            $total_poin_sira = round(
+                $tertimbang_hal_iii + $tertimbang_penyerapan + $tertimbang_ro + $tertimbang_revisi_dipa,
+                2
+            );
 
             $evaluasi_tw[$tw] = [
                 '51' => [
@@ -352,14 +381,21 @@ class LaporanRealisasiController extends Controller
                     'nominal' => $real53_kumulatif,
                     'target_nominal' => $targetNominal53
                 ],
+                'revisi_dipa' => $revTw,
+                'tata_kelola' => $tkTw,
                 'poin' => [
                     'ikpa_hal_iii' => round($ikpa_hal_iii, 2),
                     'nilai_penyerapan' => round($nilai_penyerapan, 2),
                     'nilai_ro' => round($nilai_ro, 2),
+                    'nilai_revisi_dipa' => $revTw['nilai_revisi_dipa'],
                     'tertimbang_hal_iii' => $tertimbang_hal_iii,
                     'tertimbang_penyerapan' => $tertimbang_penyerapan,
                     'tertimbang_ro' => $tertimbang_ro,
-                    'total_poin' => $total_poin_sira
+                    'tertimbang_revisi_dipa' => $tertimbang_revisi_dipa,
+                    'frekuensi_revisi_tetap' => $revTw['frekuensi_pagu_tetap'],
+                    'status_revisi' => $revTw['status'],
+                    'total_poin' => $total_poin_sira,
+                    'max_poin' => 65
                 ]
             ];
         }
@@ -372,13 +408,15 @@ class LaporanRealisasiController extends Controller
                 'pagu_total' => $paguKotorTotal,
                 'pagu_efektif' => $paguEfektifTotal,
                 'laporan_bulanan' => $laporan,
-                'evaluasi_tw' => $evaluasi_tw
+                'evaluasi_tw' => $evaluasi_tw,
+                'tata_kelola' => $evaluasi_tw['IV']['tata_kelola'],
+                'riwayat_revisi' => $allRevisiDipas
             ]
         ]);
     }
 
     // =====================================================================
-    // 📄 CETAK PDF LAPORAN (SANGAT DETAIL + EVALUASI PENYERAPAN TW)
+    // 📄 CETAK PDF LAPORAN (65 POIN + REVISI DIPA + LAMPIRAN RO)
     // =====================================================================
     public function cetakPdfLaporan(Request $request)
     {
@@ -409,19 +447,25 @@ class LaporanRealisasiController extends Controller
         $proporsi52 = $paguKotorTotal > 0 ? ($paguBarang / $paguKotorTotal) * 100 : 0;
         $proporsi53 = $paguKotorTotal > 0 ? ($paguModal / $paguKotorTotal) * 100 : 0;
 
-        $rpdList = RencanaPenarikan::where('satker_id', $satkerId)->where('tahun', $tahun)->where('status', 'approved')->get()->keyBy('bulan');
-        
-        // 🔥 LOAD RELASI 'details.rincianOutput' AGAR TAMPIL DI LAMPIRAN PDF SATKER
-        $realisasiList = Realisasi::with(['details.rincianOutput'])
+        $allRpdSatker = RencanaPenarikan::where('satker_id', $satkerId)->where('tahun', $tahun)->get();
+        $allRealSatker = Realisasi::with(['details.rincianOutput'])
             ->where('satker_id', $satkerId)
             ->where('tahun', $tahun)
-            ->where('status', 'approved')
-            ->get()
-            ->keyBy('bulan');
+            ->get();
+
+        $rpdList = $allRpdSatker->where('status', 'approved')->keyBy('bulan');
+        $realisasiList = $allRealSatker->where('status', 'approved')->keyBy('bulan');
 
         $rincianOutputs = RincianOutput::where('satker_id', $satkerId)->where('tahun', $tahun)->get();
         $roIds = $rincianOutputs->pluck('id');
         $realisasiOutputs = RealisasiOutput::whereIn('rincian_output_id', $roIds)->get();
+
+        $allRevisiDipas = RevisiDipa::where('satker_id', $satkerId)
+            ->where('tahun', $tahun)
+            ->orderBy('tanggal_revisi', 'asc')
+            ->get();
+
+        $allCutOffs = CutOff::where('tahun', $tahun)->get();
 
         $laporan = [];
         $sumDeviasiTertimbangSeluruhBulan = 0;
@@ -445,7 +489,6 @@ class LaporanRealisasiController extends Controller
             $d51 = abs($r51 - $p51);
             $d52 = abs($r52 - $p52);
             $d53 = abs($r53 - $p53);
-            $totDeviasi = $d51 + $d52 + $d53;
 
             $hitungPersenDeviasi = function ($rpdNominal, $realisasiNominal) {
                 $deviasiNominal = abs($rpdNominal - $realisasiNominal);
@@ -505,13 +548,10 @@ class LaporanRealisasiController extends Controller
                 'persen_seluruh' => ($totRpd > 0 || $totReal > 0) ? round($totalDeviasiTertimbangBulanIni, 2) : '-',
                 'rata_kumulatif' => ($totRpd > 0 || $totReal > 0) ? round($rataKumulatif, 2) : '-',
                 'ikpa' => $ikpa === '-' ? '-' : round($ikpa, 2),
-                'realisasi_details' => $realisasi ? $realisasi->details : [] // 🔥 KIRIM RINCIAN TRANSAKSI KE PDF
+                'realisasi_details' => $realisasi ? $realisasi->details : []
             ];
         }
 
-        // =====================================================================
-        // 🔥 EVALUASI TARGET & POIN TERTIMBANG UNTUK CETAK PDF
-        // =====================================================================
         $evaluasi_tw = [];
         $tw_list = ['I', 'II', 'III', 'IV'];
 
@@ -553,7 +593,6 @@ class LaporanRealisasiController extends Controller
             $ikpa_hal_iii = $laporan[$bulanAkhir - 1]['ikpa'];
             $ikpa_hal_iii = $ikpa_hal_iii === '-' ? 0 : (float)$ikpa_hal_iii;
 
-            // --- 🔥 KALKULASI CAPAIAN OUTPUT (RO) MAX 100 🔥 ---
             $total_pc_ro = 0;
             $jumlah_ro = $rincianOutputs->count();
             $nilai_ro = 0;
@@ -571,12 +610,30 @@ class LaporanRealisasiController extends Controller
                 $nilai_ro = $total_pc_ro / $jumlah_ro;
             }
 
-            // --- 🔥 KALKULASI TOTAL POIN SIRA (10% + 20% + 25%) = 55 POIN 🔥 ---
+            $revTw = $this->hitungSkorRevisiDipa((int)$satkerId, $tw, $paguKotorTotal > 0, $allRevisiDipas);
+            $ledgerDetailsTw = $realisasiTWFiltered->flatMap(fn($r) => $r->details ?? collect());
+            $tkTw = $this->hitungTataKelolaInternal(
+                (int)$satkerId,
+                $tahun,
+                $bulanAkhir,
+                $paguKotorTotal > 0,
+                $rincianOutputs,
+                $realisasiOutputs,
+                $ledgerDetailsTw,
+                $allRpdSatker,
+                $allRealSatker,
+                $allCutOffs
+            );
+
             $tertimbang_hal_iii = round(($ikpa_hal_iii * 10) / 100, 2);
             $tertimbang_penyerapan = round(($nilai_penyerapan * 20) / 100, 2);
             $tertimbang_ro = round(($nilai_ro * 25) / 100, 2);
+            $tertimbang_revisi_dipa = $revTw['tertimbang_revisi_dipa'];
 
-            $total_poin_sira = round($tertimbang_hal_iii + $tertimbang_penyerapan + $tertimbang_ro, 2);
+            $total_poin_sira = round(
+                $tertimbang_hal_iii + $tertimbang_penyerapan + $tertimbang_ro + $tertimbang_revisi_dipa,
+                2
+            );
 
             $evaluasi_tw[$tw] = [
                 '51' => [
@@ -600,14 +657,21 @@ class LaporanRealisasiController extends Controller
                     'nominal' => $real53_kumulatif,
                     'target_nominal' => $targetNominal53
                 ],
+                'revisi_dipa' => $revTw,
+                'tata_kelola' => $tkTw,
                 'poin' => [
                     'ikpa_hal_iii' => round($ikpa_hal_iii, 2),
                     'nilai_penyerapan' => round($nilai_penyerapan, 2),
                     'nilai_ro' => round($nilai_ro, 2),
+                    'nilai_revisi_dipa' => $revTw['nilai_revisi_dipa'],
                     'tertimbang_hal_iii' => $tertimbang_hal_iii,
                     'tertimbang_penyerapan' => $tertimbang_penyerapan,
                     'tertimbang_ro' => $tertimbang_ro,
-                    'total_poin' => $total_poin_sira
+                    'tertimbang_revisi_dipa' => $tertimbang_revisi_dipa,
+                    'frekuensi_revisi_tetap' => $revTw['frekuensi_pagu_tetap'],
+                    'status_revisi' => $revTw['status'],
+                    'total_poin' => $total_poin_sira,
+                    'max_poin' => 65
                 ]
             ];
         }
@@ -618,9 +682,11 @@ class LaporanRealisasiController extends Controller
             'satker' => $satker,
             'tahun' => $tahun,
             'pagu_total' => $paguKotorTotal,
-            'pagu_efektif' => $paguEfektifTotal, // 🔥 KIRIM PAGU EFEKTIF KE VIEW PDF
+            'pagu_efektif' => $paguEfektifTotal,
             'laporan' => $laporan,
             'evaluasi_tw' => $evaluasi_tw,
+            'tata_kelola' => $evaluasi_tw['IV']['tata_kelola'],
+            'riwayat_revisi' => $allRevisiDipas,
             'tanggal_cetak' => $tanggalCetak
         ];
 

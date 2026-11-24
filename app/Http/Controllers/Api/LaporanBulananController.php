@@ -11,12 +11,14 @@ use App\Models\Realisasi;
 use App\Models\RincianOutput;
 use App\Models\RealisasiOutput;
 use App\Models\RealisasiDetail;
+use App\Models\RevisiDipa;
+use App\Models\CutOff;
+use App\Traits\SiraAnalyticsTrait;
 
 class LaporanBulananController extends Controller
 {
-    // =====================================================================
-    // 🧠 HELPER: TARGET TRIWULAN KEMENKEU & KONVERSI BULAN/TRIWULAN
-    // =====================================================================
+    use SiraAnalyticsTrait;
+
     private function getTargetKemenkeu(string $tw, string $jenisBelanja): int
     {
         $target = [
@@ -50,11 +52,15 @@ class LaporanBulananController extends Controller
         $twAktif = $this->getTriwulanAktif($bulanInt);
         $bulanAkhirTw = $this->getBulanAkhirTw($twAktif);
 
+        // Prefetch data tahunan sekali saja (hindari N+1)
+        $allRevisiDipas = RevisiDipa::where('tahun', $tahun)->get();
+        $allCutOffs = CutOff::where('tahun', $tahun)->get();
+
         foreach ($satkers as $satker) {
             $namaSatkerUpper = strtoupper($satker->nama_satker ?? '');
             $isSetjen = str_contains($namaSatkerUpper, 'SETJEN') || str_contains($namaSatkerUpper, 'SEKRETARIAT JENDERAL');
 
-            // 1. Ambil Anggaran (Pagu Kotor untuk Evaluasi Kemenkeu & Pagu Efektif untuk Dompet)
+            // 1. Ambil Anggaran
             $anggaran = Anggaran::where('satker_id', $satker->id)
                 ->where('tahun', $tahun)
                 ->first();
@@ -65,25 +71,22 @@ class LaporanBulananController extends Controller
             $paguModal = $anggaran ? $anggaran->belanja_modal : 0;
             $paguKotorTotal = $paguGaji + $paguBarang + $paguModal;
 
-            // Proporsi berdasarkan Pagu Kotor (100% sama dengan LaporanRealisasiController)
             $proporsi51 = $paguKotorTotal > 0 ? ($paguGaji / $paguKotorTotal) * 100 : 0;
             $proporsi52 = $paguKotorTotal > 0 ? ($paguBarang / $paguKotorTotal) * 100 : 0;
             $proporsi53 = $paguKotorTotal > 0 ? ($paguModal / $paguKotorTotal) * 100 : 0;
 
-            // 2. Ambil seluruh RPD & Realisasi yang sudah approved pada tahun ini
-            $allRpds = RencanaPenarikan::where('satker_id', $satker->id)
+            // 2. Ambil seluruh RPD & Realisasi (Raw untuk Tata Kelola, Approved untuk IKPA)
+            $allRpdsRaw = RencanaPenarikan::where('satker_id', $satker->id)
                 ->where('tahun', $tahun)
-                ->where('status', 'approved')
-                ->get()
-                ->keyBy('bulan');
+                ->get();
 
-            $allRealisasis = Realisasi::where('satker_id', $satker->id)
+            $allRealisasisRaw = Realisasi::where('satker_id', $satker->id)
                 ->where('tahun', $tahun)
-                ->where('status', 'approved')
-                ->get()
-                ->keyBy('bulan');
+                ->get();
 
-            // Filter Kumulatif s.d. Bulan Pilihan (untuk tampilan kolom nominal RPD & Realisasi di tabel)
+            $allRpds = $allRpdsRaw->where('status', 'approved')->keyBy('bulan');
+            $allRealisasis = $allRealisasisRaw->where('status', 'approved')->keyBy('bulan');
+
             $rpdsBulanIni = $allRpds->filter(fn($item, $key) => $key <= $bulanInt);
             $realisasisBulanIni = $allRealisasis->filter(fn($item, $key) => $key <= $bulanInt);
 
@@ -99,7 +102,7 @@ class LaporanBulananController extends Controller
             $totalRealisasi = $realGaji + $realBarang + $realModal;
             $totalDeviasiNominal = abs($totalRealisasi - $totalRpd);
 
-            // 3. Kalkulasi Nilai IKPA Hal III DIPA (100% Identik dengan LaporanRealisasiController)
+            // 3. Kalkulasi Nilai IKPA Hal III DIPA (Identik dengan LaporanRealisasiController)
             $hitungPersenDeviasi = function ($rpdNominal, $realisasiNominal) {
                 $deviasiNominal = abs($rpdNominal - $realisasiNominal);
                 if ($rpdNominal <= 0) {
@@ -155,9 +158,7 @@ class LaporanBulananController extends Controller
                 }
             }
 
-            // =========================================================
-            // 4. 🔥 EVALUASI TARGET TRIWULAN KEMENKEU (S.D. AKHIR TW AKTIF)
-            // =========================================================
+            // 4. Evaluasi Target Triwulan Kemenkeu (s.d. Akhir TW Aktif)
             $realisasiTWFiltered = $allRealisasis->filter(fn($item, $key) => $key <= $bulanAkhirTw);
             $realisasiIdsTw = $realisasiTWFiltered->pluck('id');
 
@@ -189,9 +190,7 @@ class LaporanBulananController extends Controller
                 $nilai_penyerapan = 100;
             }
 
-            // =========================================================
-            // 5. 🔥 KALKULASI CAPAIAN OUTPUT RO & LIVE LEDGER SERAPAN
-            // =========================================================
+            // 5. Kalkulasi Capaian Output RO & Live Ledger Serapan
             $rincianOutputs = RincianOutput::where('satker_id', $satker->id)->where('tahun', $tahun)->get();
             $roIds = $rincianOutputs->pluck('id');
 
@@ -247,14 +246,31 @@ class LaporanBulananController extends Controller
                 $nilai_ro = $total_pc_ro / $jumlah_ro;
             }
 
-            // =========================================================
-            // 6. KALKULASI POIN SIRA (10% + 20% + 25% = MAX 55 POIN)
-            // =========================================================
+            // 6. 🔥 REVISI DIPA (10%) & INDEKS TATA KELOLA INTERNAL
+            $revSatker = $this->hitungSkorRevisiDipa((int)$satker->id, $twAktif, $paguKotorTotal > 0, $allRevisiDipas);
+            $tataKelola = $this->hitungTataKelolaInternal(
+                (int)$satker->id,
+                $tahun,
+                $bulanAkhirTw,
+                $paguKotorTotal > 0,
+                $rincianOutputs,
+                $realisasiOutputs,
+                $ledgerDetails,
+                $allRpdsRaw,
+                $allRealisasisRaw,
+                $allCutOffs
+            );
+
+            // 7. Kalkulasi Total Poin SIRA (10% + 20% + 25% + 10% = MAX 65 POIN)
             $tertimbang_hal_iii = round(($nilaiIkpaTw * 10) / 100, 2);
             $tertimbang_penyerapan = round(($nilai_penyerapan * 20) / 100, 2);
             $tertimbang_ro = round(($nilai_ro * 25) / 100, 2);
+            $tertimbang_revisi_dipa = $revSatker['tertimbang_revisi_dipa'];
 
-            $total_poin_sira = round($tertimbang_hal_iii + $tertimbang_penyerapan + $tertimbang_ro, 2);
+            $total_poin_sira = round(
+                $tertimbang_hal_iii + $tertimbang_penyerapan + $tertimbang_ro + $tertimbang_revisi_dipa,
+                2
+            );
 
             $evaluasi_tw = [
                 'tw_aktif' => $twAktif,
@@ -279,14 +295,20 @@ class LaporanBulananController extends Controller
                     'nominal' => $real53_tw,
                     'target_nominal' => $targetNominal53
                 ],
+                'revisi_dipa' => $revSatker,
                 'poin' => [
                     'ikpa_hal_iii' => round($nilaiIkpaTw, 2),
                     'nilai_penyerapan' => round($nilai_penyerapan, 2),
                     'nilai_ro' => round($nilai_ro, 2),
+                    'nilai_revisi_dipa' => $revSatker['nilai_revisi_dipa'],
                     'tertimbang_hal_iii' => $tertimbang_hal_iii,
                     'tertimbang_penyerapan' => $tertimbang_penyerapan,
                     'tertimbang_ro' => $tertimbang_ro,
-                    'total_poin' => $total_poin_sira
+                    'tertimbang_revisi_dipa' => $tertimbang_revisi_dipa,
+                    'frekuensi_revisi_tetap' => $revSatker['frekuensi_pagu_tetap'],
+                    'status_revisi' => $revSatker['status'],
+                    'total_poin' => $total_poin_sira,
+                    'max_poin' => 65
                 ]
             ];
 
@@ -309,6 +331,7 @@ class LaporanBulananController extends Controller
                 'nilai_ikpa' => is_numeric($nilaiIkpaBulanPilihan) ? round($nilaiIkpaBulanPilihan, 2) : '-',
                 'persentase_penyerapan' => $paguTotal > 0 ? round(($totalRealisasi / $paguTotal) * 100, 2) : 0,
                 'evaluasi_tw' => $evaluasi_tw,
+                'tata_kelola' => $tataKelola,
                 'rincian_ro' => $rincian_ro_summary
             ];
         }

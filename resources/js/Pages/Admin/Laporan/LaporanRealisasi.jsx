@@ -24,6 +24,8 @@ import {
     ChevronDown,
     ChevronUp,
     Layers,
+    FileClock,
+    ClipboardCheck,
 } from "lucide-react";
 
 export default function LaporanRealisasi() {
@@ -37,7 +39,6 @@ export default function LaporanRealisasi() {
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
-    // STATE EXPANDED ROWS (Bekerja di kedua mode tabel)
     const [expandedRows, setExpandedRows] = useState([]);
 
     const toggleRow = (bulan) => {
@@ -163,17 +164,19 @@ export default function LaporanRealisasi() {
         };
     }, [laporanData]);
 
+    // Skala Grade disesuaikan untuk Maksimal 65 Poin
     const getGrade = (poin) => {
-        if (poin === "-" || !poin)
+        if (poin === "-" || poin === null || poin === undefined)
             return {
                 letter: "?",
                 color: "text-slate-400",
                 bg: "bg-slate-500/20",
                 label: "Belum Ada Data",
                 glow: "",
+                border: "border-slate-700",
             };
         const p = parseFloat(poin);
-        if (p >= 50)
+        if (p >= 58)
             return {
                 letter: "A",
                 color: "text-emerald-400",
@@ -182,7 +185,7 @@ export default function LaporanRealisasi() {
                 glow: "shadow-[0_0_30px_rgba(16,185,129,0.3)]",
                 border: "border-emerald-500/30",
             };
-        if (p >= 40)
+        if (p >= 48)
             return {
                 letter: "B",
                 color: "text-blue-400",
@@ -191,7 +194,7 @@ export default function LaporanRealisasi() {
                 glow: "shadow-[0_0_30px_rgba(59,130,246,0.3)]",
                 border: "border-blue-500/30",
             };
-        if (p >= 30)
+        if (p >= 36)
             return {
                 letter: "C",
                 color: "text-amber-400",
@@ -256,7 +259,7 @@ export default function LaporanRealisasi() {
             });
         } else {
             aoa = [
-                ["LAPORAN RINCIAN REALISASI DAN IKPA"],
+                ["LAPORAN RINCIAN REALISASI, IKPA 65 POIN & TATA KELOLA"],
                 [
                     `Satuan Kerja: ${laporanData.satker.nama_satker} (${laporanData.satker.kode_satker})`,
                 ],
@@ -324,7 +327,7 @@ export default function LaporanRealisasi() {
                     [],
                     [],
                     [
-                        "EVALUASI TARGET PENYERAPAN KEMENKEU & POIN SIRA (PER TRIWULAN)",
+                        "EVALUASI TARGET PENYERAPAN KEMENKEU & POIN SIRA 65 POIN (PER TRIWULAN)",
                     ],
                     [
                         "Triwulan",
@@ -336,12 +339,14 @@ export default function LaporanRealisasi() {
                         "Status",
                         "",
                         "Nilai Penyerapan (Maks 100)",
-                        "Poin Penyerapan (Bobot 20%)",
-                        "Nilai IKPA Hal III (Maks 100)",
-                        "Poin Hal III (Bobot 10%)",
+                        "Poin Penyerapan (20%)",
+                        "Nilai Hal III (Maks 100)",
+                        "Poin Hal III (10%)",
                         "Nilai Capaian RO (Maks 100)",
-                        "Poin Capaian RO (Bobot 25%)",
-                        "TOTAL POIN SIRA (Maks 55)",
+                        "Poin Capaian RO (25%)",
+                        "Nilai Revisi DIPA (Maks 100)",
+                        "Poin Revisi DIPA (10%)",
+                        "TOTAL POIN SIRA (Maks 65)",
                     ],
                 );
 
@@ -379,6 +384,8 @@ export default function LaporanRealisasi() {
                                 poin.tertimbang_hal_iii,
                                 poin.nilai_ro,
                                 poin.tertimbang_ro,
+                                poin.nilai_revisi_dipa || 0,
+                                poin.tertimbang_revisi_dipa || 0,
                                 poin.total_poin,
                             );
                             firstRow = false;
@@ -389,7 +396,6 @@ export default function LaporanRealisasi() {
             }
         }
 
-        // 🔥 INTEGRASI RO KE EXCEL: Lampirkan Rincian Transaksi & Kode RO di bagian bawah
         const hasDetails = laporanData.laporan_bulanan.some(
             (r) => r.realisasi_details && r.realisasi_details.length > 0,
         );
@@ -447,7 +453,7 @@ export default function LaporanRealisasi() {
         );
         XLSX.writeFile(
             workbook,
-            `Detail_${jenisLaporan}_${laporanData.satker.kode_satker}_${tahun}.xlsx`,
+            `Detail_65Pts_${jenisLaporan}_${laporanData.satker.kode_satker}_${tahun}.xlsx`,
         );
     };
 
@@ -459,7 +465,6 @@ export default function LaporanRealisasi() {
         );
     };
 
-    // Komponen Reusable untuk merender Laci Rincian Transaksi & RO
     const renderDetailDrawer = (row, colSpanCount) => (
         <tr className="bg-slate-50/90 border-b border-slate-200">
             <td
@@ -545,12 +550,15 @@ export default function LaporanRealisasi() {
         </tr>
     );
 
+    const tk = laporanData?.tata_kelola;
+
     return (
         <MainLayout tahun={tahun}>
             <div className="space-y-6 font-sans text-slate-700 relative overflow-hidden min-h-screen pb-12">
                 <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none -z-10"></div>
                 <div className="absolute top-20 right-20 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
 
+                {/* HEADER & FILTER */}
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6 bg-white/70 backdrop-blur-2xl p-6 md:p-8 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white">
                     <div className="flex-1 min-w-[300px] relative z-10">
                         <div className="flex items-center gap-4 mb-3">
@@ -562,8 +570,8 @@ export default function LaporanRealisasi() {
                                     Rapor Kinerja Satker
                                 </h2>
                                 <p className="text-sm font-semibold text-slate-500 mt-1 flex items-center gap-2">
-                                    Analisis Komprehensif 55 Poin SIRA (Hal III,
-                                    Penyerapan, & Output).
+                                    Analisis Komprehensif 65 Poin SIRA (Hal III,
+                                    Penyerapan, Output RO, & Revisi DIPA).
                                 </p>
                             </div>
                         </div>
@@ -652,6 +660,7 @@ export default function LaporanRealisasi() {
                     </div>
                 )}
 
+                {/* SUMMARY CARDS (65 POIN) */}
                 {laporanData && summary && (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5 animate-in fade-in slide-in-from-bottom-8 duration-500 relative z-10">
                         <div
@@ -682,7 +691,7 @@ export default function LaporanRealisasi() {
                                             )}
                                         </h3>
                                         <span className="text-lg font-bold text-slate-500">
-                                            / 55
+                                            / 65
                                         </span>
                                     </div>
                                     <div
@@ -716,6 +725,7 @@ export default function LaporanRealisasi() {
                                 {formatRp(laporanData.pagu_efektif)}
                             </h2>
                         </div>
+
                         <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all flex flex-col justify-center relative overflow-hidden group">
                             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500">
                                 <Award size={100} />
@@ -738,6 +748,7 @@ export default function LaporanRealisasi() {
                                 {formatDecimal(summary.finalIkpa)}
                             </h2>
                         </div>
+
                         <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all flex flex-col justify-center relative overflow-hidden group">
                             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500 text-emerald-500">
                                 <TrendingUp size={100} />
@@ -759,6 +770,105 @@ export default function LaporanRealisasi() {
                     </div>
                 )}
 
+                {/* STRIP INDEKS TATA KELOLA & REVISI DIPA SATKER */}
+                {laporanData && tk && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                        <div className="bg-white/80 backdrop-blur-md p-5 rounded-[2rem] border border-white shadow-sm flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3.5">
+                                <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl">
+                                    <FileClock size={22} strokeWidth={2.5} />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                        Revisi DIPA (Bobot 10%)
+                                    </p>
+                                    <p className="text-xs font-bold text-slate-600 mt-0.5">
+                                        {laporanData.evaluasi_tw?.IV?.poin
+                                            ?.frekuensi_revisi_tetap || 0}
+                                        x Pagu Tetap •{" "}
+                                        {laporanData.evaluasi_tw?.IV?.poin
+                                            ?.status_revisi || "N/A"}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-2xl font-black text-amber-600">
+                                    {formatDecimal(
+                                        laporanData.evaluasi_tw?.IV?.poin
+                                            ?.nilai_revisi_dipa || 0,
+                                    )}
+                                </div>
+                                <div className="text-[10px] font-bold text-amber-500">
+                                    {formatDecimal(
+                                        laporanData.evaluasi_tw?.IV?.poin
+                                            ?.tertimbang_revisi_dipa || 0,
+                                    )}{" "}
+                                    / 10 Pts
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white/80 backdrop-blur-md p-5 rounded-[2rem] border border-white shadow-sm flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3.5">
+                                <div className="p-3 bg-purple-100 text-purple-600 rounded-2xl">
+                                    <Layers size={22} strokeWidth={2.5} />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                        Sinkronisasi RO (Internal)
+                                    </p>
+                                    <p className="text-xs font-bold text-slate-600 mt-0.5">
+                                        {tk.kesehatan_ro.ro_sehat}/
+                                        {tk.kesehatan_ro.total_ro} Sinkron •{" "}
+                                        {tk.kesehatan_ro.ro_anomali} Anomali
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-2xl font-black text-purple-700">
+                                    {formatDecimal(tk.kesehatan_ro.skor)}%
+                                </div>
+                                <div className="text-[10px] font-bold text-purple-500">
+                                    {tk.kesehatan_ro.status}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white/80 backdrop-blur-md p-5 rounded-[2rem] border border-white shadow-sm flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3.5">
+                                <div className="p-3 bg-teal-100 text-teal-600 rounded-2xl">
+                                    <ClipboardCheck
+                                        size={22}
+                                        strokeWidth={2.5}
+                                    />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                        Kedisiplinan Pelaporan
+                                    </p>
+                                    <p className="text-xs font-bold text-slate-600 mt-0.5">
+                                        Kelengkapan{" "}
+                                        {formatDecimal(
+                                            tk.kedisiplinan.persen_kelengkapan,
+                                        )}
+                                        % • {tk.kedisiplinan.total_ditolak}{" "}
+                                        Ditolak
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-2xl font-black text-teal-700">
+                                    {formatDecimal(tk.kedisiplinan.skor)}
+                                </div>
+                                <div className="text-[10px] font-bold text-teal-600">
+                                    {tk.kedisiplinan.status}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* TABEL BULANAN */}
                 {laporanData && (
                     <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white overflow-hidden animate-in fade-in slide-in-from-bottom-12 duration-700 relative z-10 mt-6">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 p-6 md:p-8 border-b border-slate-100/60 bg-slate-50/50">
@@ -1135,7 +1245,6 @@ export default function LaporanRealisasi() {
                                                             <tr
                                                                 className={`hover:bg-slate-50/80 text-right transition-colors font-mono group whitespace-nowrap ${isExpanded ? "bg-indigo-50/40" : ""}`}
                                                             >
-                                                                {/* 🔥 TOMBOL EXPAND MENYATU DI KOLOM STICKY BULAN 🔥 */}
                                                                 <td
                                                                     onClick={() =>
                                                                         toggleRow(
@@ -1336,7 +1445,6 @@ export default function LaporanRealisasi() {
                                                                     </span>
                                                                 </td>
                                                             </tr>
-                                                            {/* 🔥 LACI RINCIAN TRANSAKSI & RO DI MODE TABEL UTAMA (22 KOLOM) 🔥 */}
                                                             {isExpanded &&
                                                                 renderDetailDrawer(
                                                                     row,
@@ -1354,6 +1462,7 @@ export default function LaporanRealisasi() {
                     </div>
                 )}
 
+                {/* EVALUASI TARGET & POIN TERTIMBANG (65 POIN) */}
                 {laporanData?.evaluasi_tw && (
                     <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white overflow-hidden animate-in fade-in slide-in-from-bottom-16 duration-700 mt-8 relative z-10">
                         <div className="p-6 md:p-8 border-b border-slate-100 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 flex flex-col md:flex-row items-start md:items-center gap-5">
@@ -1362,12 +1471,13 @@ export default function LaporanRealisasi() {
                             </div>
                             <div>
                                 <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-                                    Evaluasi Target & Nilai Tertimbang (Bobot
+                                    Evaluasi Target & Nilai Tertimbang (65 Poin
                                     SIRA)
                                 </h3>
                                 <p className="text-sm font-medium text-slate-500 mt-1">
-                                    Kalkulasi otomatis sumbangsih poin Hal III
-                                    (10%), Penyerapan (20%), dan Output (25%).
+                                    Kalkulasi otomatis sumbangsih poin
+                                    Penyerapan (20%), Hal III (10%), Output RO
+                                    (25%), dan Revisi DIPA (10%).
                                 </p>
                             </div>
                         </div>
@@ -1406,6 +1516,15 @@ export default function LaporanRealisasi() {
                                         dan pencairan sesuai, namun gagal di
                                         Penyerapan jika nominalnya di bawah
                                         target Kemenkeu.
+                                    </li>
+                                    <li>
+                                        <strong className="font-extrabold text-indigo-950">
+                                            Revisi DIPA (10%):
+                                        </strong>{" "}
+                                        Hanya revisi kategori{" "}
+                                        <strong>Pagu Tetap</strong> yang
+                                        dihitung (maksimal 1x per TW = nilai
+                                        100; jika &gt;1x = 100/frekuensi).
                                     </li>
                                 </ul>
                             </div>
@@ -1538,67 +1657,77 @@ export default function LaporanRealisasi() {
                                             })}
                                         </div>
 
+                                        {/* BOX KALKULATOR NEON 4 PILAR = 65 POIN */}
                                         <div className="mt-auto bg-[#0A192F] rounded-[1.5rem] p-6 shadow-inner border border-slate-700/80 relative overflow-hidden">
                                             <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#4f46e5_1px,transparent_1px),linear-gradient(to_bottom,#4f46e5_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none"></div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-5 border-b border-slate-700/80 pb-5 relative z-10">
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5 border-b border-slate-700/80 pb-5 relative z-10">
                                                 <div>
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
                                                         Penyerapan (20%)
                                                     </div>
-                                                    <div className="flex items-end gap-2">
-                                                        <span className="text-2xl font-black text-emerald-400 tracking-tight">
-                                                            {formatDecimal(
-                                                                p.nilai_penyerapan,
-                                                            )}
-                                                        </span>
-                                                        <span className="text-xs text-slate-400 font-bold mb-1 border-l border-slate-700 pl-2 ml-1">
-                                                            <span className="text-white font-black">
-                                                                {formatDecimal(
-                                                                    p.tertimbang_penyerapan,
-                                                                )}{" "}
-                                                                pts
-                                                            </span>
-                                                        </span>
+                                                    <div className="text-xl font-black text-emerald-400 tracking-tight">
+                                                        {formatDecimal(
+                                                            p.nilai_penyerapan,
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[10px] text-white font-bold mt-0.5">
+                                                        {formatDecimal(
+                                                            p.tertimbang_penyerapan,
+                                                        )}{" "}
+                                                        pts
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
                                                         Hal III (10%)
                                                     </div>
-                                                    <div className="flex items-end gap-2">
-                                                        <span className="text-2xl font-black text-blue-400 tracking-tight">
-                                                            {formatDecimal(
-                                                                p.ikpa_hal_iii,
-                                                            )}
-                                                        </span>
-                                                        <span className="text-xs text-slate-400 font-bold mb-1 border-l border-slate-700 pl-2 ml-1">
-                                                            <span className="text-white font-black">
-                                                                {formatDecimal(
-                                                                    p.tertimbang_hal_iii,
-                                                                )}{" "}
-                                                                pts
-                                                            </span>
-                                                        </span>
+                                                    <div className="text-xl font-black text-blue-400 tracking-tight">
+                                                        {formatDecimal(
+                                                            p.ikpa_hal_iii,
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[10px] text-white font-bold mt-0.5">
+                                                        {formatDecimal(
+                                                            p.tertimbang_hal_iii,
+                                                        )}{" "}
+                                                        pts
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
                                                         Output RO (25%)
                                                     </div>
-                                                    <div className="flex items-end gap-2">
-                                                        <span className="text-2xl font-black text-purple-400 tracking-tight">
-                                                            {formatDecimal(
-                                                                p.nilai_ro,
-                                                            )}
-                                                        </span>
-                                                        <span className="text-xs text-slate-400 font-bold mb-1 border-l border-slate-700 pl-2 ml-1">
-                                                            <span className="text-white font-black">
-                                                                {formatDecimal(
-                                                                    p.tertimbang_ro,
-                                                                )}{" "}
-                                                                pts
-                                                            </span>
-                                                        </span>
+                                                    <div className="text-xl font-black text-purple-400 tracking-tight">
+                                                        {formatDecimal(
+                                                            p.nilai_ro,
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[10px] text-white font-bold mt-0.5">
+                                                        {formatDecimal(
+                                                            p.tertimbang_ro,
+                                                        )}{" "}
+                                                        pts
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                                                        Revisi DIPA (10%)
+                                                    </div>
+                                                    <div className="text-xl font-black text-amber-400 tracking-tight">
+                                                        {formatDecimal(
+                                                            p.nilai_revisi_dipa ||
+                                                                0,
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[10px] text-white font-bold mt-0.5">
+                                                        {formatDecimal(
+                                                            p.tertimbang_revisi_dipa ||
+                                                                0,
+                                                        )}{" "}
+                                                        pts (
+                                                        {p.frekuensi_revisi_tetap ||
+                                                            0}
+                                                        x)
                                                     </div>
                                                 </div>
                                             </div>
@@ -1614,8 +1743,8 @@ export default function LaporanRealisasi() {
                                                     {formatDecimal(
                                                         p.total_poin,
                                                     )}{" "}
-                                                    <span className="text-sm text-yellow-700 font-bold tracking-normal">
-                                                        / 55 Pts
+                                                    <span className="text-sm text-yellow-600 font-bold tracking-normal">
+                                                        / 65 Pts
                                                     </span>
                                                 </span>
                                             </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import {
     Bell,
@@ -12,8 +12,25 @@ import {
     UserCog,
     LogOut,
     Sparkles,
-    Menu,
+    PanelLeftClose,
+    PanelLeftOpen,
+    ChevronDown,
+    Calendar,
+    Building2,
 } from "lucide-react";
+
+const ROUTE_TITLES = {
+    "/dashboard": "Command Center",
+    "/dashboard/input-anggaran": "Master Pagu DIPA",
+    "/dashboard/input-ro": "Target & Capaian RO",
+    "/dashboard/input-transaksi": "Ledger Transaksi",
+    "/dashboard/laporan-realisasi": "Rapor Kinerja Satker",
+    "/dashboard/laporan-bulanan": "Leaderboard Nasional",
+    "/dashboard/manajemen-user": "Manajemen Pengguna",
+    "/dashboard/tutup-buku": "Periode & Cut-Off",
+    "/dashboard/log-aktivitas": "Audit Trail (CCTV)",
+    "/dashboard/profil": "Pengaturan Profil",
+};
 
 export default function Header({
     sidebarOpen,
@@ -27,9 +44,13 @@ export default function Header({
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
+    const [notifFilter, setNotifFilter] = useState("all");
     const notifRef = useRef(null);
 
     const navigate = useNavigate();
+    const location = useLocation();
+    const activePageTitle =
+        ROUTE_TITLES[location.pathname] || "SIRA Enterprise";
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -43,9 +64,20 @@ export default function Header({
                 setIsNotifOpen(false);
             }
         }
+
+        function handleKeyDown(event) {
+            if (event.key === "Escape") {
+                setProfileOpen(false);
+                setIsNotifOpen(false);
+            }
+        }
+
         document.addEventListener("mousedown", handleClickOutside);
-        return () =>
+        document.addEventListener("keydown", handleKeyDown);
+        return () => {
             document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("keydown", handleKeyDown);
+        };
     }, []);
 
     useEffect(() => {
@@ -85,8 +117,12 @@ export default function Header({
     const fetchNotifications = async () => {
         try {
             const res = await axios.get("/api/notifications");
-            setNotifications(res.data.notifications);
-            setUnreadCount(res.data.unread_count);
+            setNotifications(
+                Array.isArray(res.data.notifications)
+                    ? res.data.notifications
+                    : [],
+            );
+            setUnreadCount(res.data.unread_count || 0);
         } catch (error) {
             console.error("Gagal mengambil notifikasi", error);
         }
@@ -95,8 +131,8 @@ export default function Header({
     const markAsRead = async (id) => {
         try {
             await axios.put(`/api/notifications/${id}/read`);
-            setNotifications(
-                notifications.map((n) =>
+            setNotifications((prev) =>
+                prev.map((n) =>
                     n.id === id
                         ? { ...n, read_at: new Date().toISOString() }
                         : n,
@@ -111,10 +147,10 @@ export default function Header({
     const markAllAsRead = async () => {
         try {
             await axios.put("/api/notifications/mark-all-read");
-            setNotifications(
-                notifications.map((n) => ({
+            setNotifications((prev) =>
+                prev.map((n) => ({
                     ...n,
-                    read_at: new Date().toISOString(),
+                    read_at: n.read_at || new Date().toISOString(),
                 })),
             );
             setUnreadCount(0);
@@ -160,6 +196,11 @@ export default function Header({
         }
     };
 
+    const filteredNotifications =
+        notifFilter === "unread"
+            ? notifications.filter((n) => !n.read_at)
+            : notifications;
+
     const initial = authUser?.name
         ? authUser.name.charAt(0).toUpperCase()
         : "U";
@@ -171,45 +212,50 @@ export default function Header({
             <style>{`
                 @keyframes ring-dewa {
                     0%, 100% { transform: rotate(0deg); }
-                    25% { transform: rotate(15deg) scale(1.1); }
-                    50% { transform: rotate(-10deg) scale(1.1); }
-                    75% { transform: rotate(5deg) scale(1.1); }
+                    25% { transform: rotate(14deg) scale(1.08); }
+                    50% { transform: rotate(-10deg) scale(1.08); }
+                    75% { transform: rotate(5deg) scale(1.08); }
                 }
-                .animate-ring-dewa { animation: ring-dewa 1.5s ease-in-out infinite; }
+                .animate-ring-dewa { animation: ring-dewa 1.6s ease-in-out infinite; }
 
                 @keyframes lintas-elegan {
                     0% { transform: translateX(110vw); }
                     100% { transform: translateX(-30vw); }
                 }
                 @keyframes wave-navy {
-                    0%, 100% { transform: translateY(0px); opacity: 0.7; }
-                    50% { transform: translateY(-8px); opacity: 0.3; }
+                    0%, 100% { transform: translateY(0px); opacity: 0.65; }
+                    50% { transform: translateY(-7px); opacity: 0.25; }
                 }
                 @keyframes wave-emas {
-                    0%, 100% { transform: translateY(0px); opacity: 0.3; }
-                    50% { transform: translateY(8px); opacity: 0.7; }
+                    0%, 100% { transform: translateY(0px); opacity: 0.25; }
+                    50% { transform: translateY(7px); opacity: 0.65; }
                 }
+                @keyframes dropdownPop {
+                    0% { opacity: 0; transform: translateY(-8px) scale(0.97); }
+                    100% { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                .dropdown-pop { animation: dropdownPop 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
             `}</style>
 
-            {/* HEADER UTAMA DENGAN TRANSISI SUPER MULUS 300MS */}
-            <header className="sticky top-0 z-30 flex justify-between items-center py-3 px-4 sm:px-8 bg-white/70 backdrop-blur-2xl border-b border-white/80 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.03)] h-24 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] relative overflow-hidden">
+            {/* PENTING: overflow-visible agar Dropdown Notifikasi & Profil TIDAK terpotong */}
+            <header className="sticky top-0 z-40 flex justify-between items-center py-3 px-4 sm:px-8 bg-white/80 backdrop-blur-2xl border-b border-slate-200/75 shadow-[0_12px_35px_-12px_rgba(15,23,42,0.08)] h-24 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] overflow-visible">
                 {/* Garis Cahaya Bawah Header */}
-                <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent"></div>
+                <div className="absolute bottom-0 left-0 w-full h-[1.5px] bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent pointer-events-none"></div>
 
-                {/* Background Komet Halus (Dioptimalkan agar tidak lag saat resize) */}
+                {/* Background Komet Halus (Terisolasi dengan overflow-hidden sendiri) */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-                    <div className="absolute top-1/2 -translate-y-1/2 w-full animate-[lintas-elegan_30s_linear_infinite]">
-                        <div className="relative flex items-center w-full max-w-[500px] opacity-60">
-                            <div className="absolute left-0 w-full animate-[wave-navy_8s_ease-in-out_infinite]">
+                    <div className="absolute top-1/2 -translate-y-1/2 w-full animate-[lintas-elegan_32s_linear_infinite] will-change-transform">
+                        <div className="relative flex items-center w-full max-w-[500px] opacity-55">
+                            <div className="absolute left-0 w-full animate-[wave-navy_9s_ease-in-out_infinite]">
                                 <div className="flex items-center">
-                                    <div className="relative w-1.5 h-1.5 bg-blue-100 rounded-full z-10 shadow-[0_0_10px_2px_#1e3a8a]"></div>
-                                    <div className="h-[1.5px] w-[150px] bg-gradient-to-r from-[#1e3a8a] via-[#3b82f6]/20 to-transparent -ml-1 rounded-r-full blur-[0.5px]"></div>
+                                    <div className="relative w-1.5 h-1.5 bg-indigo-400 rounded-full z-10 shadow-[0_0_10px_2px_#1e3a8a]"></div>
+                                    <div className="h-[1.5px] w-[140px] bg-gradient-to-r from-[#1e3a8a] via-[#3b82f6]/20 to-transparent -ml-1 rounded-r-full"></div>
                                 </div>
                             </div>
-                            <div className="absolute left-6 w-full animate-[wave-emas_8s_ease-in-out_infinite]">
+                            <div className="absolute left-6 w-full animate-[wave-emas_9s_ease-in-out_infinite]">
                                 <div className="flex items-center">
-                                    <div className="relative w-1.5 h-1.5 bg-yellow-50 rounded-full z-10 shadow-[0_0_10px_2px_#d97706]"></div>
-                                    <div className="h-[1.5px] w-[150px] bg-gradient-to-r from-[#b45309] via-[#fbbf24]/20 to-transparent -ml-1 rounded-r-full blur-[0.5px]"></div>
+                                    <div className="relative w-1.5 h-1.5 bg-amber-300 rounded-full z-10 shadow-[0_0_10px_2px_#d97706]"></div>
+                                    <div className="h-[1.5px] w-[140px] bg-gradient-to-r from-[#b45309] via-[#fbbf24]/20 to-transparent -ml-1 rounded-r-full"></div>
                                 </div>
                             </div>
                         </div>
@@ -217,31 +263,41 @@ export default function Header({
                 </div>
 
                 {/* =========================================================================
-                    KIRI: TOMBOL TOGGLE SIDEBAR & BRANDING KANWIL
+                    KIRI: TOMBOL TOGGLE SIDEBAR & CONTEXTUAL BRANDING
                 ========================================================================= */}
-                <div className="flex items-center gap-x-4 sm:gap-x-5 relative z-10">
+                <div className="flex items-center gap-x-3.5 sm:gap-x-5 relative z-20 min-w-0">
                     <button
+                        type="button"
                         onClick={() => setSidebarOpen(!sidebarOpen)}
-                        className="relative p-3 rounded-2xl text-slate-600 bg-white/90 backdrop-blur-sm border border-slate-200/80 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all duration-200 shadow-sm focus:outline-none group overflow-hidden active:scale-95"
-                        title="Buka / Tutup Menu Sidebar"
+                        className="relative p-3 rounded-2xl text-slate-600 bg-white border border-slate-200/90 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all duration-200 shadow-sm hover:shadow-[0_8px_20px_rgba(79,70,229,0.28)] focus:outline-none active:scale-95 shrink-0 cursor-pointer"
+                        title={
+                            sidebarOpen
+                                ? "Perkecil Menu Sidebar"
+                                : "Perluas Menu Sidebar"
+                        }
                     >
-                        <div className="absolute inset-0 bg-indigo-500/10 translate-y-full group-hover:translate-y-0 transition-transform duration-200"></div>
-                        <Menu
-                            size={20}
-                            className="relative z-10 transition-transform duration-300 group-hover:rotate-90"
-                        />
+                        {sidebarOpen ? (
+                            <PanelLeftClose size={20} strokeWidth={2.2} />
+                        ) : (
+                            <PanelLeftOpen size={20} strokeWidth={2.2} />
+                        )}
                     </button>
 
-                    <div className="hidden md:flex items-center gap-3">
-                        <div className="relative flex items-center justify-center">
+                    <div className="hidden md:flex items-center gap-3.5 min-w-0">
+                        <div className="relative flex items-center justify-center shrink-0">
                             <div className="absolute w-4 h-4 bg-emerald-400 rounded-full blur-md opacity-60 animate-pulse"></div>
                             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 relative z-10 shadow-[0_0_8px_rgba(16,185,129,1)] border border-white"></div>
                         </div>
-                        <div className="flex flex-col">
-                            <p className="text-[13px] font-black tracking-[0.15em] uppercase bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-indigo-700 leading-tight">
-                                SIRA Enterprise
-                            </p>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                        <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-2">
+                                <p className="text-[13px] font-black tracking-[0.15em] uppercase bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-indigo-800 to-indigo-600 leading-tight truncate">
+                                    SIRA Enterprise
+                                </p>
+                                <span className="hidden xl:inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200/80 text-[10px] font-extrabold text-slate-600 tracking-wide truncate">
+                                    {activePageTitle}
+                                </span>
+                            </div>
+                            <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-[0.18em] mt-0.5 truncate">
                                 Kanwil Kemenkum Sulawesi Tengah
                             </p>
                         </div>
@@ -249,48 +305,53 @@ export default function Header({
                 </div>
 
                 {/* =========================================================================
-                    KANAN: TAHUN ANGGARAN, NOTIFIKASI LONCENG, & PROFIL
+                    KANAN: BADGE TA, LONCENG NOTIFIKASI, & PROFIL EKSEKUTIF
                 ========================================================================= */}
-                <div className="flex items-center gap-x-3.5 sm:gap-x-5 relative z-10">
+                <div className="flex items-center gap-x-2.5 sm:gap-x-3.5 relative z-20 shrink-0">
                     {/* TAHUN ANGGARAN BADGE */}
-                    <div className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-indigo-50/90 to-blue-50/90 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-indigo-100/80 shadow-sm">
-                        <Sparkles
-                            size={15}
-                            className="text-indigo-500 animate-[spin_6s_linear_infinite]"
-                        />
-                        <span className="text-[11px] font-black text-indigo-700 uppercase tracking-widest">
-                            TA: {tahun || new Date().getFullYear()}
+                    <div className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-[#0B1120] to-indigo-950 text-white px-4 py-2.5 rounded-2xl border border-indigo-500/30 shadow-[0_8px_20px_-6px_rgba(15,23,42,0.45)]">
+                        <Calendar size={14} className="text-amber-400" />
+                        <span className="text-[11px] font-black tracking-[0.14em] uppercase">
+                            TA {tahun || new Date().getFullYear()}
+                        </span>
+                        <span className="w-[1px] h-3.5 bg-slate-700 mx-0.5"></span>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black text-amber-300 uppercase tracking-wider">
+                            <Sparkles size={11} /> 65 Pts
                         </span>
                     </div>
 
                     {/* LONCENG NOTIFIKASI */}
-                    <div
-                        className="relative flex items-center justify-center"
-                        ref={notifRef}
-                    >
+                    <div className="relative" ref={notifRef}>
                         {unreadCount > 0 && (
-                            <div className="absolute w-10 h-10 bg-rose-500/20 rounded-full blur-md animate-pulse pointer-events-none"></div>
+                            <div className="absolute inset-0 bg-rose-500/20 rounded-2xl blur-md animate-pulse pointer-events-none"></div>
                         )}
 
                         <button
+                            type="button"
                             onClick={() => {
-                                setIsNotifOpen(!isNotifOpen);
+                                setIsNotifOpen((prev) => !prev);
                                 setProfileOpen(false);
                             }}
-                            className={`relative p-3 rounded-2xl transition-all duration-200 border focus:outline-none shadow-sm ${isNotifOpen ? "bg-indigo-50 text-indigo-600 border-indigo-200 shadow-inner" : "bg-white/90 backdrop-blur-md text-slate-600 border-slate-200/80 hover:bg-slate-50 hover:text-indigo-600"}`}
+                            aria-expanded={isNotifOpen}
+                            aria-label="Notifikasi Sistem"
+                            className={`relative p-3 rounded-2xl transition-all duration-200 border focus:outline-none shadow-sm cursor-pointer active:scale-95 ${
+                                isNotifOpen
+                                    ? "bg-indigo-600 text-white border-indigo-600 shadow-[0_8px_20px_rgba(79,70,229,0.3)]"
+                                    : "bg-white text-slate-600 border-slate-200/90 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200"
+                            }`}
                             title="Notifikasi Sistem"
                         >
                             <Bell
                                 size={20}
                                 className={
-                                    unreadCount > 0
-                                        ? "animate-ring-dewa text-indigo-600 drop-shadow-md"
+                                    unreadCount > 0 && !isNotifOpen
+                                        ? "animate-ring-dewa text-indigo-600"
                                         : ""
                                 }
                             />
 
                             {unreadCount > 0 && (
-                                <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-[20px] px-1 text-[10px] font-black text-white bg-gradient-to-br from-rose-500 to-red-600 rounded-full shadow-[0_0_10px_rgba(225,29,72,0.6)] border-2 border-white transform scale-110">
+                                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[21px] h-[21px] px-1 text-[10px] font-black text-white bg-gradient-to-br from-rose-500 to-red-600 rounded-full shadow-[0_0_12px_rgba(225,29,72,0.65)] border-2 border-white">
                                     {unreadCount > 99 ? "99+" : unreadCount}
                                 </span>
                             )}
@@ -298,101 +359,159 @@ export default function Header({
 
                         {/* PANEL NOTIFIKASI DROPDOWN */}
                         {isNotifOpen && (
-                            <div className="absolute right-0 top-14 mt-2 w-80 sm:w-[420px] bg-white/95 backdrop-blur-3xl rounded-[2rem] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.15)] border border-white overflow-hidden z-50 transform origin-top-right animate-in fade-in zoom-in-95 duration-200">
-                                <div className="px-6 py-5 border-b border-slate-100/80 bg-slate-50/50 flex justify-between items-center relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
-                                    <div className="flex items-center gap-3 relative z-10">
-                                        <div className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 text-indigo-600">
-                                            <Bell size={16} strokeWidth={2.5} />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-sm font-black text-slate-900 tracking-tight">
-                                                Notifikasi Sistem
-                                            </h3>
-                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                                {unreadCount} Pesan Baru
-                                            </p>
-                                        </div>
-                                    </div>
-                                    {unreadCount > 0 && (
-                                        <button
-                                            onClick={markAllAsRead}
-                                            className="relative z-10 text-[10px] font-black text-indigo-600 hover:text-white bg-white hover:bg-indigo-600 flex items-center gap-1.5 transition-all px-3 py-2 rounded-xl border border-indigo-100 shadow-sm outline-none"
-                                        >
-                                            <Check size={12} strokeWidth={3} />{" "}
-                                            Tandai Dibaca
-                                        </button>
-                                    )}
-                                </div>
-
-                                <div className="max-h-[400px] overflow-y-auto custom-scrollbar bg-white/50">
-                                    {notifications.length === 0 ? (
-                                        <div className="py-16 flex flex-col items-center justify-center text-center px-8">
-                                            <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4 text-slate-300 shadow-inner">
+                            <div className="dropdown-pop absolute right-0 top-full mt-3 w-[320px] sm:w-[420px] bg-white rounded-[2rem] shadow-[0_25px_70px_-15px_rgba(15,23,42,0.28)] border border-slate-200/80 overflow-hidden z-[60]">
+                                {/* Header Panel Notif */}
+                                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-br from-[#0B1120] via-slate-900 to-indigo-950 text-white relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-36 h-36 bg-indigo-500/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+                                    <div className="flex justify-between items-center relative z-10">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2.5 bg-white/10 rounded-xl border border-white/15 text-amber-300">
                                                 <Bell
-                                                    size={28}
-                                                    strokeWidth={1.5}
+                                                    size={16}
+                                                    strokeWidth={2.5}
                                                 />
                                             </div>
-                                            <p className="text-base font-black text-slate-700 tracking-tight">
-                                                Belum Ada Notifikasi
+                                            <div>
+                                                <h3 className="text-sm font-black tracking-tight text-white">
+                                                    Notifikasi Sistem
+                                                </h3>
+                                                <p className="text-[10px] font-bold text-indigo-200/80 uppercase tracking-widest mt-0.5">
+                                                    {unreadCount} Pesan Belum
+                                                    Dibaca
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {unreadCount > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={markAllAsRead}
+                                                className="text-[10px] font-black text-slate-900 bg-amber-400 hover:bg-amber-300 flex items-center gap-1 transition-all px-3 py-1.5 rounded-xl shadow-sm cursor-pointer outline-none"
+                                            >
+                                                <Check
+                                                    size={12}
+                                                    strokeWidth={3}
+                                                />{" "}
+                                                Baca Semua
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Filter Mini */}
+                                    <div className="flex gap-2 mt-4 relative z-10">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setNotifFilter("all")
+                                            }
+                                            className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                                notifFilter === "all"
+                                                    ? "bg-white text-slate-900 shadow-sm"
+                                                    : "bg-white/10 text-slate-300 hover:bg-white/20"
+                                            }`}
+                                        >
+                                            Semua ({notifications.length})
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setNotifFilter("unread")
+                                            }
+                                            className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                                notifFilter === "unread"
+                                                    ? "bg-white text-slate-900 shadow-sm"
+                                                    : "bg-white/10 text-slate-300 hover:bg-white/20"
+                                            }`}
+                                        >
+                                            Belum Dibaca ({unreadCount})
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* List Notifikasi */}
+                                <div className="max-h-[380px] overflow-y-auto custom-scrollbar bg-white">
+                                    {filteredNotifications.length === 0 ? (
+                                        <div className="py-14 flex flex-col items-center justify-center text-center px-8">
+                                            <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4 text-slate-300 shadow-inner">
+                                                <Bell
+                                                    size={26}
+                                                    strokeWidth={1.6}
+                                                />
+                                            </div>
+                                            <p className="text-sm font-black text-slate-700 tracking-tight">
+                                                {notifFilter === "unread"
+                                                    ? "Semua Pesan Sudah Dibaca"
+                                                    : "Belum Ada Notifikasi"}
                                             </p>
                                             <p className="text-xs font-medium text-slate-400 mt-1 leading-relaxed">
-                                                Sistem berjalan lancar tanpa
+                                                Sistem berjalan optimal tanpa
                                                 peringatan baru saat ini.
                                             </p>
                                         </div>
                                     ) : (
-                                        <ul className="divide-y divide-slate-100/60 p-2">
-                                            {notifications.map((notif) => (
-                                                <li
-                                                    key={notif.id}
-                                                    onClick={() =>
-                                                        handleNotifClick(notif)
-                                                    }
-                                                    className={`p-4 rounded-2xl transition-all duration-200 cursor-pointer flex gap-4 items-start group ${notif.read_at ? "hover:bg-slate-50 opacity-75" : "bg-indigo-50/40 hover:bg-indigo-50 border border-indigo-100/50 mb-1"}`}
-                                                >
-                                                    <div
-                                                        className={`p-2.5 rounded-2xl shadow-sm flex-shrink-0 transition-transform group-hover:scale-110 ${notif.read_at ? "bg-white border border-slate-100" : "bg-white border border-indigo-100"}`}
+                                        <ul className="divide-y divide-slate-100 p-2.5 space-y-1">
+                                            {filteredNotifications.map(
+                                                (notif) => (
+                                                    <li
+                                                        key={notif.id}
+                                                        onClick={() =>
+                                                            handleNotifClick(
+                                                                notif,
+                                                            )
+                                                        }
+                                                        className={`p-3.5 rounded-2xl transition-all duration-200 cursor-pointer flex gap-3.5 items-start group ${
+                                                            notif.read_at
+                                                                ? "hover:bg-slate-50 opacity-80"
+                                                                : "bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/80"
+                                                        }`}
                                                     >
-                                                        {getNotifIcon(
-                                                            notif.data.type ||
-                                                                "info",
-                                                        )}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0 pt-0.5">
-                                                        <div className="flex justify-between items-start mb-1">
-                                                            <p
-                                                                className={`text-sm truncate pr-3 ${notif.read_at ? "font-bold text-slate-700" : "font-black text-slate-900 tracking-tight"}`}
-                                                            >
-                                                                {
-                                                                    notif.data
-                                                                        .title
-                                                                }
-                                                            </p>
-                                                            {!notif.read_at && (
-                                                                <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 flex-shrink-0 mt-1 shadow-[0_0_8px_rgba(99,102,241,0.6)] animate-pulse"></span>
+                                                        <div className="p-2.5 rounded-xl bg-white border border-slate-100 shadow-sm flex-shrink-0 transition-transform group-hover:scale-105">
+                                                            {getNotifIcon(
+                                                                notif.data
+                                                                    ?.type ||
+                                                                    "info",
                                                             )}
                                                         </div>
-                                                        <p className="text-xs font-medium text-slate-500 leading-relaxed line-clamp-2">
-                                                            {notif.data.message}
-                                                        </p>
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">
-                                                            {new Date(
-                                                                notif.created_at,
-                                                            ).toLocaleDateString(
-                                                                "id-ID",
-                                                                {
-                                                                    day: "numeric",
-                                                                    month: "long",
-                                                                    hour: "2-digit",
-                                                                    minute: "2-digit",
-                                                                },
-                                                            )}
-                                                        </p>
-                                                    </div>
-                                                </li>
-                                            ))}
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex justify-between items-start gap-2 mb-1">
+                                                                <p
+                                                                    className={`text-xs truncate ${
+                                                                        notif.read_at
+                                                                            ? "font-bold text-slate-700"
+                                                                            : "font-black text-slate-900"
+                                                                    }`}
+                                                                >
+                                                                    {notif.data
+                                                                        ?.title ||
+                                                                        "Pembaruan Sistem"}
+                                                                </p>
+                                                                {!notif.read_at && (
+                                                                    <span className="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0 mt-1 shadow-[0_0_8px_rgba(99,102,241,0.75)]"></span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-xs font-medium text-slate-500 leading-relaxed line-clamp-2">
+                                                                {notif.data
+                                                                    ?.message ||
+                                                                    ""}
+                                                            </p>
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-2">
+                                                                {new Date(
+                                                                    notif.created_at,
+                                                                ).toLocaleDateString(
+                                                                    "id-ID",
+                                                                    {
+                                                                        day: "numeric",
+                                                                        month: "short",
+                                                                        hour: "2-digit",
+                                                                        minute: "2-digit",
+                                                                    },
+                                                                )}{" "}
+                                                                WITA
+                                                            </p>
+                                                        </div>
+                                                    </li>
+                                                ),
+                                            )}
                                         </ul>
                                     )}
                                 </div>
@@ -400,19 +519,24 @@ export default function Header({
                         )}
                     </div>
 
-                    {/* PROFIL DROPDOWN */}
-                    <div className="relative ml-1" ref={dropdownRef}>
+                    {/* PROFIL DROPDOWN EKSEKUTIF */}
+                    <div className="relative" ref={dropdownRef}>
                         <button
+                            type="button"
                             onClick={() => {
-                                setProfileOpen(!profileOpen);
+                                setProfileOpen((prev) => !prev);
                                 setIsNotifOpen(false);
                             }}
-                            className="relative flex items-center transition-all duration-200 hover:scale-105 focus:outline-none group"
+                            aria-expanded={profileOpen}
+                            aria-label="Menu Profil Pengguna"
+                            className={`flex items-center gap-3 p-1.5 sm:pr-3.5 rounded-2xl border transition-all duration-200 focus:outline-none cursor-pointer active:scale-[0.98] ${
+                                profileOpen
+                                    ? "bg-indigo-50/90 border-indigo-300 shadow-[0_8px_20px_rgba(79,70,229,0.16)]"
+                                    : "bg-white border-slate-200/90 hover:border-indigo-200 hover:bg-slate-50/80 shadow-sm"
+                            }`}
                         >
-                            <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500 to-sky-400 rounded-2xl blur opacity-30 group-hover:opacity-60 transition-opacity"></div>
-
-                            <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-sky-400 p-[2px] relative z-10 shadow-sm">
-                                <div className="h-full w-full bg-white rounded-[14px] overflow-hidden flex items-center justify-center text-indigo-600 font-black shadow-inner">
+                            <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-blue-500 to-amber-400 p-[2px] shadow-sm shrink-0">
+                                <div className="h-full w-full bg-white rounded-[10px] overflow-hidden flex items-center justify-center text-indigo-700 font-black">
                                     {authUser?.avatar ? (
                                         <img
                                             src={`/storage/${authUser.avatar}`}
@@ -420,56 +544,114 @@ export default function Header({
                                             className="w-full h-full object-cover"
                                         />
                                     ) : (
-                                        <span className="text-base">
+                                        <span className="text-sm">
                                             {initial}
                                         </span>
                                     )}
                                 </div>
                             </div>
+
+                            <div className="hidden lg:flex flex-col text-left min-w-0 max-w-[140px]">
+                                <span className="text-xs font-black text-slate-800 truncate leading-tight">
+                                    {authUser?.name || "Pengguna"}
+                                </span>
+                                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider truncate mt-0.5">
+                                    {roleLabel}
+                                </span>
+                            </div>
+
+                            <ChevronDown
+                                size={15}
+                                className={`hidden sm:block text-slate-400 transition-transform duration-200 ${
+                                    profileOpen
+                                        ? "rotate-180 text-indigo-600"
+                                        : ""
+                                }`}
+                            />
                         </button>
 
                         {/* PANEL PROFIL DROPDOWN */}
                         {profileOpen && (
-                            <div className="absolute right-0 top-14 mt-2 w-72 bg-white/95 backdrop-blur-3xl rounded-[2rem] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.15)] overflow-hidden z-50 border border-white transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
-                                <div className="px-6 py-6 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-indigo-50/30 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
-                                    <p className="text-base font-black text-slate-900 truncate tracking-tight relative z-10">
-                                        {authUser?.name || "Memuat..."}
-                                    </p>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 truncate mt-1 relative z-10">
-                                        {authUser?.email || "memuat@email.com"}
-                                    </p>
-                                    <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border shadow-sm bg-white text-indigo-700 border-indigo-100 relative z-10">
-                                        <ShieldCheck
-                                            size={14}
-                                            className="text-emerald-500"
-                                        />{" "}
-                                        {roleLabel}
+                            <div className="dropdown-pop absolute right-0 top-full mt-3 w-72 sm:w-80 bg-white rounded-[2rem] shadow-[0_25px_70px_-15px_rgba(15,23,42,0.28)] overflow-hidden z-[60] border border-slate-200/80">
+                                {/* Obsidian Header Card */}
+                                <div className="px-6 py-6 bg-gradient-to-br from-[#0B1120] via-slate-900 to-indigo-950 text-white relative overflow-hidden">
+                                    <div className="absolute -top-10 -right-10 w-36 h-36 bg-amber-400/15 rounded-full blur-2xl pointer-events-none"></div>
+                                    <div className="flex items-center gap-3.5 relative z-10">
+                                        <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-indigo-500 p-[2px] shrink-0 shadow-md">
+                                            <div className="h-full w-full bg-slate-900 rounded-[14px] overflow-hidden flex items-center justify-center text-amber-300 font-black">
+                                                {authUser?.avatar ? (
+                                                    <img
+                                                        src={`/storage/${authUser.avatar}`}
+                                                        alt="Avatar"
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <span className="text-lg">
+                                                        {initial}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-black text-white truncate tracking-tight">
+                                                {authUser?.name || "Memuat..."}
+                                            </p>
+                                            <p className="text-[11px] font-medium text-slate-300 truncate mt-0.5">
+                                                {authUser?.email ||
+                                                    "memuat@email.com"}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 flex flex-wrap items-center gap-2 relative z-10">
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/10 text-emerald-300 border border-white/15">
+                                            <ShieldCheck size={13} />{" "}
+                                            {roleLabel}
+                                        </span>
+                                        {authUser?.kode_satker && (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-amber-500/15 text-amber-300 border border-amber-400/25">
+                                                <Building2 size={12} />{" "}
+                                                {authUser.kode_satker}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 
-                                <div className="p-3 space-y-1 bg-white/50">
+                                {/* Actions */}
+                                <div className="p-3 space-y-1 bg-white">
                                     <Link
                                         to="/dashboard/profil"
                                         onClick={() => setProfileOpen(false)}
-                                        className="w-full text-left flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-slate-50 hover:shadow-sm border border-transparent hover:border-slate-100 text-slate-600 transition-all group font-black text-xs uppercase tracking-wider"
+                                        className="w-full text-left flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-indigo-50/70 border border-transparent hover:border-indigo-100 text-slate-700 transition-all group font-black text-xs uppercase tracking-wider"
                                     >
-                                        <div className="p-1.5 rounded-lg bg-slate-100 group-hover:bg-indigo-100 text-slate-500 group-hover:text-indigo-600 transition-colors">
+                                        <div className="p-2 rounded-xl bg-slate-100 group-hover:bg-indigo-600 text-slate-500 group-hover:text-white transition-colors">
                                             <UserCog size={16} />
                                         </div>
-                                        <span>Profil Saya</span>
+                                        <div className="flex flex-col">
+                                            <span>Profil Saya</span>
+                                            <span className="text-[10px] font-semibold normal-case tracking-normal text-slate-400">
+                                                Ubah akun, password & avatar
+                                            </span>
+                                        </div>
                                     </Link>
+
                                     <button
+                                        type="button"
                                         onClick={handleLogout}
-                                        className="w-full text-left flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-rose-50 hover:shadow-sm border border-transparent hover:border-rose-100 text-rose-600 transition-all group font-black text-xs uppercase tracking-wider outline-none"
+                                        className="w-full text-left flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-rose-50 border border-transparent hover:border-rose-100 text-rose-600 transition-all group font-black text-xs uppercase tracking-wider outline-none cursor-pointer"
                                     >
-                                        <div className="p-1.5 rounded-lg bg-rose-100/50 group-hover:bg-rose-500 text-rose-500 group-hover:text-white transition-colors">
+                                        <div className="p-2 rounded-xl bg-rose-100/70 group-hover:bg-rose-600 text-rose-500 group-hover:text-white transition-colors">
                                             <LogOut
                                                 size={16}
                                                 className="group-hover:-translate-x-0.5 transition-transform"
                                             />
                                         </div>
-                                        <span>Log Out Sistem</span>
+                                        <div className="flex flex-col">
+                                            <span>Log Out Sistem</span>
+                                            <span className="text-[10px] font-semibold normal-case tracking-normal text-rose-400">
+                                                Akhiri sesi aman Anda
+                                            </span>
+                                        </div>
                                     </button>
                                 </div>
                             </div>

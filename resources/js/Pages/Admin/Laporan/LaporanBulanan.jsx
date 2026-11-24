@@ -19,6 +19,9 @@ import {
     Target,
     CheckCircle2,
     Activity,
+    FileClock,
+    ShieldCheck,
+    ClipboardCheck,
 } from "lucide-react";
 
 export default function LaporanBulanan() {
@@ -31,7 +34,6 @@ export default function LaporanBulanan() {
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
-    // 🔥 STATE UNTUK MEMBUKA LACI RINCIAN RO PER SATKER
     const [expandedSatkers, setExpandedSatkers] = useState([]);
 
     const toggleSatkerRow = (satkerId) => {
@@ -141,7 +143,9 @@ export default function LaporanBulanan() {
             });
         } else {
             aoa = [
-                ["REKAPITULASI POIN IKPA DAN EVALUASI LINTAS SATKER"],
+                [
+                    "REKAPITULASI POIN SIRA (65 POIN), REVISI DIPA & TATA KELOLA LINTAS SATKER",
+                ],
                 [
                     `Kumulatif s.d. Bulan: ${namaBulan[bulan]} ${tahun} (TW ${twAktif})`,
                 ],
@@ -160,7 +164,10 @@ export default function LaporanBulanan() {
                     "Status Kemenkeu 53",
                     "NILAI IKPA (Hal III DIPA)",
                     "NILAI CAPAIAN RO (Maks 100)",
-                    "TOTAL POIN SIRA (Maks 55)",
+                    "NILAI REVISI DIPA (Maks 100)",
+                    "Frekuensi Revisi Tetap",
+                    "SKOR TATA KELOLA (Maks 100)",
+                    "TOTAL POIN SIRA (Maks 65)",
                 ],
             ];
             laporanData.forEach((row, index) => {
@@ -191,6 +198,9 @@ export default function LaporanBulanan() {
                     eval53,
                     row.nilai_ikpa === "-" ? "-" : Number(row.nilai_ikpa),
                     Number(row.evaluasi_tw?.poin?.nilai_ro || 0),
+                    Number(row.evaluasi_tw?.poin?.nilai_revisi_dipa || 0),
+                    Number(row.evaluasi_tw?.poin?.frekuensi_revisi_tetap || 0),
+                    Number(row.tata_kelola?.skor_tata_kelola || 0),
                     Number(row.evaluasi_tw?.poin?.total_poin || 0),
                 ]);
             });
@@ -212,6 +222,9 @@ export default function LaporanBulanan() {
             { wch: 20 },
             { wch: 20 },
             { wch: 20 },
+            { wch: 18 },
+            { wch: 20 },
+            { wch: 22 },
         ];
         worksheet["!cols"] = wscols;
 
@@ -234,7 +247,7 @@ export default function LaporanBulanan() {
             `Rekap_${namaBulan[bulan]}`,
         );
 
-        // 🔥 SHEET 2 OTOMATIS: RINCIAN KETERLACAKAN RO & SERAPAN LEDGER LINTAS SATKER
+        // SHEET 2 OTOMATIS: RINCIAN KETERLACAKAN RO & SERAPAN LEDGER LINTAS SATKER
         const aoaRo = [
             [
                 "RINCIAN CAPAIAN OUTPUT (RO) & SERAPAN ANGGARAN LEDGER LINTAS SATKER",
@@ -298,7 +311,7 @@ export default function LaporanBulanan() {
 
         XLSX.writeFile(
             workbook,
-            `Laporan_Nasional_SIRA_${jenisLaporan}_${namaBulan[bulan]}_${tahun}.xlsx`,
+            `Laporan_Nasional_SIRA_65Pts_${jenisLaporan}_${namaBulan[bulan]}_${tahun}.xlsx`,
         );
     };
 
@@ -323,168 +336,268 @@ export default function LaporanBulanan() {
         );
     };
 
-    // 🔥 KOMPONEN LACI KETERLACAKAN RO & SERAPAN LEDGER PER SATKER
-    const renderRoDrawer = (row, colSpanCount) => (
-        <tr className="bg-slate-50/90 border-b border-slate-200">
-            <td
-                colSpan={colSpanCount}
-                className="p-6 text-left font-sans whitespace-normal"
-            >
-                <div className="bg-white rounded-[1.5rem] border border-indigo-100 shadow-inner p-5 animate-in fade-in slide-in-from-top-2 duration-300 max-w-6xl">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3.5 mb-4">
-                        <div className="flex items-center gap-2.5">
-                            <div className="p-2 bg-purple-100 text-purple-600 rounded-xl">
-                                <Layers size={16} strokeWidth={2.5} />
-                            </div>
-                            <div>
-                                <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">
-                                    Keterlacakan Rincian Output (RO) & Serapan
-                                    Ledger — {row.satker.nama_satker}
-                                </h4>
-                                <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
-                                    Kumulatif s.d. {namaBulan[bulan]} {tahun} •
-                                    Nilai Rata-Rata Capaian RO:{" "}
-                                    <span className="text-purple-600 font-black">
-                                        {formatDecimal(
-                                            row.evaluasi_tw?.poin?.nilai_ro ||
-                                                0,
-                                        )}
-                                        %
-                                    </span>{" "}
-                                    (Kontribusi SIRA:{" "}
-                                    {formatDecimal(
-                                        row.evaluasi_tw?.poin?.tertimbang_ro ||
-                                            0,
-                                    )}{" "}
-                                    / 25 Pts)
-                                </p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => handleDownloadPdfRo(row.satker.id)}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-purple-200 transition-all shadow-sm self-start sm:self-auto"
-                        >
-                            <FileText size={13} /> Cetak PDF Detail RO
-                        </button>
-                    </div>
+    // KOMPONEN LACI KETERLACAKAN RO & RINGKASAN TATA KELOLA PER SATKER
+    const renderRoDrawer = (row, colSpanCount) => {
+        const tk = row.tata_kelola;
+        const rev = row.evaluasi_tw?.revisi_dipa;
 
-                    {row.rincian_ro && row.rincian_ro.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {row.rincian_ro.map((ro) => (
-                                <div
-                                    key={ro.id}
-                                    className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 hover:border-indigo-200 transition-all flex flex-col justify-between gap-3"
-                                >
-                                    <div>
-                                        <div className="flex items-center justify-between gap-2 mb-2">
-                                            <span className="px-2.5 py-1 bg-white text-slate-700 text-[10px] font-black uppercase tracking-wider rounded-lg border border-slate-200 shadow-sm">
-                                                {ro.kode_ro}
-                                            </span>
-                                            <span
-                                                className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg border flex items-center gap-1 ${
-                                                    ro.status_kinerja ===
-                                                    "Selesai 100%"
-                                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                        : ro.status_kinerja ===
-                                                            "Anomali Fisik"
-                                                          ? "bg-amber-50 text-amber-700 border-amber-200"
-                                                          : "bg-indigo-50 text-indigo-700 border-indigo-200"
-                                                }`}
-                                            >
-                                                {ro.status_kinerja ===
-                                                "Selesai 100%" ? (
-                                                    <CheckCircle2 size={11} />
-                                                ) : ro.status_kinerja ===
-                                                  "Anomali Fisik" ? (
-                                                    <AlertTriangle size={11} />
-                                                ) : (
-                                                    <Activity size={11} />
-                                                )}
-                                                {ro.status_kinerja}
-                                            </span>
-                                        </div>
-                                        <p className="text-xs font-extrabold text-slate-800 leading-snug">
-                                            {ro.nama_ro}
-                                        </p>
-                                    </div>
-
-                                    <div className="space-y-2.5 pt-2 border-t border-slate-200/60">
-                                        {/* Progress Fisik */}
-                                        <div>
-                                            <div className="flex justify-between text-[10px] font-bold mb-1">
-                                                <span className="text-slate-500 flex items-center gap-1">
-                                                    <Target
-                                                        size={11}
-                                                        className="text-emerald-500"
-                                                    />{" "}
-                                                    Fisik: {ro.realisasi_volume}{" "}
-                                                    / {ro.target_volume}{" "}
-                                                    {ro.satuan}
-                                                </span>
-                                                <span className="text-emerald-600 font-black">
-                                                    {ro.persen_volume}%
-                                                </span>
-                                            </div>
-                                            <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                                                <div
-                                                    className="bg-emerald-500 h-full rounded-full"
-                                                    style={{
-                                                        width: `${Math.min(ro.persen_volume, 100)}%`,
-                                                    }}
-                                                ></div>
-                                            </div>
-                                        </div>
-
-                                        {/* Progress Anggaran Ledger */}
-                                        <div>
-                                            <div className="flex justify-between text-[10px] font-bold mb-1">
-                                                <span className="text-slate-500">
-                                                    Serapan Ledger:{" "}
-                                                    <strong className="text-slate-700">
-                                                        Rp{" "}
-                                                        {formatRp(
-                                                            ro.serapan_anggaran,
-                                                        )}
-                                                    </strong>{" "}
-                                                    / Rp{" "}
-                                                    {formatRp(ro.pagu_anggaran)}
-                                                </span>
-                                                <span className="text-blue-600 font-black">
-                                                    {ro.persen_anggaran}%
-                                                </span>
-                                            </div>
-                                            <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                                                <div
-                                                    className="bg-blue-500 h-full rounded-full"
-                                                    style={{
-                                                        width: `${Math.min(ro.persen_anggaran, 100)}%`,
-                                                    }}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                    </div>
+        return (
+            <tr className="bg-slate-50/90 border-b border-slate-200">
+                <td
+                    colSpan={colSpanCount}
+                    className="p-6 text-left font-sans whitespace-normal"
+                >
+                    <div className="bg-white rounded-[1.5rem] border border-indigo-100 shadow-inner p-5 animate-in fade-in slide-in-from-top-2 duration-300 max-w-6xl space-y-5">
+                        {/* HEADER DRAWER */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3.5">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2 bg-purple-100 text-purple-600 rounded-xl">
+                                    <Layers size={16} strokeWidth={2.5} />
                                 </div>
-                            ))}
+                                <div>
+                                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">
+                                        Keterlacakan Rincian Output (RO) & Tata
+                                        Kelola — {row.satker.nama_satker}
+                                    </h4>
+                                    <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                                        Kumulatif s.d. {namaBulan[bulan]}{" "}
+                                        {tahun} • Capaian RO:{" "}
+                                        <span className="text-purple-600 font-black">
+                                            {formatDecimal(
+                                                row.evaluasi_tw?.poin
+                                                    ?.nilai_ro || 0,
+                                            )}
+                                            %
+                                        </span>{" "}
+                                        (
+                                        {formatDecimal(
+                                            row.evaluasi_tw?.poin
+                                                ?.tertimbang_ro || 0,
+                                        )}{" "}
+                                        / 25 Pts) • Revisi DIPA:{" "}
+                                        <span className="text-amber-600 font-black">
+                                            {formatDecimal(
+                                                row.evaluasi_tw?.poin
+                                                    ?.tertimbang_revisi_dipa ||
+                                                    0,
+                                            )}{" "}
+                                            / 10 Pts
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() =>
+                                    handleDownloadPdfRo(row.satker.id)
+                                }
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-purple-200 transition-all shadow-sm self-start sm:self-auto"
+                            >
+                                <FileText size={13} /> Cetak PDF Detail RO
+                            </button>
                         </div>
-                    ) : (
-                        <div className="text-center py-6 text-slate-400 text-xs font-bold">
-                            Satuan Kerja ini belum mendaftarkan Target Rincian
-                            Output (RO) pada tahun {tahun}.
-                        </div>
-                    )}
-                </div>
-            </td>
-        </tr>
-    );
+
+                        {/* STRIP RINGKASAN TATA KELOLA & REVISI DIPA */}
+                        {tk && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="p-2 bg-white text-amber-600 rounded-xl shadow-sm">
+                                            <FileClock size={15} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-amber-700">
+                                                Revisi DIPA (TW {twAktif})
+                                            </p>
+                                            <p className="text-[11px] font-bold text-slate-600">
+                                                {rev?.frekuensi_pagu_tetap || 0}
+                                                x Pagu Tetap •{" "}
+                                                {rev?.status || "N/A"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className="text-base font-black text-amber-700">
+                                        {formatDecimal(
+                                            rev?.nilai_revisi_dipa || 0,
+                                        )}
+                                    </span>
+                                </div>
+
+                                <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200/80 flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="p-2 bg-white text-purple-600 rounded-xl shadow-sm">
+                                            <ShieldCheck size={15} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-purple-700">
+                                                Sinkronisasi RO
+                                            </p>
+                                            <p className="text-[11px] font-bold text-slate-600">
+                                                {tk.kesehatan_ro.ro_sehat}/
+                                                {tk.kesehatan_ro.total_ro}{" "}
+                                                Sinkron •{" "}
+                                                {tk.kesehatan_ro.ro_anomali}{" "}
+                                                Anomali
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className="text-base font-black text-purple-700">
+                                        {formatDecimal(tk.kesehatan_ro.skor)}%
+                                    </span>
+                                </div>
+
+                                <div className="p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200/80 flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="p-2 bg-white text-teal-600 rounded-xl shadow-sm">
+                                            <ClipboardCheck size={15} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-teal-700">
+                                                Kedisiplinan Lapor
+                                            </p>
+                                            <p className="text-[11px] font-bold text-slate-600">
+                                                Lengkap{" "}
+                                                {formatDecimal(
+                                                    tk.kedisiplinan
+                                                        .persen_kelengkapan,
+                                                )}
+                                                % •{" "}
+                                                {tk.kedisiplinan.total_ditolak}{" "}
+                                                Ditolak
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className="text-base font-black text-teal-700">
+                                        {formatDecimal(tk.kedisiplinan.skor)}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* GRID RINCIAN RO */}
+                        {row.rincian_ro && row.rincian_ro.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {row.rincian_ro.map((ro) => (
+                                    <div
+                                        key={ro.id}
+                                        className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 hover:border-indigo-200 transition-all flex flex-col justify-between gap-3"
+                                    >
+                                        <div>
+                                            <div className="flex items-center justify-between gap-2 mb-2">
+                                                <span className="px-2.5 py-1 bg-white text-slate-700 text-[10px] font-black uppercase tracking-wider rounded-lg border border-slate-200 shadow-sm">
+                                                    {ro.kode_ro}
+                                                </span>
+                                                <span
+                                                    className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg border flex items-center gap-1 ${
+                                                        ro.status_kinerja ===
+                                                        "Selesai 100%"
+                                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                            : ro.status_kinerja ===
+                                                                "Anomali Fisik"
+                                                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                                                              : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                                    }`}
+                                                >
+                                                    {ro.status_kinerja ===
+                                                    "Selesai 100%" ? (
+                                                        <CheckCircle2
+                                                            size={11}
+                                                        />
+                                                    ) : ro.status_kinerja ===
+                                                      "Anomali Fisik" ? (
+                                                        <AlertTriangle
+                                                            size={11}
+                                                        />
+                                                    ) : (
+                                                        <Activity size={11} />
+                                                    )}
+                                                    {ro.status_kinerja}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs font-extrabold text-slate-800 leading-snug">
+                                                {ro.nama_ro}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-2.5 pt-2 border-t border-slate-200/60">
+                                            <div>
+                                                <div className="flex justify-between text-[10px] font-bold mb-1">
+                                                    <span className="text-slate-500 flex items-center gap-1">
+                                                        <Target
+                                                            size={11}
+                                                            className="text-emerald-500"
+                                                        />{" "}
+                                                        Fisik:{" "}
+                                                        {ro.realisasi_volume} /{" "}
+                                                        {ro.target_volume}{" "}
+                                                        {ro.satuan}
+                                                    </span>
+                                                    <span className="text-emerald-600 font-black">
+                                                        {ro.persen_volume}%
+                                                    </span>
+                                                </div>
+                                                <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                                    <div
+                                                        className="bg-emerald-500 h-full rounded-full"
+                                                        style={{
+                                                            width: `${Math.min(ro.persen_volume, 100)}%`,
+                                                        }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <div className="flex justify-between text-[10px] font-bold mb-1">
+                                                    <span className="text-slate-500">
+                                                        Serapan Ledger:{" "}
+                                                        <strong className="text-slate-700">
+                                                            Rp{" "}
+                                                            {formatRp(
+                                                                ro.serapan_anggaran,
+                                                            )}
+                                                        </strong>{" "}
+                                                        / Rp{" "}
+                                                        {formatRp(
+                                                            ro.pagu_anggaran,
+                                                        )}
+                                                    </span>
+                                                    <span className="text-blue-600 font-black">
+                                                        {ro.persen_anggaran}%
+                                                    </span>
+                                                </div>
+                                                <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                                    <div
+                                                        className="bg-blue-500 h-full rounded-full"
+                                                        style={{
+                                                            width: `${Math.min(ro.persen_anggaran, 100)}%`,
+                                                        }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-6 text-slate-400 text-xs font-bold">
+                                Satuan Kerja ini belum mendaftarkan Target
+                                Rincian Output (RO) pada tahun {tahun}.
+                            </div>
+                        )}
+                    </div>
+                </td>
+            </tr>
+        );
+    };
+
+    const totalCols = jenisLaporan === "murni_realisasi" ? 8 : 15;
 
     return (
         <MainLayout tahun={tahun}>
             <div className="space-y-6 font-sans text-slate-700 relative overflow-hidden min-h-screen pb-10">
-                {/* --- AMBIENT BACKGROUND GLOW --- */}
                 <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none -z-10"></div>
                 <div className="absolute top-20 right-20 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
 
-                {/* --- HEADER & FILTER SECTION (GLASSMORPHISM) --- */}
+                {/* HEADER & FILTER SECTION */}
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6 bg-white/70 backdrop-blur-2xl p-6 md:p-8 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white">
                     <div className="flex-1 min-w-[300px] relative z-10">
                         <div className="flex items-center gap-4 mb-3">
@@ -496,8 +609,9 @@ export default function LaporanBulanan() {
                                     Leaderboard Nasional
                                 </h2>
                                 <p className="text-sm font-semibold text-slate-500 mt-1 flex items-center gap-2">
-                                    Klasemen Poin SIRA (55 Pts) & Keterlacakan
-                                    Rincian Output Seluruh Satker.
+                                    Klasemen Poin SIRA (65 Pts), Revisi DIPA,
+                                    Tata Kelola & Keterlacakan RO Seluruh
+                                    Satker.
                                 </p>
                             </div>
                         </div>
@@ -520,7 +634,7 @@ export default function LaporanBulanan() {
                                 className="w-full bg-white/90 backdrop-blur border border-slate-200/80 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/20 cursor-pointer transition-all outline-none"
                             >
                                 <option value="rpd_vs_realisasi">
-                                    📊 Poin SIRA (IKPA + RO)
+                                    📊 Poin SIRA 65 (IKPA + RO + Revisi)
                                 </option>
                                 <option value="murni_realisasi">
                                     💰 Murni Realisasi Saja
@@ -586,9 +700,8 @@ export default function LaporanBulanan() {
                     </div>
                 )}
 
-                {/* --- TABEL LEADERBOARD PREMIUM --- */}
+                {/* TABEL LEADERBOARD PREMIUM */}
                 <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700 relative z-10 mt-6">
-                    {/* Panel Kendali Export */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 p-6 md:p-8 border-b border-slate-100/60 bg-slate-50/50">
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-emerald-500/20 text-emerald-600 rounded-2xl">
@@ -609,8 +722,7 @@ export default function LaporanBulanan() {
                                     )}
                                     <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100 flex items-center gap-1">
                                         <Layers size={12} /> Klik baris Satker
-                                        untuk membuka Rincian Output (RO) &
-                                        Serapan Ledger
+                                        untuk membuka Rincian RO & Tata Kelola
                                     </span>
                                 </div>
                             </div>
@@ -708,7 +820,6 @@ export default function LaporanBulanan() {
                                             Tertimbang
                                         </th>
 
-                                        {/* GABUNGAN HEADER KEMENKEU */}
                                         <th
                                             className="px-5 py-3 border-r border-slate-700 bg-blue-900/50"
                                             colSpan="3"
@@ -718,21 +829,39 @@ export default function LaporanBulanan() {
                                         </th>
 
                                         <th
-                                            className="px-5 py-5 bg-slate-800 text-slate-300 border-r border-slate-700 align-middle leading-tight"
+                                            className="px-4 py-5 bg-slate-800 text-slate-300 border-r border-slate-700 align-middle leading-tight"
                                             rowSpan="2"
                                         >
-                                            Nilai IKPA
+                                            Hal. III DIPA
                                             <div className="text-[8px] text-slate-400 mt-1 font-bold">
-                                                Hal. III DIPA
+                                                Bobot 10%
                                             </div>
                                         </th>
                                         <th
-                                            className="px-5 py-5 bg-purple-900/50 text-purple-300 border-r border-slate-700 align-middle leading-tight"
+                                            className="px-4 py-5 bg-purple-900/50 text-purple-300 border-r border-slate-700 align-middle leading-tight"
                                             rowSpan="2"
                                         >
                                             Capaian RO
-                                            <div className="text-[8px] text-purple-400/50 mt-1 font-bold">
-                                                Maks 100
+                                            <div className="text-[8px] text-purple-300/60 mt-1 font-bold">
+                                                Bobot 25%
+                                            </div>
+                                        </th>
+                                        <th
+                                            className="px-4 py-5 bg-amber-900/40 text-amber-300 border-r border-slate-700 align-middle leading-tight"
+                                            rowSpan="2"
+                                        >
+                                            Revisi DIPA
+                                            <div className="text-[8px] text-amber-300/60 mt-1 font-bold">
+                                                Bobot 10%
+                                            </div>
+                                        </th>
+                                        <th
+                                            className="px-4 py-5 bg-teal-900/40 text-teal-300 border-r border-slate-700 align-middle leading-tight"
+                                            rowSpan="2"
+                                        >
+                                            Tata Kelola
+                                            <div className="text-[8px] text-teal-300/60 mt-1 font-bold">
+                                                Internal /100
                                             </div>
                                         </th>
                                         <th
@@ -740,8 +869,8 @@ export default function LaporanBulanan() {
                                             rowSpan="2"
                                         >
                                             TOTAL POIN
-                                            <div className="text-[8px] text-yellow-500/50 mt-1 font-bold">
-                                                SIRA (Maks 55)
+                                            <div className="text-[8px] text-yellow-400/70 mt-1 font-bold">
+                                                SIRA (Maks 65)
                                             </div>
                                         </th>
                                         <th
@@ -773,12 +902,12 @@ export default function LaporanBulanan() {
                                 {loading ? (
                                     <tr>
                                         <td
-                                            colSpan="14"
+                                            colSpan={totalCols}
                                             className="px-6 py-24 text-center"
                                         >
                                             <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 mb-4 shadow-md"></div>
                                             <p className="text-sm font-black text-slate-400 tracking-widest uppercase animate-pulse">
-                                                Menyusun Leaderboard...
+                                                Menyusun Leaderboard 65 Poin...
                                             </p>
                                         </td>
                                     </tr>
@@ -793,6 +922,10 @@ export default function LaporanBulanan() {
                                         );
                                         let pointStyle = "text-rose-600";
                                         let rowGlow = "";
+
+                                        const totalPoin =
+                                            row.evaluasi_tw?.poin?.total_poin ||
+                                            0;
 
                                         if (index === 0) {
                                             medalStyle =
@@ -831,15 +964,9 @@ export default function LaporanBulanan() {
                                             pointStyle =
                                                 "text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-700 scale-105";
                                             rowGlow = "bg-orange-50/20";
-                                        } else if (
-                                            row.evaluasi_tw?.poin?.total_poin >=
-                                            48
-                                        ) {
+                                        } else if (totalPoin >= 54) {
                                             pointStyle = "text-emerald-600";
-                                        } else if (
-                                            row.evaluasi_tw?.poin?.total_poin >=
-                                            35
-                                        ) {
+                                        } else if (totalPoin >= 42) {
                                             pointStyle = "text-amber-500";
                                         }
 
@@ -855,13 +982,16 @@ export default function LaporanBulanan() {
                                                     r.status_kinerja ===
                                                     "Anomali Fisik",
                                             ).length || 0;
+                                        const skorTk =
+                                            row.tata_kelola?.skor_tata_kelola ||
+                                            0;
 
                                         return (
                                             <React.Fragment key={row.satker.id}>
                                                 <tr
                                                     className={`hover:bg-indigo-50/60 transition-colors group whitespace-nowrap ${rowGlow} ${isExpanded ? "bg-indigo-50/50" : ""}`}
                                                 >
-                                                    {/* KOLOM SATKER STICKY + TOMBOL EXPAND RO */}
+                                                    {/* KOLOM SATKER STICKY + EXPAND */}
                                                     <td
                                                         onClick={() =>
                                                             toggleSatkerRow(
@@ -869,7 +999,7 @@ export default function LaporanBulanan() {
                                                             )
                                                         }
                                                         className="px-5 py-4 flex items-center justify-between gap-4 border-r border-slate-100 bg-white sticky left-0 z-20 group-hover:bg-indigo-50/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] cursor-pointer select-none"
-                                                        title="Klik untuk membuka Rincian Output (RO) Satker ini"
+                                                        title="Klik untuk membuka Rincian Output (RO) & Tata Kelola Satker ini"
                                                     >
                                                         <div className="flex items-center gap-3.5">
                                                             <div
@@ -1000,7 +1130,6 @@ export default function LaporanBulanan() {
                                                                 %
                                                             </td>
 
-                                                            {/* KOLOM KELULUSAN TARGET TW KEMENKEU */}
                                                             {[
                                                                 "51",
                                                                 "52",
@@ -1028,8 +1157,6 @@ export default function LaporanBulanan() {
                                                                           stat ===
                                                                               "Tercapai" ? (
                                                                             <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-3 py-1 rounded-md border border-emerald-200">
-                                                                                LULUS
-                                                                                /
                                                                                 TERCAPAI
                                                                             </span>
                                                                         ) : (
@@ -1041,13 +1168,27 @@ export default function LaporanBulanan() {
                                                                 );
                                                             })}
 
-                                                            <td className="px-5 py-4 text-center bg-slate-50/80 border-r border-slate-100 font-black text-slate-700 text-sm">
-                                                                {formatDecimal(
-                                                                    row.nilai_ikpa,
-                                                                )}
+                                                            {/* HAL III DIPA */}
+                                                            <td className="px-4 py-4 text-center bg-slate-50/80 border-r border-slate-100 font-black text-slate-700 text-sm">
+                                                                <div>
+                                                                    {formatDecimal(
+                                                                        row.nilai_ikpa,
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-[9px] font-bold text-slate-400">
+                                                                    (
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .evaluasi_tw
+                                                                            ?.poin
+                                                                            ?.tertimbang_hal_iii ||
+                                                                            0,
+                                                                    )}{" "}
+                                                                    pts)
+                                                                </div>
                                                             </td>
 
-                                                            {/* SUPER KOLOM: CAPAIAN OUTPUT RO (KLIK UNTUK EXPAND) */}
+                                                            {/* CAPAIAN OUTPUT RO */}
                                                             <td
                                                                 onClick={() =>
                                                                     toggleSatkerRow(
@@ -1056,7 +1197,7 @@ export default function LaporanBulanan() {
                                                                             .id,
                                                                     )
                                                                 }
-                                                                className="px-5 py-4 text-center bg-purple-50/30 hover:bg-purple-100/50 border-r border-slate-100 font-black text-purple-700 text-sm cursor-pointer transition-colors"
+                                                                className="px-4 py-4 text-center bg-purple-50/30 hover:bg-purple-100/50 border-r border-slate-100 font-black text-purple-700 text-sm cursor-pointer transition-colors"
                                                                 title="Klik untuk membuka laci rincian RO"
                                                             >
                                                                 <div>
@@ -1081,19 +1222,77 @@ export default function LaporanBulanan() {
                                                                 </div>
                                                             </td>
 
-                                                            {/* SUPER KOLOM: TOTAL POIN SIRA */}
+                                                            {/* REVISI DIPA (10%) */}
+                                                            <td className="px-4 py-4 text-center bg-amber-50/30 border-r border-slate-100 font-black text-amber-700 text-sm">
+                                                                <div>
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .evaluasi_tw
+                                                                            ?.poin
+                                                                            ?.nilai_revisi_dipa ||
+                                                                            0,
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-[9px] font-bold text-amber-600">
+                                                                    (
+                                                                    {formatDecimal(
+                                                                        row
+                                                                            .evaluasi_tw
+                                                                            ?.poin
+                                                                            ?.tertimbang_revisi_dipa ||
+                                                                            0,
+                                                                    )}{" "}
+                                                                    pts •{" "}
+                                                                    {row
+                                                                        .evaluasi_tw
+                                                                        ?.poin
+                                                                        ?.frekuensi_revisi_tetap ||
+                                                                        0}
+                                                                    x)
+                                                                </div>
+                                                            </td>
+
+                                                            {/* TATA KELOLA INTERNAL */}
+                                                            <td
+                                                                onClick={() =>
+                                                                    toggleSatkerRow(
+                                                                        row
+                                                                            .satker
+                                                                            .id,
+                                                                    )
+                                                                }
+                                                                className="px-4 py-4 text-center bg-teal-50/30 hover:bg-teal-100/50 border-r border-slate-100 cursor-pointer transition-colors"
+                                                                title="Klik untuk melihat detail Sinkronisasi RO & Disiplin Pelaporan"
+                                                            >
+                                                                <span
+                                                                    className={`px-2.5 py-1 rounded-lg text-xs font-black border ${
+                                                                        skorTk >=
+                                                                        85
+                                                                            ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                                                            : skorTk >=
+                                                                                65
+                                                                              ? "bg-teal-100 text-teal-700 border-teal-200"
+                                                                              : "bg-amber-100 text-amber-700 border-amber-200"
+                                                                    }`}
+                                                                >
+                                                                    {formatDecimal(
+                                                                        skorTk,
+                                                                    )}
+                                                                </span>
+                                                            </td>
+
+                                                            {/* TOTAL POIN SIRA (MAX 65) */}
                                                             <td className="px-5 py-4 text-center bg-amber-50/20 border-r border-slate-100">
                                                                 <span
                                                                     className={`text-xl font-black ${pointStyle}`}
                                                                 >
                                                                     {formatDecimal(
-                                                                        row
-                                                                            .evaluasi_tw
-                                                                            ?.poin
-                                                                            ?.total_poin ||
-                                                                            0,
+                                                                        totalPoin,
                                                                     )}
                                                                 </span>
+                                                                <div className="text-[9px] font-bold text-slate-400">
+                                                                    / 65 Pts
+                                                                </div>
                                                             </td>
                                                         </>
                                                     )}
@@ -1141,14 +1340,10 @@ export default function LaporanBulanan() {
                                                     </td>
                                                 </tr>
 
-                                                {/* 🔥 LACI RINCIAN RO & SERAPAN LEDGER PER SATKER 🔥 */}
                                                 {isExpanded &&
                                                     renderRoDrawer(
                                                         row,
-                                                        jenisLaporan ===
-                                                            "murni_realisasi"
-                                                            ? 8
-                                                            : 13,
+                                                        totalCols,
                                                     )}
                                             </React.Fragment>
                                         );
@@ -1156,7 +1351,7 @@ export default function LaporanBulanan() {
                                 ) : (
                                     <tr>
                                         <td
-                                            colSpan="14"
+                                            colSpan={totalCols}
                                             className="px-6 py-24 text-center"
                                         >
                                             <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">

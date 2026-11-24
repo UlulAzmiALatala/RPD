@@ -43,6 +43,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/laporan/bulanan/pdf', [LaporanBulananController::class, 'cetakPdfLaporanBulanan']);
 
     Route::get('/api/anggaran', [AnggaranController::class, 'index']);
+    Route::get('/api/anggaran/{id}/revisi', [AnggaranController::class, 'getRevisi']);
     Route::get('/api/rincian-output', [RincianOutputController::class, 'index']);
     Route::get('/api/laporan/rincian-output/pdf', [RincianOutputController::class, 'cetakPdfRo']);
     Route::get('/api/cut-offs', [CutOffController::class, 'index']);
@@ -53,11 +54,13 @@ Route::middleware(['auth'])->group(function () {
     // ---------------------------------------------------------
     Route::get('/api/transaksi/rpd', [TransaksiController::class, 'getRpd']);
     Route::post('/api/transaksi/rpd', [TransaksiController::class, 'storeRpd']);
+    Route::post('/api/transaksi/rpd/import', [TransaksiController::class, 'importRpd']);
     Route::put('/api/transaksi/rpd/{id}', [TransaksiController::class, 'updateRpd']);
     Route::delete('/api/transaksi/rpd/{id}', [TransaksiController::class, 'destroyRpd']);
 
     Route::get('/api/transaksi/realisasi', [TransaksiController::class, 'getRealisasi']);
     Route::post('/api/transaksi/realisasi', [TransaksiController::class, 'storeRealisasi']);
+    Route::post('/api/transaksi/realisasi/import', [TransaksiController::class, 'importRealisasi']);
     Route::put('/api/transaksi/realisasi/{id}', [TransaksiController::class, 'updateRealisasi']);
     Route::delete('/api/transaksi/realisasi/{id}', [TransaksiController::class, 'destroyRealisasi']);
 
@@ -76,10 +79,12 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/api/users/{id}', [UserController::class, 'update']);
         Route::delete('/api/users/{id}', [UserController::class, 'destroy']);
 
-        // Master Pagu Anggaran
+        // Master Pagu Anggaran & Revisi DIPA
         Route::post('/api/anggaran', [AnggaranController::class, 'store']);
         Route::put('/api/anggaran/{id}', [AnggaranController::class, 'update']);
         Route::delete('/api/anggaran/{id}', [AnggaranController::class, 'destroy']);
+        Route::post('/api/anggaran/{id}/revisi', [AnggaranController::class, 'storeRevisi']);
+        Route::delete('/api/anggaran/revisi/{revisiId}', [AnggaranController::class, 'destroyRevisi']);
 
         // Modul Approval
         Route::put('/api/transaksi/rpd/{id}/approve', [TransaksiController::class, 'approveRpd']);

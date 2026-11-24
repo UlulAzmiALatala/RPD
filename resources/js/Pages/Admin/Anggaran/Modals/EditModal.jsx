@@ -8,6 +8,7 @@ import {
     AlertCircle,
     ShieldAlert,
     Lock,
+    FileClock,
 } from "lucide-react";
 
 export default function EditModal({
@@ -17,6 +18,14 @@ export default function EditModal({
     satkers,
     editData,
 }) {
+    const getCurrentTw = () => {
+        const m = new Date().getMonth() + 1;
+        if (m <= 3) return "I";
+        if (m <= 6) return "II";
+        if (m <= 9) return "III";
+        return "IV";
+    };
+
     const [formData, setFormData] = useState({
         satker_id: "",
         tahun: "",
@@ -26,12 +35,17 @@ export default function EditModal({
         blokir_gaji: "",
         blokir_barang: "",
         blokir_modal: "",
+        catat_revisi: false,
+        triwulan_revisi: getCurrentTw(),
+        tanggal_revisi: new Date().toISOString().split("T")[0],
+        nomor_revisi: "",
+        jenis_revisi: "pagu_tetap",
+        keterangan_revisi: "",
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
-    // 🔥 LOGIKA PENGECEKAN SATKER SETJEN 🔥
     const selectedSatkerData = satkers?.find(
         (s) => s.id?.toString() === formData.satker_id?.toString(),
     );
@@ -54,6 +68,12 @@ export default function EditModal({
                 blokir_gaji: editData.blokir_gaji || "",
                 blokir_barang: editData.blokir_barang || "",
                 blokir_modal: editData.blokir_modal || "",
+                catat_revisi: false,
+                triwulan_revisi: getCurrentTw(),
+                tanggal_revisi: new Date().toISOString().split("T")[0],
+                nomor_revisi: "",
+                jenis_revisi: "pagu_tetap",
+                keterangan_revisi: "",
             });
             setErrorMsg("");
         }
@@ -62,8 +82,11 @@ export default function EditModal({
     if (!isOpen) return null;
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        setFormData((prev) => ({
+            ...prev,
+            [name]: type === "checkbox" ? checked : value,
+        }));
     };
 
     const handleSubmit = async (e) => {
@@ -107,7 +130,6 @@ export default function EditModal({
     return (
         <div className="fixed top-0 left-0 w-screen h-screen z-[100] flex items-center justify-center p-4 sm:p-6 bg-[#0B1120]/80 backdrop-blur-md transition-all duration-300">
             <div className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] w-full max-w-4xl overflow-hidden border border-white/60 flex flex-col max-h-[95vh] animate-in zoom-in-95 fade-in duration-300 relative">
-                {/* AMBIENT GLOW */}
                 <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
 
                 {/* HEADER */}
@@ -121,7 +143,8 @@ export default function EditModal({
                                 Edit Pagu Anggaran
                             </h2>
                             <p className="text-sm font-medium text-slate-500 mt-0.5">
-                                Perbarui rincian alokasi dana dan pagu blokir.
+                                Perbarui rincian alokasi dana, pagu blokir, dan
+                                log Revisi DIPA.
                             </p>
                         </div>
                     </div>
@@ -193,7 +216,6 @@ export default function EditModal({
                                         : jenis === "barang"
                                           ? "52 - Barang"
                                           : "53 - Modal";
-                                // 🔥 Kunci input jika jenis="gaji" dan satker bukan Setjen
                                 const isLocked = jenis === "gaji" && !isSetjen;
 
                                 return (
@@ -214,7 +236,6 @@ export default function EditModal({
                                             )}
                                         </h4>
                                         <div className="flex flex-col sm:flex-row gap-5">
-                                            {/* Pagu Murni */}
                                             <div className="flex-1">
                                                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">
                                                     Total Pagu DIPA{" "}
@@ -252,7 +273,6 @@ export default function EditModal({
                                                 </div>
                                             </div>
 
-                                            {/* Pagu Blokir */}
                                             <div className="flex-1">
                                                 <label
                                                     className={`block text-[10px] font-bold uppercase tracking-widest mb-2 ml-1 flex items-center gap-1.5 ${isLocked ? "text-slate-400" : "text-rose-500"}`}
@@ -290,6 +310,108 @@ export default function EditModal({
                                     </div>
                                 );
                             })}
+                        </div>
+
+                        {/* OPSI CATAT REVISI DIPA OTOMATIS */}
+                        <div className="p-6 rounded-[2rem] bg-amber-50/70 border border-amber-200/80 space-y-4">
+                            <label className="flex items-start gap-3 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    name="catat_revisi"
+                                    checked={formData.catat_revisi}
+                                    onChange={handleChange}
+                                    className="mt-1 w-5 h-5 rounded-lg text-amber-600 border-amber-300 focus:ring-amber-500 cursor-pointer"
+                                />
+                                <div>
+                                    <span className="text-sm font-black text-amber-900 flex items-center gap-2">
+                                        <FileClock
+                                            size={16}
+                                            className="text-amber-600"
+                                        />{" "}
+                                        Catat Perubahan Ini Sebagai Revisi DIPA
+                                        (Indikator IKPA 10%)
+                                    </span>
+                                    <p className="text-xs font-medium text-amber-700/80 mt-0.5">
+                                        Centang jika perubahan pagu ini berasal
+                                        dari pengesahan Revisi DIPA resmi agar
+                                        otomatis masuk perhitungan skor 65 Poin
+                                        SIRA.
+                                    </p>
+                                </div>
+                            </label>
+
+                            {formData.catat_revisi && (
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-amber-200/60">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-amber-800 uppercase tracking-widest mb-1.5 ml-1">
+                                            Triwulan Revisi
+                                        </label>
+                                        <select
+                                            name="triwulan_revisi"
+                                            value={formData.triwulan_revisi}
+                                            onChange={handleChange}
+                                            className="w-full bg-white border border-amber-200 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-700 outline-none"
+                                        >
+                                            <option value="I">
+                                                Triwulan I
+                                            </option>
+                                            <option value="II">
+                                                Triwulan II
+                                            </option>
+                                            <option value="III">
+                                                Triwulan III
+                                            </option>
+                                            <option value="IV">
+                                                Triwulan IV
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-amber-800 uppercase tracking-widest mb-1.5 ml-1">
+                                            Jenis Revisi
+                                        </label>
+                                        <select
+                                            name="jenis_revisi"
+                                            value={formData.jenis_revisi}
+                                            onChange={handleChange}
+                                            className="w-full bg-white border border-amber-200 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-700 outline-none"
+                                        >
+                                            <option value="pagu_tetap">
+                                                Pagu Tetap (Hitung IKPA)
+                                            </option>
+                                            <option value="pagu_berubah">
+                                                Pagu Berubah (Dikecualikan)
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-amber-800 uppercase tracking-widest mb-1.5 ml-1">
+                                            Nomor Revisi / SK
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="nomor_revisi"
+                                            value={formData.nomor_revisi}
+                                            onChange={handleChange}
+                                            placeholder="cth: Rev ke-1"
+                                            className="w-full bg-white border border-amber-200 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-700 outline-none"
+                                        />
+                                    </div>
+                                    <div className="sm:col-span-3">
+                                        <label className="block text-[10px] font-black text-amber-800 uppercase tracking-widest mb-1.5 ml-1">
+                                            Keterangan Revisi
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="keterangan_revisi"
+                                            value={formData.keterangan_revisi}
+                                            onChange={handleChange}
+                                            placeholder="Contoh: Buka blokir perjalanan dinas / pergeseran akun..."
+                                            className="w-full bg-white border border-amber-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </form>
                 </div>

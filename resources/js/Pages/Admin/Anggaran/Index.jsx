@@ -10,19 +10,17 @@ import {
     Plus,
     CheckCircle,
     XCircle,
-    Info,
     Database,
     ShieldAlert,
-    Wallet,
     Lock,
+    FileClock,
 } from "lucide-react";
 
-// Import Modals
 import AddModal from "./Modals/AddModal";
 import EditModal from "./Modals/EditModal";
 import DeleteModal from "./Modals/DeleteModal";
+import RevisiModal from "./Modals/RevisiModal";
 
-// Helper Format Uang
 const formatCurrency = (amount) => {
     return new Intl.NumberFormat("id-ID", {
         style: "currency",
@@ -32,7 +30,6 @@ const formatCurrency = (amount) => {
     }).format(amount);
 };
 
-// Komponen Paginasi Premium
 const Pagination = ({ meta, onPageChange }) => {
     if (!meta || meta.total === 0) return null;
     const { current_page, last_page, from, to, total } = meta;
@@ -97,7 +94,6 @@ export default function IndexAnggaran() {
     const [searchTerm, setSearchTerm] = useState("");
     const [tahun, setTahun] = useState(new Date().getFullYear().toString());
 
-    // State Modals
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedEditData, setSelectedEditData] = useState(null);
@@ -105,7 +101,10 @@ export default function IndexAnggaran() {
     const [selectedDeleteId, setSelectedDeleteId] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // State Toast Futuristik
+    // State Modal Revisi DIPA
+    const [isRevisiModalOpen, setIsRevisiModalOpen] = useState(false);
+    const [selectedRevisiAnggaran, setSelectedRevisiAnggaran] = useState(null);
+
     const [toast, setToast] = useState({
         show: false,
         message: "",
@@ -211,11 +210,9 @@ export default function IndexAnggaran() {
             `}</style>
 
             <div className="space-y-6 font-sans text-slate-700 relative overflow-hidden min-h-screen pb-10">
-                {/* --- AMBIENT BACKGROUND GLOW --- */}
                 <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none -z-10"></div>
                 <div className="absolute top-20 right-20 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
 
-                {/* --- TOAST NOTIFICATION PREMIUM --- */}
                 {toast.show && (
                     <div
                         className={`fixed top-8 right-8 z-[100] flex items-center p-4 min-w-[340px] rounded-2xl border shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] backdrop-blur-xl ${toast.isExiting ? "toast-exit" : "toast-enter"} ${toast.type === "success" ? "bg-[#0A192F]/95 border-emerald-500/30" : "bg-[#0A192F]/95 border-rose-500/30"}`}
@@ -244,7 +241,7 @@ export default function IndexAnggaran() {
                     </div>
                 )}
 
-                {/* --- HEADER & CONTROLS (GLASSMORPHISM) --- */}
+                {/* HEADER & CONTROLS */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white/70 backdrop-blur-2xl p-6 md:p-8 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white">
                     <div className="flex items-center gap-4">
                         <div className="p-4 bg-gradient-to-br from-[#0f172a] to-slate-700 text-white rounded-2xl shadow-[0_10px_20px_rgba(15,23,42,0.3)]">
@@ -252,10 +249,11 @@ export default function IndexAnggaran() {
                         </div>
                         <div>
                             <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-                                Master Anggaran
+                                Master Anggaran & Revisi DIPA
                             </h2>
                             <p className="text-sm font-medium text-slate-500 mt-1">
-                                Kelola data pagu DIPA per Satuan Kerja di sini.
+                                Kelola plafon DIPA, pagu blokir, dan frekuensi
+                                Revisi DIPA (IKPA 10%).
                             </p>
                         </div>
                     </div>
@@ -285,7 +283,7 @@ export default function IndexAnggaran() {
                     </div>
                 </div>
 
-                {/* --- TABLE CONTENT (PREMIUM GRID) --- */}
+                {/* TABLE CONTENT */}
                 <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white overflow-hidden relative z-10">
                     <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left text-sm whitespace-nowrap">
@@ -306,6 +304,9 @@ export default function IndexAnggaran() {
                                     <th className="px-6 py-5 text-right align-middle text-emerald-600">
                                         Pagu Efektif
                                     </th>
+                                    <th className="px-6 py-5 text-center align-middle text-amber-600">
+                                        Revisi DIPA (IKPA)
+                                    </th>
                                     <th className="px-6 py-5 text-center align-middle">
                                         Aksi
                                     </th>
@@ -315,7 +316,7 @@ export default function IndexAnggaran() {
                                 {loading ? (
                                     <tr>
                                         <td
-                                            colSpan="6"
+                                            colSpan="7"
                                             className="px-6 py-20 text-center"
                                         >
                                             <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent shadow-md"></div>
@@ -327,7 +328,7 @@ export default function IndexAnggaran() {
                                 ) : anggarans.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan="6"
+                                            colSpan="7"
                                             className="px-6 py-20 text-center"
                                         >
                                             <div className="w-20 h-20 mx-auto bg-slate-50 rounded-full flex items-center justify-center mb-4">
@@ -346,141 +347,215 @@ export default function IndexAnggaran() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    anggarans.map((item) => (
-                                        <tr
-                                            key={item.id}
-                                            className="hover:bg-slate-50/80 transition-colors duration-200 group"
-                                        >
-                                            <td className="px-6 py-5 font-black text-slate-800 text-base">
-                                                {item.tahun}
-                                            </td>
-                                            <td className="px-6 py-5">
-                                                <div className="font-extrabold text-slate-800 text-sm">
-                                                    {item.satker?.nama_satker}
-                                                </div>
-                                                <div className="text-[10px] font-black tracking-widest text-slate-400 uppercase mt-1">
-                                                    DIPA -{" "}
-                                                    {item.satker?.kode_satker}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-5 text-right font-black text-indigo-700 bg-indigo-50/10">
-                                                {formatCurrency(
-                                                    item.total_pagu || 0,
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-5 text-right font-bold text-rose-600 bg-rose-50/20 relative">
-                                                <div className="flex items-center justify-end gap-2 group/tooltip cursor-help">
-                                                    {item.pagu_blokir > 0 && (
-                                                        <ShieldAlert
-                                                            size={14}
-                                                            className="text-rose-400"
-                                                            strokeWidth={2.5}
-                                                        />
-                                                    )}
-                                                    <span>
-                                                        {formatCurrency(
-                                                            item.pagu_blokir ||
-                                                                0,
-                                                        )}
-                                                    </span>
+                                    anggarans.map((item) => {
+                                        const revTotal =
+                                            item.revisi_dipas_count || 0;
+                                        const revTetap =
+                                            item.revisi_pagu_tetap_count || 0;
 
-                                                    {/* ADVANCED TOOLTIP BLOKIR */}
-                                                    {item.pagu_blokir > 0 && (
-                                                        <div className="absolute bottom-full mb-3 right-5 bg-slate-900/95 backdrop-blur-md border border-slate-700 text-white p-4 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.3)] z-50 w-56 text-left opacity-0 translate-y-2 pointer-events-none group-hover/tooltip:opacity-100 group-hover/tooltip:translate-y-0 transition-all duration-300">
-                                                            <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-slate-900/95 border-b border-r border-slate-700 rotate-45"></div>
-                                                            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest border-b border-slate-700 pb-2 mb-3 flex items-center gap-1.5">
-                                                                <Lock
-                                                                    size={12}
-                                                                />{" "}
-                                                                Rincian Blokir
-                                                            </p>
-                                                            <div className="space-y-2">
-                                                                <div className="flex justify-between items-center text-xs">
-                                                                    <span className="text-slate-400 font-bold">
-                                                                        51 -
-                                                                        Pegawai:
-                                                                    </span>
-                                                                    <span className="font-mono font-black">
-                                                                        {formatCurrency(
-                                                                            item.blokir_gaji ||
-                                                                                0,
-                                                                        )}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="flex justify-between items-center text-xs">
-                                                                    <span className="text-slate-400 font-bold">
-                                                                        52 -
-                                                                        Barang:
-                                                                    </span>
-                                                                    <span className="font-mono font-black">
-                                                                        {formatCurrency(
-                                                                            item.blokir_barang ||
-                                                                                0,
-                                                                        )}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="flex justify-between items-center text-xs">
-                                                                    <span className="text-slate-400 font-bold">
-                                                                        53 -
-                                                                        Modal:
-                                                                    </span>
-                                                                    <span className="font-mono font-black">
-                                                                        {formatCurrency(
-                                                                            item.blokir_modal ||
-                                                                                0,
-                                                                        )}
-                                                                    </span>
+                                        return (
+                                            <tr
+                                                key={item.id}
+                                                className="hover:bg-slate-50/80 transition-colors duration-200 group"
+                                            >
+                                                <td className="px-6 py-5 font-black text-slate-800 text-base">
+                                                    {item.tahun}
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="font-extrabold text-slate-800 text-sm">
+                                                        {
+                                                            item.satker
+                                                                ?.nama_satker
+                                                        }
+                                                    </div>
+                                                    <div className="text-[10px] font-black tracking-widest text-slate-400 uppercase mt-1">
+                                                        DIPA -{" "}
+                                                        {
+                                                            item.satker
+                                                                ?.kode_satker
+                                                        }
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5 text-right font-black text-indigo-700 bg-indigo-50/10">
+                                                    {formatCurrency(
+                                                        item.total_pagu || 0,
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-5 text-right font-bold text-rose-600 bg-rose-50/20 relative">
+                                                    <div className="flex items-center justify-end gap-2 group/tooltip cursor-help">
+                                                        {item.pagu_blokir >
+                                                            0 && (
+                                                            <ShieldAlert
+                                                                size={14}
+                                                                className="text-rose-400"
+                                                                strokeWidth={
+                                                                    2.5
+                                                                }
+                                                            />
+                                                        )}
+                                                        <span>
+                                                            {formatCurrency(
+                                                                item.pagu_blokir ||
+                                                                    0,
+                                                            )}
+                                                        </span>
+
+                                                        {item.pagu_blokir >
+                                                            0 && (
+                                                            <div className="absolute bottom-full mb-3 right-5 bg-slate-900/95 backdrop-blur-md border border-slate-700 text-white p-4 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.3)] z-50 w-56 text-left opacity-0 translate-y-2 pointer-events-none group-hover/tooltip:opacity-100 group-hover/tooltip:translate-y-0 transition-all duration-300">
+                                                                <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-slate-900/95 border-b border-r border-slate-700 rotate-45"></div>
+                                                                <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest border-b border-slate-700 pb-2 mb-3 flex items-center gap-1.5">
+                                                                    <Lock
+                                                                        size={
+                                                                            12
+                                                                        }
+                                                                    />{" "}
+                                                                    Rincian
+                                                                    Blokir
+                                                                </p>
+                                                                <div className="space-y-2">
+                                                                    <div className="flex justify-between items-center text-xs">
+                                                                        <span className="text-slate-400 font-bold">
+                                                                            51 -
+                                                                            Pegawai:
+                                                                        </span>
+                                                                        <span className="font-mono font-black">
+                                                                            {formatCurrency(
+                                                                                item.blokir_gaji ||
+                                                                                    0,
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center text-xs">
+                                                                        <span className="text-slate-400 font-bold">
+                                                                            52 -
+                                                                            Barang:
+                                                                        </span>
+                                                                        <span className="font-mono font-black">
+                                                                            {formatCurrency(
+                                                                                item.blokir_barang ||
+                                                                                    0,
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center text-xs">
+                                                                        <span className="text-slate-400 font-bold">
+                                                                            53 -
+                                                                            Modal:
+                                                                        </span>
+                                                                        <span className="font-mono font-black">
+                                                                            {formatCurrency(
+                                                                                item.blokir_modal ||
+                                                                                    0,
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5 text-right font-black text-emerald-600 bg-emerald-50/10 text-[15px]">
+                                                    {formatCurrency(
+                                                        item.pagu_efektif || 0,
                                                     )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-5 text-right font-black text-emerald-600 bg-emerald-50/10 text-[15px]">
-                                                {formatCurrency(
-                                                    item.pagu_efektif || 0,
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-5 text-center">
-                                                <div className="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-all duration-300">
+                                                </td>
+                                                <td className="px-6 py-5 text-center bg-amber-50/10">
                                                     <button
                                                         onClick={() => {
-                                                            setSelectedEditData(
+                                                            setSelectedRevisiAnggaran(
                                                                 item,
                                                             );
-                                                            setIsEditModalOpen(
+                                                            setIsRevisiModalOpen(
                                                                 true,
                                                             );
                                                         }}
-                                                        title="Edit Data"
-                                                        className="p-2 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 hover:scale-110 transition-all shadow-sm border border-indigo-100 outline-none"
+                                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border transition-all hover:scale-105 ${
+                                                            revTetap === 0
+                                                                ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                                                : revTetap <= 2
+                                                                  ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                                                                  : "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                                                        }`}
+                                                        title="Klik untuk kelola riwayat Revisi DIPA"
                                                     >
-                                                        <Edit
-                                                            size={16}
-                                                            strokeWidth={2.5}
-                                                        />
+                                                        <FileClock size={14} />
+                                                        {revTetap}x Tetap
+                                                        {revTotal >
+                                                            revTetap && (
+                                                            <span className="text-[10px] opacity-70">
+                                                                (+
+                                                                {revTotal -
+                                                                    revTetap}
+                                                                )
+                                                            </span>
+                                                        )}
                                                     </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedDeleteId(
-                                                                item.id,
-                                                            );
-                                                            setIsDeleteModalOpen(
-                                                                true,
-                                                            );
-                                                        }}
-                                                        title="Hapus Data"
-                                                        className="p-2 bg-white text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-rose-100 outline-none"
-                                                    >
-                                                        <Trash2
-                                                            size={16}
-                                                            strokeWidth={2.5}
-                                                        />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                </td>
+                                                <td className="px-6 py-5 text-center">
+                                                    <div className="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-all duration-300">
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedRevisiAnggaran(
+                                                                    item,
+                                                                );
+                                                                setIsRevisiModalOpen(
+                                                                    true,
+                                                                );
+                                                            }}
+                                                            title="Riwayat Revisi DIPA"
+                                                            className="p-2 bg-white text-amber-600 rounded-xl hover:bg-amber-50 hover:scale-110 transition-all shadow-sm border border-amber-200 outline-none"
+                                                        >
+                                                            <FileClock
+                                                                size={16}
+                                                                strokeWidth={
+                                                                    2.5
+                                                                }
+                                                            />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedEditData(
+                                                                    item,
+                                                                );
+                                                                setIsEditModalOpen(
+                                                                    true,
+                                                                );
+                                                            }}
+                                                            title="Edit Data"
+                                                            className="p-2 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 hover:scale-110 transition-all shadow-sm border border-indigo-100 outline-none"
+                                                        >
+                                                            <Edit
+                                                                size={16}
+                                                                strokeWidth={
+                                                                    2.5
+                                                                }
+                                                            />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedDeleteId(
+                                                                    item.id,
+                                                                );
+                                                                setIsDeleteModalOpen(
+                                                                    true,
+                                                                );
+                                                            }}
+                                                            title="Hapus Data"
+                                                            className="p-2 bg-white text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white hover:scale-110 transition-all shadow-sm border border-rose-100 outline-none"
+                                                        >
+                                                            <Trash2
+                                                                size={16}
+                                                                strokeWidth={
+                                                                    2.5
+                                                                }
+                                                            />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
@@ -507,6 +582,15 @@ export default function IndexAnggaran() {
                     onClose={() => setIsEditModalOpen(false)}
                     satkers={satkers}
                     editData={selectedEditData}
+                    onSuccess={(msg) => {
+                        fetchAnggarans(currentPage, searchTerm);
+                        showToast(msg, "success");
+                    }}
+                />
+                <RevisiModal
+                    isOpen={isRevisiModalOpen}
+                    onClose={() => setIsRevisiModalOpen(false)}
+                    anggaran={selectedRevisiAnggaran}
                     onSuccess={(msg) => {
                         fetchAnggarans(currentPage, searchTerm);
                         showToast(msg, "success");

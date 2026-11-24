@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\RencanaPenarikan;
 use App\Models\Realisasi;
+use App\Models\RincianOutput;
 use App\Models\Satker;
 use App\Models\ActivityLog;
 use App\Models\User;
@@ -31,17 +32,15 @@ class TransaksiController extends Controller
         return null;
     }
 
-    /**
-     * Memeriksa apakah Satker yang dipilih adalah DIPA Sekretariat Jenderal
-     * yang memiliki kewenangan mengelola Belanja Pegawai (51).
-     */
     private function isSetjen(int|string $satkerId): bool
     {
         $satker = Satker::find($satkerId);
         if (!$satker) return false;
 
         $namaSatkerUpper = strtoupper($satker->nama_satker);
-        return str_contains($namaSatkerUpper, 'SETJEN') || str_contains($namaSatkerUpper, 'SEKRETARIAT JENDERAL');
+        return str_contains($namaSatkerUpper, 'SETJEN')
+            || str_contains($namaSatkerUpper, 'SEKRETARIAT JENDERAL')
+            || ($satker->kode_satker === '692028');
     }
 
     // =====================================================================
@@ -320,7 +319,6 @@ class TransaksiController extends Controller
             $status = $request->query('status');
             $tw = $request->query('tw');
 
-            // 🔥 PERBARUAN: Load relasi 'rincianOutput' agar frontend bisa menampilkannya
             $query = Realisasi::with(['satker', 'details.rincianOutput'])
                 ->where('tahun', $tahun)
                 ->orderBy('bulan', 'asc');
@@ -366,7 +364,7 @@ class TransaksiController extends Controller
             'tahun' => 'required|integer',
             'bulan' => 'required|integer|min:1|max:12',
             'rincian' => 'required|array|min:1',
-            'rincian.*.rincian_output_id' => 'nullable|exists:rincian_outputs,id', // 🔥 INTEGRASI RO
+            'rincian.*.rincian_output_id' => 'nullable|exists:rincian_outputs,id',
             'rincian.*.jenis_belanja' => 'required|in:gaji,barang,modal',
             'rincian.*.uraian' => 'required|string|max:255',
             'rincian.*.nominal' => 'required|numeric|min:0',
@@ -395,7 +393,6 @@ class TransaksiController extends Controller
             foreach ($request->rincian as $item) {
                 $nominal = (float) $item['nominal'];
 
-                // 🔥 PROTEKSI CELAH KEAMANAN INPUT GAJI DI REALISASI
                 if ($item['jenis_belanja'] == 'gaji') {
                     if (!$isSetjen && $nominal > 0) {
                         return response()->json([
@@ -422,11 +419,10 @@ class TransaksiController extends Controller
             ]);
 
             foreach ($request->rincian as $item) {
-                // Jangan simpan rincian gaji jika bukan setjen (untuk keamanan ganda)
                 if ($item['jenis_belanja'] == 'gaji' && !$isSetjen) continue;
 
                 $realisasi->details()->create([
-                    'rincian_output_id' => $item['rincian_output_id'] ?? null, // 🔥 SIMPAN ID RO
+                    'rincian_output_id' => $item['rincian_output_id'] ?? null,
                     'jenis_belanja' => $item['jenis_belanja'],
                     'uraian' => $item['uraian'],
                     'nominal' => (float) $item['nominal']
@@ -466,7 +462,7 @@ class TransaksiController extends Controller
 
         $validator = Validator::make($request->all(), [
             'rincian' => 'required|array|min:1',
-            'rincian.*.rincian_output_id' => 'nullable|exists:rincian_outputs,id', // 🔥 INTEGRASI RO
+            'rincian.*.rincian_output_id' => 'nullable|exists:rincian_outputs,id',
             'rincian.*.jenis_belanja' => 'required|in:gaji,barang,modal',
             'rincian.*.uraian' => 'required|string|max:255',
             'rincian.*.nominal' => 'required|numeric|min:0',
@@ -485,7 +481,6 @@ class TransaksiController extends Controller
             foreach ($request->rincian as $item) {
                 $nominal = (float) $item['nominal'];
 
-                // 🔥 PROTEKSI CELAH KEAMANAN INPUT GAJI DI REALISASI
                 if ($item['jenis_belanja'] == 'gaji') {
                     if (!$isSetjen && $nominal > 0) {
                         return response()->json([
@@ -513,7 +508,7 @@ class TransaksiController extends Controller
                 if ($item['jenis_belanja'] == 'gaji' && !$isSetjen) continue;
 
                 $realisasi->details()->create([
-                    'rincian_output_id' => $item['rincian_output_id'] ?? null, // 🔥 SIMPAN ID RO
+                    'rincian_output_id' => $item['rincian_output_id'] ?? null,
                     'jenis_belanja' => $item['jenis_belanja'],
                     'uraian' => $item['uraian'],
                     'nominal' => (float) $item['nominal']
@@ -612,6 +607,301 @@ class TransaksiController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['status' => 'error', 'message' => 'Otorisasi gagal diproses: ' . $e->getMessage()], 500);
+        }
+    }
+
+    // =====================================================================
+    // 📥 SMART EXCEL IMPORTER (FASE 3 — RPD & REALISASI MASSAL)
+    // =====================================================================
+
+    public function importRpd(Request $request)
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        if ($user->isSatker()) {
+            $request->merge(['satker_id' => $this->getMySatkerId($user)]);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'satker_id' => 'required|exists:satkers,id',
+            'tahun' => 'required|integer',
+            'mode' => 'nullable|in:skip,overwrite',
+            'rows' => 'required|array|min:1',
+            'rows.*.bulan' => 'required|integer|min:1|max:12',
+            'rows.*.belanja_gaji' => 'nullable|numeric|min:0',
+            'rows.*.belanja_barang' => 'nullable|numeric|min:0',
+            'rows.*.belanja_modal' => 'nullable|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
+        }
+
+        $satkerId = $request->satker_id;
+        $tahun = (int) $request->tahun;
+        $mode = $request->input('mode', 'skip');
+        $isSetjen = $this->isSetjen($satkerId);
+
+        // Validasi Cut-Off dan aturan Setjen sebelum membuka transaksi DB
+        foreach ($request->rows as $row) {
+            $bulan = (int) $row['bulan'];
+            $tanggalTransaksi = sprintf('%04d-%02d-01', $tahun, $bulan);
+            $this->validateCutOff($tanggalTransaksi, $user->isAdmin());
+
+            $gaji = (float) ($row['belanja_gaji'] ?? 0);
+            if (!$isSetjen && $gaji > 0) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => "Baris Bulan {$bulan} ditolak: Satker selain Setjen tidak berhak menginput Belanja Pegawai (51)."
+                ], 422);
+            }
+        }
+
+        DB::beginTransaction();
+        try {
+            $inserted = 0;
+            $updated = 0;
+            $skipped = 0;
+            $grandTotal = 0;
+
+            foreach ($request->rows as $row) {
+                $bulan = (int) $row['bulan'];
+                $gaji = $isSetjen ? (float) ($row['belanja_gaji'] ?? 0) : 0;
+                $barang = (float) ($row['belanja_barang'] ?? 0);
+                $modal = (float) ($row['belanja_modal'] ?? 0);
+
+                $existing = RencanaPenarikan::where('satker_id', $satkerId)
+                    ->where('tahun', $tahun)
+                    ->where('bulan', $bulan)
+                    ->first();
+
+                if ($existing) {
+                    if ($mode === 'overwrite') {
+                        $existing->update([
+                            'belanja_gaji' => $gaji,
+                            'belanja_barang' => $barang,
+                            'belanja_modal' => $modal,
+                            'status' => 'draft',
+                            'catatan_revisi' => null,
+                        ]);
+                        $updated++;
+                        $grandTotal += ($gaji + $barang + $modal);
+                    } else {
+                        $skipped++;
+                    }
+                } else {
+                    RencanaPenarikan::create([
+                        'satker_id' => $satkerId,
+                        'tahun' => $tahun,
+                        'bulan' => $bulan,
+                        'belanja_gaji' => $gaji,
+                        'belanja_barang' => $barang,
+                        'belanja_modal' => $modal,
+                        'status' => 'draft',
+                        'catatan_revisi' => null,
+                    ]);
+                    $inserted++;
+                    $grandTotal += ($gaji + $barang + $modal);
+                }
+            }
+
+            $namaSatker = Satker::find($satkerId)->nama_satker ?? 'Unknown Satker';
+            ActivityLog::record(
+                'CREATE',
+                'IMPOR EXCEL RPD',
+                "Mengimpor RPD Excel Tahun {$tahun} untuk {$namaSatker} ({$inserted} baru, {$updated} diperbarui, {$skipped} dilewati; Total: Rp " . number_format($grandTotal, 0, ',', '.') . ")."
+            );
+
+            if ($inserted > 0 || $updated > 0) {
+                $admins = User::where('role', 'admin')->get();
+                Notification::send($admins, new TransaksiNotification(
+                    'Impor Massal RPD (Excel)',
+                    "{$namaSatker} mengimpor " . ($inserted + $updated) . " periode RPD via Excel. Silakan verifikasi.",
+                    'info'
+                ));
+            }
+
+            DB::commit();
+            return response()->json([
+                'status' => 'success',
+                'message' => "Impor RPD selesai! {$inserted} bulan baru ditambahkan, {$updated} diperbarui, {$skipped} dilewati.",
+                'summary' => compact('inserted', 'updated', 'skipped')
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => 'Gagal impor RPD Excel: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function importRealisasi(Request $request)
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        if ($user->isSatker()) {
+            $request->merge(['satker_id' => $this->getMySatkerId($user)]);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'satker_id' => 'required|exists:satkers,id',
+            'tahun' => 'required|integer',
+            'mode' => 'nullable|in:skip,overwrite',
+            'rows' => 'required|array|min:1',
+            'rows.*.bulan' => 'required|integer|min:1|max:12',
+            'rows.*.jenis_belanja' => 'required|in:gaji,barang,modal',
+            'rows.*.uraian' => 'required|string|max:255',
+            'rows.*.nominal' => 'required|numeric|min:1',
+            'rows.*.kode_ro' => 'nullable|string|max:100',
+            'rows.*.rincian_output_id' => 'nullable|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
+        }
+
+        $satkerId = $request->satker_id;
+        $tahun = (int) $request->tahun;
+        $mode = $request->input('mode', 'skip');
+        $isSetjen = $this->isSetjen($satkerId);
+
+        // Kelompokkan baris Excel berdasarkan bulan
+        $groupedByMonth = collect($request->rows)->groupBy(fn($r) => (int) $r['bulan']);
+
+        // Validasi Cut-Off dan aturan Setjen sebelum membuka transaksi DB
+        foreach ($groupedByMonth as $bulan => $items) {
+            $tanggalTransaksi = sprintf('%04d-%02d-01', $tahun, $bulan);
+            $this->validateCutOff($tanggalTransaksi, $user->isAdmin());
+
+            foreach ($items as $item) {
+                if ($item['jenis_belanja'] === 'gaji' && !$isSetjen && (float) $item['nominal'] > 0) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Transaksi '{$item['uraian']}' (Bulan {$bulan}) ditolak: Satker selain Setjen tidak berhak menginput Belanja Pegawai (51)."
+                    ], 422);
+                }
+            }
+        }
+
+        // Peta Kode RO -> ID RO untuk auto-linking keterlacakan fisik
+        $roMap = RincianOutput::where('satker_id', $satkerId)
+            ->where('tahun', $tahun)
+            ->get()
+            ->keyBy(fn($ro) => strtoupper(trim($ro->kode_ro)));
+
+        DB::beginTransaction();
+        try {
+            $inserted = 0;
+            $updated = 0;
+            $skipped = 0;
+            $totalTransaksi = 0;
+            $roTerhubung = 0;
+            $grandTotal = 0;
+
+            foreach ($groupedByMonth as $bulan => $items) {
+                $existing = Realisasi::where('satker_id', $satkerId)
+                    ->where('tahun', $tahun)
+                    ->where('bulan', $bulan)
+                    ->first();
+
+                if ($existing && $mode !== 'overwrite') {
+                    $skipped++;
+                    continue;
+                }
+
+                $belanjaGaji = 0;
+                $belanjaBarang = 0;
+                $belanjaModal = 0;
+                $preparedDetails = [];
+
+                foreach ($items as $item) {
+                    $jenis = $item['jenis_belanja'];
+                    $nominal = (float) $item['nominal'];
+                    if ($jenis === 'gaji' && !$isSetjen) continue;
+
+                    if ($jenis === 'gaji') $belanjaGaji += $nominal;
+                    elseif ($jenis === 'barang') $belanjaBarang += $nominal;
+                    elseif ($jenis === 'modal') $belanjaModal += $nominal;
+
+                    $roId = null;
+                    if (!empty($item['rincian_output_id']) && $roMap->contains('id', (int)$item['rincian_output_id'])) {
+                        $roId = (int)$item['rincian_output_id'];
+                    } elseif (!empty($item['kode_ro'])) {
+                        $kodeNorm = strtoupper(trim($item['kode_ro']));
+                        if (isset($roMap[$kodeNorm])) {
+                            $roId = $roMap[$kodeNorm]->id;
+                        }
+                    }
+
+                    if ($roId) $roTerhubung++;
+
+                    $preparedDetails[] = [
+                        'rincian_output_id' => $roId,
+                        'jenis_belanja' => $jenis,
+                        'uraian' => trim($item['uraian']),
+                        'nominal' => $nominal,
+                    ];
+                }
+
+                if ($existing) {
+                    $existing->update([
+                        'belanja_gaji' => $belanjaGaji,
+                        'belanja_barang' => $belanjaBarang,
+                        'belanja_modal' => $belanjaModal,
+                        'status' => 'draft',
+                        'catatan_revisi' => null,
+                    ]);
+                    $existing->details()->delete();
+                    foreach ($preparedDetails as $det) {
+                        $existing->details()->create($det);
+                    }
+                    $updated++;
+                } else {
+                    $realisasi = Realisasi::create([
+                        'satker_id' => $satkerId,
+                        'tahun' => $tahun,
+                        'bulan' => $bulan,
+                        'belanja_gaji' => $belanjaGaji,
+                        'belanja_barang' => $belanjaBarang,
+                        'belanja_modal' => $belanjaModal,
+                        'status' => 'draft',
+                        'catatan_revisi' => null,
+                    ]);
+                    foreach ($preparedDetails as $det) {
+                        $realisasi->details()->create($det);
+                    }
+                    $inserted++;
+                }
+
+                $totalTransaksi += count($preparedDetails);
+                $grandTotal += ($belanjaGaji + $belanjaBarang + $belanjaModal);
+            }
+
+            $namaSatker = Satker::find($satkerId)->nama_satker ?? 'Unknown Satker';
+            ActivityLog::record(
+                'CREATE',
+                'IMPOR EXCEL REALISASI',
+                "Mengimpor {$totalTransaksi} rincian Realisasi Excel Tahun {$tahun} untuk {$namaSatker} ({$inserted} bulan baru, {$updated} diperbarui, {$skipped} dilewati, {$roTerhubung} terhubung RO; Total: Rp " . number_format($grandTotal, 0, ',', '.') . ")."
+            );
+
+            if ($inserted > 0 || $updated > 0) {
+                $admins = User::where('role', 'admin')->get();
+                Notification::send($admins, new TransaksiNotification(
+                    'Impor Massal Realisasi (Excel)',
+                    "{$namaSatker} mengimpor {$totalTransaksi} item Realisasi (" . ($inserted + $updated) . " bulan) via Excel. Silakan verifikasi.",
+                    'warning'
+                ));
+            }
+
+            DB::commit();
+            return response()->json([
+                'status' => 'success',
+                'message' => "Impor Realisasi selesai! {$inserted} bulan baru, {$updated} diperbarui, {$skipped} dilewati ({$totalTransaksi} rincian transaksi, {$roTerhubung} otomatis terhubung ke RO).",
+                'summary' => compact('inserted', 'updated', 'skipped', 'totalTransaksi', 'roTerhubung')
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => 'Gagal impor Realisasi Excel: ' . $e->getMessage()], 500);
         }
     }
 }
