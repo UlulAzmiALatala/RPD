@@ -24,6 +24,11 @@ import {
     FileSpreadsheet,
     SlidersHorizontal,
     Calendar,
+    CheckSquare,
+    Loader2,
+    X,
+    Send,
+    AlertTriangle,
 } from "lucide-react";
 
 import AddRpdModal from "./Modals/AddRpdModal";
@@ -57,9 +62,6 @@ const namaBulan = [
     "Desember",
 ];
 
-// ==========================================
-// KOMPONEN PAGINATION PREMIUM
-// ==========================================
 const Pagination = ({ meta, onPageChange, accentColor }) => {
     if (!meta || meta.total === 0) return null;
     const { current_page, last_page, from, to, total } = meta;
@@ -142,16 +144,13 @@ export default function IndexTransaksi({ authUser }) {
 
     const [localAuth, setLocalAuth] = useState(authUser);
     const [summary, setSummary] = useState({ global: {}, per_satker: {} });
-
     const [expandedRows, setExpandedRows] = useState([]);
 
-    const toggleRow = (id) => {
-        setExpandedRows((prev) =>
-            prev.includes(id)
-                ? prev.filter((rowId) => rowId !== id)
-                : [...prev, id],
-        );
-    };
+    // State Verifikasi Massal (Bulk Approval / Rejection)
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+    const [isBulkRejectOpen, setIsBulkRejectOpen] = useState(false);
+    const [bulkRejectNote, setBulkRejectNote] = useState("");
 
     // State Modals
     const [isAddRpdOpen, setIsAddRpdOpen] = useState(false);
@@ -193,6 +192,33 @@ export default function IndexTransaksi({ authUser }) {
                 }),
             4000,
         );
+    };
+
+    const toggleRow = (id) => {
+        setExpandedRows((prev) =>
+            prev.includes(id)
+                ? prev.filter((rowId) => rowId !== id)
+                : [...prev, id],
+        );
+    };
+
+    const toggleSelectId = (id) => {
+        setSelectedIds((prev) =>
+            prev.includes(id)
+                ? prev.filter((item) => item !== id)
+                : [...prev, id],
+        );
+    };
+
+    const allVisibleSelected =
+        data.length > 0 && data.every((row) => selectedIds.includes(row.id));
+
+    const toggleSelectAll = () => {
+        if (allVisibleSelected) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(data.map((row) => row.id));
+        }
     };
 
     useEffect(() => {
@@ -267,6 +293,7 @@ export default function IndexTransaksi({ authUser }) {
                 to: res.data.to,
             });
             setExpandedRows([]);
+            setSelectedIds([]);
         } catch (err) {
             showToast("Gagal memuat data", "error");
         } finally {
@@ -344,7 +371,41 @@ export default function IndexTransaksi({ authUser }) {
             fetchData(currentPage, searchTerm, selectedSatker);
             fetchSummary();
         } catch (err) {
-            showToast("Gagal", "error");
+            showToast("Gagal menolak data.", "error");
+        }
+    };
+
+    // Handler Verifikasi Massal (Approve / Reject)
+    const handleBulkAction = async (status, catatan = null) => {
+        if (selectedIds.length === 0) return;
+        setIsBulkProcessing(true);
+        try {
+            const endpoint =
+                activeTab === "rpd"
+                    ? "/api/transaksi/rpd/bulk-approve"
+                    : "/api/transaksi/realisasi/bulk-approve";
+            const res = await axios.post(endpoint, {
+                ids: selectedIds,
+                status,
+                catatan_revisi: status === "rejected" ? catatan : null,
+            });
+            showToast(
+                res.data.message || "Verifikasi massal selesai!",
+                "success",
+            );
+            setSelectedIds([]);
+            setIsBulkRejectOpen(false);
+            setBulkRejectNote("");
+            fetchData(currentPage, searchTerm, selectedSatker);
+            fetchSummary();
+        } catch (err) {
+            showToast(
+                err.response?.data?.message ||
+                    "Verifikasi massal gagal diproses.",
+                "error",
+            );
+        } finally {
+            setIsBulkProcessing(false);
         }
     };
 
@@ -394,26 +455,22 @@ export default function IndexTransaksi({ authUser }) {
             (satkerData.pagu_modal || 0) - (satkerData.blokir_modal || 0);
 
         const targetPct = getTargetTW(selectedTW);
-        const targetKemenkeuGaji =
-            satkerData.pagu_gaji * (targetPct.gaji / 100);
-        const targetKemenkeuBarang =
-            satkerData.pagu_barang * (targetPct.barang / 100);
-        const targetKemenkeuModal =
-            satkerData.pagu_modal * (targetPct.modal / 100);
-
-        const finalTargetGaji = Math.min(targetKemenkeuGaji, paguGajiEfektif);
+        const finalTargetGaji = Math.min(
+            satkerData.pagu_gaji * (targetPct.gaji / 100),
+            paguGajiEfektif,
+        );
         const finalTargetBarang = Math.min(
-            targetKemenkeuBarang,
+            satkerData.pagu_barang * (targetPct.barang / 100),
             paguBarangEfektif,
         );
         const finalTargetModal = Math.min(
-            targetKemenkeuModal,
+            satkerData.pagu_modal * (targetPct.modal / 100),
             paguModalEfektif,
         );
 
         let inputTW = 0,
-            inputALL = 0;
-        let inputAll51 = 0,
+            inputALL = 0,
+            inputAll51 = 0,
             inputAll52 = 0,
             inputAll53 = 0;
 
@@ -453,42 +510,38 @@ export default function IndexTransaksi({ authUser }) {
             (s) => s.kode_satker === localAuth.kode_satker,
         );
         if (mySatker && summary.per_satker?.[mySatker.id]) {
-            const metrics = calculateSatkerMetrics(
-                summary.per_satker[mySatker.id],
-            );
-            dispPagu = metrics.paguEfektif;
-            dispTotalInputTW = metrics.totalInputTW;
-            dispTotalInputALL = metrics.totalInputALL;
-            dispTargetIKPARp = metrics.totalTarget;
-            dispSisa51 = metrics.sisa51;
-            dispSisa52 = metrics.sisa52;
-            dispSisa53 = metrics.sisa53;
+            const m = calculateSatkerMetrics(summary.per_satker[mySatker.id]);
+            dispPagu = m.paguEfektif;
+            dispTotalInputTW = m.totalInputTW;
+            dispTotalInputALL = m.totalInputALL;
+            dispTargetIKPARp = m.totalTarget;
+            dispSisa51 = m.sisa51;
+            dispSisa52 = m.sisa52;
+            dispSisa53 = m.sisa53;
         }
     } else if (
         isAdmin &&
         selectedSatker &&
         summary.per_satker?.[selectedSatker]
     ) {
-        const metrics = calculateSatkerMetrics(
-            summary.per_satker[selectedSatker],
-        );
-        dispPagu = metrics.paguEfektif;
-        dispTotalInputTW = metrics.totalInputTW;
-        dispTotalInputALL = metrics.totalInputALL;
-        dispTargetIKPARp = metrics.totalTarget;
-        dispSisa51 = metrics.sisa51;
-        dispSisa52 = metrics.sisa52;
-        dispSisa53 = metrics.sisa53;
+        const m = calculateSatkerMetrics(summary.per_satker[selectedSatker]);
+        dispPagu = m.paguEfektif;
+        dispTotalInputTW = m.totalInputTW;
+        dispTotalInputALL = m.totalInputALL;
+        dispTargetIKPARp = m.totalTarget;
+        dispSisa51 = m.sisa51;
+        dispSisa52 = m.sisa52;
+        dispSisa53 = m.sisa53;
     } else if (summary.per_satker) {
         Object.values(summary.per_satker).forEach((s) => {
-            const metrics = calculateSatkerMetrics(s);
-            dispPagu += metrics.paguEfektif;
-            dispTotalInputTW += metrics.totalInputTW;
-            dispTotalInputALL += metrics.totalInputALL;
-            dispTargetIKPARp += metrics.totalTarget;
-            dispSisa51 += metrics.sisa51;
-            dispSisa52 += metrics.sisa52;
-            dispSisa53 += metrics.sisa53;
+            const m = calculateSatkerMetrics(s);
+            dispPagu += m.paguEfektif;
+            dispTotalInputTW += m.totalInputTW;
+            dispTotalInputALL += m.totalInputALL;
+            dispTargetIKPARp += m.totalTarget;
+            dispSisa51 += m.sisa51;
+            dispSisa52 += m.sisa52;
+            dispSisa53 += m.sisa53;
         });
     }
 
@@ -497,7 +550,7 @@ export default function IndexTransaksi({ authUser }) {
         dispTargetIKPARp > 0 ? (dispTotalInputTW / dispTargetIKPARp) * 100 : 0;
     const isTargetAchieved = dispTotalInputTW >= dispTargetIKPARp;
 
-    const totalCols = isRPD ? 8 : 9;
+    const totalCols = 8 + (isAdmin ? 1 : 0) + (!isRPD ? 1 : 0);
 
     return (
         <MainLayout authUser={authUser} tahun={tahun}>
@@ -514,7 +567,6 @@ export default function IndexTransaksi({ authUser }) {
             `}</style>
 
             <div className="space-y-6 font-sans text-slate-600 relative min-h-screen pb-10">
-                {/* Ambient Background */}
                 <div
                     className={`absolute top-0 left-0 w-full h-80 transition-colors duration-700 pointer-events-none -z-10 ${
                         isRPD
@@ -523,19 +575,15 @@ export default function IndexTransaksi({ authUser }) {
                     }`}
                 ></div>
 
-                {/* TOAST NOTIFICATION */}
+                {/* TOAST */}
                 {toast.show && (
                     <div
                         className={`fixed top-8 right-8 z-[100] flex items-center p-4 min-w-[320px] max-w-md rounded-2xl border shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] backdrop-blur-xl ${
                             toast.isExiting ? "toast-exit" : "toast-enter"
-                        } ${
-                            toast.type === "success"
-                                ? "bg-[#0A192F]/95 border-emerald-500/30"
-                                : "bg-[#0A192F]/95 border-rose-500/30"
-                        }`}
+                        } ${toast.type === "success" ? "bg-[#0A192F]/95 border-emerald-500/30" : "bg-[#0A192F]/95 border-rose-500/30"}`}
                     >
                         <div
-                            className={`relative flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl border ${
+                            className={`flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl border ${
                                 toast.type === "success"
                                     ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                     : "bg-rose-500/10 text-rose-400 border-rose-500/20"
@@ -549,11 +597,7 @@ export default function IndexTransaksi({ authUser }) {
                         </div>
                         <div className="ml-3.5 min-w-0">
                             <h4
-                                className={`text-[10px] font-black tracking-widest uppercase ${
-                                    toast.type === "success"
-                                        ? "text-emerald-400"
-                                        : "text-rose-400"
-                                }`}
+                                className={`text-[10px] font-black tracking-widest uppercase ${toast.type === "success" ? "text-emerald-400" : "text-rose-400"}`}
                             >
                                 {toast.type === "success" ? "Sukses" : "Gagal"}
                             </h4>
@@ -564,15 +608,12 @@ export default function IndexTransaksi({ authUser }) {
                     </div>
                 )}
 
-                {/* =====================================================================
-                    1. HERO COMMAND BAR (TERSTRUKTUR RAPI — TANPA SALING TINDIH)
-                ===================================================================== */}
+                {/* 1. HERO COMMAND BAR */}
                 <div className="glass-card p-6 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/80 relative z-10 space-y-5">
-                    {/* BARIS 1: JUDUL + TOMBOL AKSI UTAMA */}
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                         <div className="flex items-center gap-4 min-w-0">
                             <div
-                                className={`w-13 h-13 p-3.5 text-white rounded-2xl shadow-lg shrink-0 flex items-center justify-center transition-colors duration-500 ${
+                                className={`p-3.5 text-white rounded-2xl shadow-lg shrink-0 flex items-center justify-center transition-colors duration-500 ${
                                     isRPD
                                         ? "bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-indigo-500/30"
                                         : "bg-gradient-to-br from-blue-500 to-blue-600 shadow-blue-500/30"
@@ -593,19 +634,17 @@ export default function IndexTransaksi({ authUser }) {
                                 </h2>
                                 <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
                                     Kelola Rencana Penarikan Dana (RPD),
-                                    Realisasi Anggaran, &amp; Impor Excel
-                                    massal.
+                                    Realisasi Anggaran, Impor Excel &amp;
+                                    Verifikasi Massal.
                                 </p>
                             </div>
                         </div>
 
-                        {/* TOMBOL AKSI (TERKUNCI SEJAJAR & ANTI-WRAP ANEH) */}
                         <div className="flex items-center gap-2.5 shrink-0">
                             <button
                                 type="button"
                                 onClick={() => setIsImportOpen(true)}
                                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white font-bold text-xs sm:text-sm rounded-2xl border border-emerald-200/90 shadow-sm transition-all duration-200 whitespace-nowrap cursor-pointer hover:-translate-y-0.5"
-                                title="Impor massal dari file Excel rekap SAKTI/OMSPAN"
                             >
                                 <FileSpreadsheet size={17} strokeWidth={2.5} />
                                 <span>Impor Excel</span>
@@ -634,9 +673,7 @@ export default function IndexTransaksi({ authUser }) {
 
                     <div className="h-px w-full bg-slate-200/70"></div>
 
-                    {/* BARIS 2: TAB MODE (KIRI) + FILTER TRIWULAN & TAHUN (KANAN) */}
                     <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                        {/* Segmented Tab Switcher (Tanpa scale-105 agar tidak tabrakan) */}
                         <div className="inline-flex w-full sm:w-auto bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/70 shadow-inner">
                             <button
                                 type="button"
@@ -670,7 +707,6 @@ export default function IndexTransaksi({ authUser }) {
                             </button>
                         </div>
 
-                        {/* Filter Triwulan + Tahun */}
                         <div className="flex flex-wrap items-center gap-2.5">
                             <div className="flex flex-1 sm:flex-none bg-slate-100/90 p-1 rounded-2xl border border-slate-200/70 text-xs font-bold shadow-inner overflow-x-auto">
                                 {["ALL", "I", "II", "III", "IV"].map((tw) => (
@@ -724,11 +760,8 @@ export default function IndexTransaksi({ authUser }) {
                     </div>
                 </div>
 
-                {/* =====================================================================
-                    2. 4 KARTU KPI SUMMARY (STACKED EXECUTIVE — ANTI-GEPENG & ANTI-POTONG)
-                ===================================================================== */}
+                {/* 2. 4 KARTU KPI SUMMARY */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 relative z-10">
-                    {/* KARTU 1: PAGU EFEKTIF */}
                     <div className="bg-white/90 backdrop-blur-md p-5 rounded-[1.75rem] border border-white shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">
@@ -753,7 +786,6 @@ export default function IndexTransaksi({ authUser }) {
                         </div>
                     </div>
 
-                    {/* KARTU 2: TOTAL INPUT RPD / REALISASI */}
                     <div className="bg-white/90 backdrop-blur-md p-5 rounded-[1.75rem] border border-white shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">
@@ -763,11 +795,7 @@ export default function IndexTransaksi({ authUser }) {
                                     : "(Setahun)"}
                             </p>
                             <div
-                                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                                    isRPD
-                                        ? "bg-indigo-50 text-indigo-600"
-                                        : "bg-blue-50 text-blue-600"
-                                }`}
+                                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isRPD ? "bg-indigo-50 text-indigo-600" : "bg-blue-50 text-blue-600"}`}
                             >
                                 <TrendingUp size={18} strokeWidth={2.2} />
                             </div>
@@ -775,9 +803,7 @@ export default function IndexTransaksi({ authUser }) {
                         <div className="min-w-0">
                             <h3
                                 title={formatCurrency(dispTotalInputTW)}
-                                className={`text-lg 2xl:text-xl font-black tracking-tight tabular-nums truncate ${
-                                    isRPD ? "text-indigo-700" : "text-blue-700"
-                                }`}
+                                className={`text-lg 2xl:text-xl font-black tracking-tight tabular-nums truncate ${isRPD ? "text-indigo-700" : "text-blue-700"}`}
                             >
                                 {formatCurrency(dispTotalInputTW)}
                             </h3>
@@ -787,7 +813,6 @@ export default function IndexTransaksi({ authUser }) {
                         </div>
                     </div>
 
-                    {/* KARTU 3: SISA DOMPET PAGU */}
                     <div
                         className={`bg-white/90 backdrop-blur-md p-5 rounded-[1.75rem] border transition-all flex flex-col justify-between gap-3 min-w-0 ${
                             dispSisaReal < 0
@@ -797,20 +822,12 @@ export default function IndexTransaksi({ authUser }) {
                     >
                         <div className="flex items-center justify-between gap-2">
                             <p
-                                className={`text-[10px] font-black uppercase tracking-widest truncate ${
-                                    dispSisaReal < 0
-                                        ? "text-rose-500"
-                                        : "text-slate-400"
-                                }`}
+                                className={`text-[10px] font-black uppercase tracking-widest truncate ${dispSisaReal < 0 ? "text-rose-500" : "text-slate-400"}`}
                             >
                                 Sisa Dompet Pagu
                             </p>
                             <div
-                                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                                    dispSisaReal < 0
-                                        ? "bg-rose-100 text-rose-600"
-                                        : "bg-emerald-50 text-emerald-600"
-                                }`}
+                                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${dispSisaReal < 0 ? "bg-rose-100 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}
                             >
                                 {dispSisaReal < 0 ? (
                                     <ShieldAlert size={18} strokeWidth={2.2} />
@@ -822,11 +839,7 @@ export default function IndexTransaksi({ authUser }) {
                         <div className="min-w-0">
                             <h3
                                 title={formatCurrency(dispSisaReal)}
-                                className={`text-lg 2xl:text-xl font-black tracking-tight tabular-nums truncate ${
-                                    dispSisaReal < 0
-                                        ? "text-rose-600"
-                                        : "text-emerald-700"
-                                }`}
+                                className={`text-lg 2xl:text-xl font-black tracking-tight tabular-nums truncate ${dispSisaReal < 0 ? "text-rose-600" : "text-emerald-700"}`}
                             >
                                 {formatCurrency(dispSisaReal)}
                             </h3>
@@ -838,7 +851,6 @@ export default function IndexTransaksi({ authUser }) {
                         </div>
                     </div>
 
-                    {/* KARTU 4: SERAPAN & PROGRESS BAR */}
                     <div className="bg-white/90 backdrop-blur-md p-5 rounded-[1.75rem] border border-white shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -862,7 +874,6 @@ export default function IndexTransaksi({ authUser }) {
                                 {dispPersen.toFixed(1)}%
                             </span>
                         </div>
-
                         <div>
                             <div className="w-full bg-slate-200/80 rounded-full h-2.5 relative shadow-inner overflow-hidden">
                                 <div
@@ -884,13 +895,6 @@ export default function IndexTransaksi({ authUser }) {
                                             : "text-rose-500"
                                         : "text-slate-400"
                                 }`}
-                                title={
-                                    !isRPD
-                                        ? isTargetAchieved
-                                            ? `Memenuhi Target (${formatCurrency(dispTargetIKPARp)})`
-                                            : `Kurang ${formatCurrency(dispTargetIKPARp - dispTotalInputTW)}`
-                                        : `Target: ${formatCurrency(dispTargetIKPARp)}`
-                                }
                             >
                                 {!isRPD ? (
                                     isTargetAchieved ? (
@@ -933,19 +937,13 @@ export default function IndexTransaksi({ authUser }) {
                     </div>
                 </div>
 
-                {/* =====================================================================
-                    3. DATA TABLE CARD + INTEGRATED FILTER STRIP
-                ===================================================================== */}
+                {/* 3. DATA TABLE CARD + BULK ACTION BAR */}
                 <div className="glass-card rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/80 overflow-hidden relative z-10">
-                    {/* Header Tabel + Filter Bar Terintegrasi */}
+                    {/* Header Tabel + Filter Strip */}
                     <div className="p-5 sm:px-6 border-b border-slate-100 bg-slate-50/70 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                         <div className="flex items-center gap-2.5 min-w-0">
                             <span
-                                className={`p-2 rounded-xl shrink-0 ${
-                                    isRPD
-                                        ? "bg-indigo-100 text-indigo-600"
-                                        : "bg-blue-100 text-blue-600"
-                                }`}
+                                className={`p-2 rounded-xl shrink-0 ${isRPD ? "bg-indigo-100 text-indigo-600" : "bg-blue-100 text-blue-600"}`}
                             >
                                 {isRPD ? (
                                     <CalendarRange
@@ -976,7 +974,6 @@ export default function IndexTransaksi({ authUser }) {
                             </div>
                         </div>
 
-                        {/* Filter Strip: Satker + Status + Search (Grid Rapi) */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full lg:w-auto lg:min-w-[540px]">
                             {isAdmin ? (
                                 <div className="relative">
@@ -1045,6 +1042,67 @@ export default function IndexTransaksi({ authUser }) {
                         </div>
                     </div>
 
+                    {/* BULK APPROVAL ACTION BAR (KHUSUS ADMIN SAAT ADA DATA DICENTANG) */}
+                    {isAdmin && selectedIds.length > 0 && (
+                        <div className="px-6 py-3.5 bg-gradient-to-r from-[#0B1120] via-slate-900 to-indigo-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-500/30">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                                    <CheckSquare size={16} />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black tracking-wide">
+                                        {selectedIds.length} Data{" "}
+                                        {isRPD ? "RPD" : "Realisasi"} Terpilih
+                                    </p>
+                                    <p className="text-[10px] text-slate-400 font-semibold">
+                                        Pilih aksi verifikasi massal untuk
+                                        memproses seluruh baris terpilih
+                                        sekaligus.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                    type="button"
+                                    disabled={isBulkProcessing}
+                                    onClick={() => handleBulkAction("approved")}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black uppercase tracking-wider shadow-md transition-all disabled:opacity-50 cursor-pointer"
+                                >
+                                    {isBulkProcessing ? (
+                                        <Loader2
+                                            size={14}
+                                            className="animate-spin"
+                                        />
+                                    ) : (
+                                        <CheckCircle
+                                            size={14}
+                                            strokeWidth={2.5}
+                                        />
+                                    )}
+                                    Setujui Terpilih ({selectedIds.length})
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={isBulkProcessing}
+                                    onClick={() => setIsBulkRejectOpen(true)}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-500/40 text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
+                                >
+                                    <XCircle size={14} strokeWidth={2.5} />
+                                    Tolak Terpilih
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={isBulkProcessing}
+                                    onClick={() => setSelectedIds([])}
+                                    className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+                                >
+                                    <X size={14} /> Batal
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* DATA TABLE */}
                     <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left text-sm whitespace-nowrap">
@@ -1052,6 +1110,18 @@ export default function IndexTransaksi({ authUser }) {
                                 className={`${lightBg} border-b border-slate-200/70 text-[10px] uppercase text-slate-500 font-black tracking-wider`}
                             >
                                 <tr>
+                                    {isAdmin && (
+                                        <th className="px-4 py-4 w-10 text-center align-middle">
+                                            <input
+                                                type="checkbox"
+                                                checked={allVisibleSelected}
+                                                onChange={toggleSelectAll}
+                                                disabled={data.length === 0}
+                                                title="Pilih semua baris di halaman ini"
+                                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                            />
+                                        </th>
+                                    )}
                                     {!isRPD && (
                                         <th className="px-3 py-4 w-10 text-center"></th>
                                     )}
@@ -1197,16 +1267,38 @@ export default function IndexTransaksi({ authUser }) {
                                             Number(item.belanja_modal);
                                         const isExpanded =
                                             expandedRows.includes(item.id);
+                                        const isChecked = selectedIds.includes(
+                                            item.id,
+                                        );
 
                                         return (
                                             <React.Fragment key={item.id}>
                                                 <tr
                                                     className={`hover:bg-slate-50/90 transition-colors duration-150 group ${
-                                                        isExpanded
-                                                            ? "bg-blue-50/40"
-                                                            : ""
+                                                        isChecked
+                                                            ? "bg-indigo-50/50"
+                                                            : isExpanded
+                                                              ? "bg-blue-50/40"
+                                                              : ""
                                                     }`}
                                                 >
+                                                    {isAdmin && (
+                                                        <td className="px-4 py-4 text-center">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={
+                                                                    isChecked
+                                                                }
+                                                                onChange={() =>
+                                                                    toggleSelectId(
+                                                                        item.id,
+                                                                    )
+                                                                }
+                                                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                            />
+                                                        </td>
+                                                    )}
+
                                                     {!isRPD && (
                                                         <td className="px-3 py-4 text-center">
                                                             <button
@@ -1435,7 +1527,6 @@ export default function IndexTransaksi({ authUser }) {
                                                     </td>
                                                 </tr>
 
-                                                {/* BARIS RINCIAN TRANSAKSI & RO (COLLAPSIBLE) */}
                                                 {!isRPD && isExpanded && (
                                                     <tr className="bg-slate-50/90 border-b border-slate-200">
                                                         <td
@@ -1505,7 +1596,6 @@ export default function IndexTransaksi({ authUser }) {
                                                                                                                 .rincian_output
                                                                                                                 .kode_ro
                                                                                                         }
-
                                                                                                         ]{" "}
                                                                                                         {
                                                                                                             detail
@@ -1564,6 +1654,96 @@ export default function IndexTransaksi({ authUser }) {
                         accentColor={accentColor}
                     />
                 </div>
+
+                {/* MODAL TOLAK MASSAL */}
+                {isBulkRejectOpen && (
+                    <div className="fixed top-0 left-0 w-screen h-screen z-[120] flex items-center justify-center p-4 bg-[#0B1120]/80 backdrop-blur-md">
+                        <div className="bg-white rounded-[2.25rem] shadow-2xl w-full max-w-md overflow-hidden border border-white">
+                            <div className="px-6 py-5 border-b border-slate-100 bg-rose-50/60 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-rose-600 text-white rounded-xl shadow-sm">
+                                        <AlertTriangle size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-slate-900">
+                                            Tolak Massal ({selectedIds.length}{" "}
+                                            Data)
+                                        </h3>
+                                        <p className="text-[11px] font-bold text-rose-600 uppercase tracking-wider">
+                                            Verifikasi{" "}
+                                            {isRPD ? "RPD" : "Realisasi"}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsBulkRejectOpen(false)}
+                                    className="p-2 text-slate-400 hover:text-rose-500 rounded-xl cursor-pointer"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    if (!bulkRejectNote.trim()) return;
+                                    handleBulkAction(
+                                        "rejected",
+                                        bulkRejectNote.trim(),
+                                    );
+                                }}
+                                className="p-6 space-y-4"
+                            >
+                                <div>
+                                    <label className="block text-xs font-black text-slate-700 mb-1.5">
+                                        Catatan Penolakan / Revisi Massal{" "}
+                                        <span className="text-rose-500">*</span>
+                                    </label>
+                                    <textarea
+                                        rows="4"
+                                        required
+                                        value={bulkRejectNote}
+                                        onChange={(e) =>
+                                            setBulkRejectNote(e.target.value)
+                                        }
+                                        placeholder="Catatan ini akan diterapkan dan dikirim ke seluruh Satker yang datanya terpilih..."
+                                        className="w-full px-4 py-3 bg-slate-50 focus:bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-400 resize-none"
+                                    />
+                                </div>
+                                <div className="flex gap-2.5 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setIsBulkRejectOpen(false)
+                                        }
+                                        disabled={isBulkProcessing}
+                                        className="flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-wider text-slate-600 bg-slate-100 hover:bg-slate-200 cursor-pointer"
+                                    >
+                                        Batal
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={
+                                            isBulkProcessing ||
+                                            !bulkRejectNote.trim()
+                                        }
+                                        className="flex-[1.6] inline-flex items-center justify-center gap-2 py-3 rounded-xl font-black text-xs uppercase tracking-wider text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
+                                    >
+                                        {isBulkProcessing ? (
+                                            <Loader2
+                                                size={15}
+                                                className="animate-spin"
+                                            />
+                                        ) : (
+                                            <Send size={15} />
+                                        )}
+                                        Tolak {selectedIds.length} Data
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
 
                 {/* MODALS */}
                 <AddRpdModal

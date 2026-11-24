@@ -1,12 +1,13 @@
+@php
+    $pdfSetting = \App\Models\PdfSetting::current();
+    $logoBase64 = $pdfSetting->getLogoBase64();
+@endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <title>Laporan Bulanan IKPA Nasional (65 Poin)</title>
     <style>
-        /* ==========================================
-           PREMIUM PRINT SETTINGS & TYPOGRAPHY
-           ========================================== */
         @page { size: legal landscape; margin: 10mm 10mm; }
         body { 
             font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif; 
@@ -17,15 +18,20 @@
         }
         
         /* ==========================================
-           KOP SURAT & HEADER
+           KOP SURAT DINAMIS + LOGO (DOMPDF SAFE)
            ========================================== */
-        .header-container { width: 100%; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; text-align: center; }
-        .header-container h1 { margin: 0; font-size: 14px; font-weight: 900; text-transform: uppercase; color: #0f172a; letter-spacing: 0.5px; }
-        .header-container h2 { margin: 2px 0 0 0; font-size: 10px; font-weight: bold; color: #475569; letter-spacing: 1px; }
-        .header-container p { margin: 4px 0 0 0; font-size: 8px; color: #64748b; }
+        .header-container { width: 100%; border-bottom: 2.5px solid #0f172a; padding-bottom: 8px; margin-bottom: 14px; text-align: center; }
+table.kop-table { width: auto !important; margin: 0 auto !important; border-collapse: collapse; border: none !important; }
+table.kop-table td { border: none !important; padding: 0 !important; vertical-align: middle; background: transparent !important; }
+.kop-logo-cell { width: auto; padding-right: 12px !important; text-align: right !important; }
+.kop-logo-img { max-width: 40px; max-height: 40px; width: auto; height: auto; display: block; }
+.kop-text-cell { text-align: center !important; padding: 0 !important; }
+.kop-text-cell h2 { margin: 0; font-size: 10.5px; font-weight: bold; color: #475569; letter-spacing: 0.8px; text-transform: uppercase; line-height: 1.25; }
+.kop-text-cell h1 { margin: 2px 0 0 0; font-size: 15px; font-weight: 900; text-transform: uppercase; color: #0f172a; letter-spacing: 0.4px; line-height: 1.2; }
+.kop-alamat { margin: 6px 0 0 0; font-size: 8px; color: #64748b; text-align: center; }
         
         /* ==========================================
-           INFO PANEL (INVOICE STYLE)
+           INFO PANEL
            ========================================== */
         .info-panel { 
             width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; 
@@ -57,7 +63,6 @@
         .font-bold { font-weight: bold; }
         .font-black { font-weight: 900; }
 
-        /* Badges */
         .badge { font-weight: 900; padding: 2px 5px; border-radius: 3px; font-size: 7px; text-transform: uppercase; letter-spacing: 0.3px; display: inline-block; }
         .badge-lulus { background-color: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
         .badge-gagal { background-color: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; }
@@ -67,7 +72,7 @@
            FOOTER & TTD
            ========================================== */
         .ttd-container { width: 100%; margin-top: 22px; page-break-inside: avoid; }
-        .ttd-box { width: 30%; float: right; text-align: center; font-size: 9px; color: #0f172a; }
+        .ttd-box { width: 32%; float: right; text-align: center; font-size: 9px; color: #0f172a; }
         .ttd-box p { margin: 0 0 3px 0; }
         .ttd-nama { font-weight: 900; text-decoration: underline; margin-top: 48px; font-size: 10px;}
         .clear { clear: both; }
@@ -76,11 +81,23 @@
     </style>
 </head>
 <body>
+    <!-- KOP SURAT DINAMIS + LOGO -->
     <div class="header-container">
-        <h2>KEMENTERIAN HUKUM REPUBLIK INDONESIA</h2>
-        <h1>KANTOR WILAYAH SULAWESI TENGAH</h1>
-        <p>Jalan Dewi Sartika No. 74, Kota Palu, Sulawesi Tengah 94114 | Laman: silakum.kemenkumsulteng.cloud</p>
-    </div>
+    <table class="kop-table">
+        <tr>
+            @if($logoBase64)
+                <td class="kop-logo-cell">
+                    <img src="{{ $logoBase64 }}" alt="Logo Instansi" class="kop-logo-img">
+                </td>
+            @endif
+            <td class="kop-text-cell">
+                <h2>{{ $pdfSetting->instansi_baris_1 }}</h2>
+                <h1>{{ $pdfSetting->instansi_baris_2 }}</h1>
+            </td>
+        </tr>
+    </table>
+    <p class="kop-alamat">{{ $pdfSetting->alamat_kop }}</p>
+</div>
 
     <!-- INFO PANEL -->
     <div class="info-panel">
@@ -185,19 +202,22 @@
         </tbody>
     </table>
 
+    <!-- TANDA TANGAN DINAMIS -->
     <div class="ttd-container">
         <div class="ttd-box">
-            <p>Palu, {{ $tanggal_cetak }}</p>
-            <p style="font-weight: bold;">Kepala Kantor Wilayah,</p>
+            <p>{{ $pdfSetting->kota_ttd }}, {{ $tanggal_cetak }}</p>
+            <p style="font-weight: bold;">{{ $pdfSetting->jabatan_ttd }}</p>
             <br><br><br><br>
-            <p class="ttd-nama">Rakhmat Renaldy, S.H., M.H.</p>
-            <p>NIP. 197310101996031001</p>
+            <p class="ttd-nama">{{ $pdfSetting->nama_pejabat }}</p>
+            <p>NIP. {{ $pdfSetting->nip_pejabat }}</p>
         </div>
         <div class="clear"></div>
     </div>
     
+    @if(!empty($pdfSetting->catatan_kaki))
     <div class="footer-note">
-        * Dokumen dicetak secara otomatis dari Sistem Informasi Realisasi Anggaran (SIRA) 2.0 (Skala 65 Poin). Tidak memerlukan cap basah.
+        * {{ $pdfSetting->catatan_kaki }}
     </div>
+    @endif
 </body>
 </html>

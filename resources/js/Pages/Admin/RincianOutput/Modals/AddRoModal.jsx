@@ -13,7 +13,6 @@ import {
     Building2,
     Loader2,
     Wallet,
-    Info,
 } from "lucide-react";
 
 export default function AddRoModal({
@@ -23,7 +22,6 @@ export default function AddRoModal({
     tahun,
     authUser,
     daftarSatker,
-    satkerSummary,
 }) {
     const [mounted, setMounted] = useState(false);
     const [formData, setFormData] = useState({
@@ -37,7 +35,6 @@ export default function AddRoModal({
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
-    // State untuk menampung total pagu dan total RO yang sudah terdaftar
     const [satkerPaguInfo, setSatkerPaguInfo] = useState({
         totalPagu: 0,
         teralokasi: 0,
@@ -45,65 +42,42 @@ export default function AddRoModal({
 
     useEffect(() => {
         setMounted(true);
-        if (isOpen) document.body.style.overflow = "hidden";
-        else document.body.style.overflow = "unset";
+        document.body.style.overflow = "hidden";
         return () => {
             document.body.style.overflow = "unset";
         };
     }, []);
 
-    const isOpen = true;
-
-    // 🔥 AMBIL INFORMASI PAGU & ALOKASI RO SAAT SATKER DIPILIH
+    // Ambil informasi pagu efektif satker dari summary (tanpa terpotong paginasi) & total alokasi RO lain
     useEffect(() => {
         if (formData.satker_id && tahun) {
-            axios
-                .get(`/api/rincian-output`, {
-                    params: { satker_id: formData.satker_id, tahun: tahun },
-                })
-                .then((res) => {
-                    const roList = res.data.data || [];
-                    // Hitung total pagu yang sudah teralokasi ke RO lain
+            Promise.all([
+                axios.get(`/api/rincian-output`, {
+                    params: { satker_id: formData.satker_id, tahun },
+                }),
+                axios.get(`/api/transaksi/summary?tahun=${tahun}`),
+            ])
+                .then(([roRes, sumRes]) => {
+                    const roList = roRes.data?.data || [];
                     const totalTeralokasi = roList.reduce(
                         (sum, item) => sum + Number(item.pagu_anggaran || 0),
                         0,
                     );
+                    const satkerSum =
+                        sumRes.data?.data?.per_satker?.[formData.satker_id];
+                    const paguEfektifSatker = Number(
+                        satkerSum?.pagu_efektif || 0,
+                    );
 
-                    // Ambil data pagu efektif satker dari ringkasan atau endpoint anggaran
-                    axios
-                        .get(`/api/anggaran?tahun=${tahun}`)
-                        .then((angRes) => {
-                            // Cari pagu satker yang bersangkutan
-                            const listAnggaran =
-                                angRes.data.data || angRes.data;
-                            // Sesuaikan dengan struktur endpoint anggaran Anda, atau ambil dari satkerSummary jika ada
-                            const targetAnggaran = Array.isArray(listAnggaran)
-                                ? listAnggaran.find(
-                                      (a) =>
-                                          a.satker_id.toString() ===
-                                          formData.satker_id.toString(),
-                                  )
-                                : null;
-
-                            const paguEfektifSatker = targetAnggaran
-                                ? Number(targetAnggaran.pagu_efektif || 0)
-                                : 0;
-
-                            setSatkerPaguInfo({
-                                totalPagu: paguEfektifSatker,
-                                teralokasi: totalTeralokasi,
-                            });
-                        })
-                        .catch(() => {
-                            setSatkerPaguInfo({
-                                totalPagu: 0,
-                                teralokasi: totalTeralokasi,
-                            });
-                        });
+                    setSatkerPaguInfo({
+                        totalPagu: paguEfektifSatker,
+                        teralokasi: totalTeralokasi,
+                    });
                 })
-                .catch((err) =>
-                    console.error("Gagal menghitung alokasi RO:", err),
-                );
+                .catch((err) => {
+                    console.error("Gagal menghitung alokasi RO:", err);
+                    setSatkerPaguInfo({ totalPagu: 0, teralokasi: 0 });
+                });
         } else {
             setSatkerPaguInfo({ totalPagu: 0, teralokasi: 0 });
         }
@@ -137,10 +111,8 @@ export default function AddRoModal({
         setLoading(true);
         setErrorMsg("");
 
-        const payload = { ...formData, tahun: tahun };
-
         axios
-            .post("/api/rincian-output", payload)
+            .post("/api/rincian-output", { ...formData, tahun })
             .then((res) => onSuccess(res.data.message))
             .catch((err) => {
                 setErrorMsg(
@@ -167,14 +139,15 @@ export default function AddRoModal({
                             <h3 className="text-2xl font-black text-slate-900 tracking-tight">
                                 Setup Target RO
                             </h3>
-                            <p className="text-sm font-medium text-slate-500 mt-0.5 uppercase tracking-widest">
+                            <p className="text-xs font-bold text-slate-500 mt-0.5 uppercase tracking-widest">
                                 Tahun Anggaran {tahun}
                             </p>
                         </div>
                     </div>
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors outline-none"
+                        className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors outline-none cursor-pointer"
                     >
                         <X size={20} strokeWidth={2.5} />
                     </button>
@@ -182,7 +155,7 @@ export default function AddRoModal({
 
                 <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar flex-1 relative z-10">
                     {errorMsg && (
-                        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 shadow-sm animate-in slide-in-from-top-2">
+                        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 shadow-sm">
                             <AlertTriangle
                                 size={20}
                                 className="text-rose-500 mt-0.5 shrink-0"
@@ -193,20 +166,19 @@ export default function AddRoModal({
                         </div>
                     )}
 
-                    {/* 🔥 SECTION INFORMASI SISA PAGU SATKER (HUD) */}
                     {formData.satker_id && satkerPaguInfo.totalPagu > 0 && (
                         <div className="mb-6 p-5 bg-gradient-to-br from-slate-900 to-[#0A192F] text-white rounded-[2rem] shadow-md border border-slate-800 relative overflow-hidden">
                             <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
                             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-3">
-                                <Wallet size={14} /> Ringkasan Pagu Satker &
+                                <Wallet size={14} /> Ringkasan Pagu Satker &amp;
                                 Alokasi RO
                             </div>
                             <div className="grid grid-cols-2 gap-4 border-t border-slate-800 pt-3">
                                 <div>
                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                                        Total Pagu Dipa
+                                        Total Pagu Efektif
                                     </span>
-                                    <p className="text-sm font-black text-white">
+                                    <p className="text-sm font-black text-white tabular-nums">
                                         {formatCurrency(
                                             satkerPaguInfo.totalPagu,
                                         )}
@@ -214,9 +186,9 @@ export default function AddRoModal({
                                 </div>
                                 <div>
                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                                        Sudah Teralokasi RO Lain
+                                        Teralokasi RO Lain
                                     </span>
-                                    <p className="text-sm font-black text-amber-400">
+                                    <p className="text-sm font-black text-amber-400 tabular-nums">
                                         {formatCurrency(
                                             satkerPaguInfo.teralokasi,
                                         )}
@@ -228,7 +200,11 @@ export default function AddRoModal({
                                     Sisa Pagu Bisa Dibagi:
                                 </span>
                                 <span
-                                    className={`text-base font-black font-mono ${sisaPaguSatker < 0 ? "text-rose-400 animate-pulse" : "text-emerald-400"}`}
+                                    className={`text-base font-black font-mono tabular-nums ${
+                                        sisaPaguSatker < 0
+                                            ? "text-rose-400 animate-pulse"
+                                            : "text-emerald-400"
+                                    }`}
                                 >
                                     {formatCurrency(sisaPaguSatker)}
                                 </span>
@@ -242,7 +218,7 @@ export default function AddRoModal({
                         className="space-y-6"
                     >
                         {authUser?.role === "admin" && (
-                            <div className="p-5 bg-slate-50/80 border border-slate-200/60 rounded-[2rem] shadow-inner mb-2">
+                            <div className="p-5 bg-slate-50/80 border border-slate-200/60 rounded-[2rem] shadow-inner">
                                 <label className="flex items-center gap-1.5 text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1">
                                     <Building2
                                         size={14}
@@ -283,7 +259,7 @@ export default function AddRoModal({
                                     placeholder="Misal: 4258.EBA.962"
                                     value={formData.kode_ro}
                                     onChange={handleChange}
-                                    className="w-full px-5 py-3.5 bg-white/90 backdrop-blur border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:font-normal"
+                                    className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:font-normal"
                                 />
                             </div>
                             <div>
@@ -298,10 +274,10 @@ export default function AddRoModal({
                                     required
                                     type="text"
                                     name="satuan"
-                                    placeholder="Misal: Layanan / Orang"
+                                    placeholder="Misal: Layanan / Dokumen"
                                     value={formData.satuan}
                                     onChange={handleChange}
-                                    className="w-full px-5 py-3.5 bg-white/90 backdrop-blur border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:font-normal"
+                                    className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:font-normal"
                                 />
                             </div>
                         </div>
@@ -318,10 +294,10 @@ export default function AddRoModal({
                                 required
                                 type="text"
                                 name="nama_ro"
-                                placeholder="Misal: Pembinaan Narapidana"
+                                placeholder="Misal: Layanan Perkantoran & Dukungan Manajemen"
                                 value={formData.nama_ro}
                                 onChange={handleChange}
-                                className="w-full px-5 py-3.5 bg-white/90 backdrop-blur border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:font-normal"
+                                className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:font-normal"
                             />
                         </div>
 
@@ -340,7 +316,7 @@ export default function AddRoModal({
                                     step="0.01"
                                     min="0.01"
                                     name="target_volume"
-                                    placeholder="Contoh: 50.5"
+                                    placeholder="Contoh: 12"
                                     value={formData.target_volume}
                                     onChange={handleChange}
                                     className="w-full px-5 py-3.5 bg-white border border-indigo-200 rounded-2xl text-lg font-black text-indigo-700 shadow-sm focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all placeholder:font-normal"
@@ -367,10 +343,14 @@ export default function AddRoModal({
                                     placeholder="Contoh: 150000000"
                                     value={formData.pagu_anggaran}
                                     onChange={handleChange}
-                                    className={`w-full px-5 py-3.5 bg-white border rounded-2xl text-lg font-black shadow-sm focus:ring-4 outline-none transition-all placeholder:font-normal ${isExceeding ? "border-rose-300 text-rose-600 focus:ring-rose-500/20" : "border-emerald-200 text-emerald-700 focus:ring-emerald-500/20"}`}
+                                    className={`w-full px-5 py-3.5 bg-white border rounded-2xl text-lg font-black shadow-sm focus:ring-4 outline-none transition-all placeholder:font-normal ${
+                                        isExceeding
+                                            ? "border-rose-300 text-rose-600 focus:ring-rose-500/20"
+                                            : "border-emerald-200 text-emerald-700 focus:ring-emerald-500/20"
+                                    }`}
                                 />
                                 {isExceeding && (
-                                    <p className="text-[9px] font-bold text-rose-500 mt-1.5 ml-1">
+                                    <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1">
                                         Melebihi sisa pagu efektif!
                                     </p>
                                 )}
@@ -384,7 +364,7 @@ export default function AddRoModal({
                         type="button"
                         onClick={onClose}
                         disabled={loading}
-                        className="px-6 py-3.5 rounded-2xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors outline-none"
+                        className="px-6 py-3.5 rounded-2xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors outline-none cursor-pointer"
                     >
                         Batal
                     </button>
@@ -392,7 +372,11 @@ export default function AddRoModal({
                         type="submit"
                         form="form-add-ro"
                         disabled={loading || isExceeding}
-                        className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl font-bold text-white transition-all duration-300 outline-none ${loading || isExceeding ? "bg-slate-400 cursor-not-allowed shadow-none" : "bg-gradient-to-br from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 shadow-[0_8px_16px_rgba(79,70,229,0.25)] hover:shadow-[0_8px_20px_rgba(79,70,229,0.4)] hover:-translate-y-0.5"}`}
+                        className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl font-bold text-white transition-all duration-300 outline-none cursor-pointer ${
+                            loading || isExceeding
+                                ? "bg-slate-400 cursor-not-allowed shadow-none"
+                                : "bg-gradient-to-br from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 shadow-[0_8px_16px_rgba(79,70,229,0.25)] hover:-translate-y-0.5"
+                        }`}
                     >
                         {loading ? (
                             <Loader2 className="w-5 h-5 animate-spin" />

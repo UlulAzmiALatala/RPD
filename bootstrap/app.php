@@ -3,7 +3,8 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Http\Middleware\RoleMiddleware; // <-- Import Middleware Role
+use App\Http\Middleware\RoleMiddleware;
+use App\Http\Middleware\EnsureUserIsActive;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,18 +16,19 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
 
-        // 1. INI KUNCI JAWABANNYA! (Mengizinkan API menerima Cookie Sanctum dari React SPA)
+        // 1. Mengizinkan API menerima Cookie Sanctum dari React SPA
         $middleware->statefulApi();
 
-        // 2. Mematikan CSRF di route API lama kamu
+        // 2. Pengecualian CSRF pada route API lama
         $middleware->validateCsrfTokens(except: [
             'api/transaksi/*',
             'api/anggaran/*',
         ]);
 
-        // 3. Daftarkan alias untuk middleware role kita
+        // 3. Daftarkan alias middleware role & status aktif akun
         $middleware->alias([
             'role' => RoleMiddleware::class,
+            'active' => EnsureUserIsActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

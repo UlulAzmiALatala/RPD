@@ -303,6 +303,92 @@ class TransaksiController extends Controller
         }
     }
 
+    // 🔥 VERIFIKASI MASSAL RPD (BULK APPROVAL / REJECTION)
+    public function bulkApproveRpd(Request $request)
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        $validator = Validator::make($request->all(), [
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'required|integer',
+            'status' => 'required|in:approved,rejected',
+            'catatan_revisi' => 'required_if:status,rejected|nullable|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
+        }
+
+        $items = RencanaPenarikan::with('satker')->whereIn('id', $request->ids)->get();
+        if ($items->isEmpty()) {
+            return response()->json(['status' => 'error', 'message' => 'Tidak ada data RPD valid yang ditemukan.'], 404);
+        }
+
+        foreach ($items as $item) {
+            $tanggalTransaksi = sprintf('%04d-%02d-01', $item->tahun, $item->bulan);
+            $this->validateCutOff($tanggalTransaksi, $user->isAdmin());
+        }
+
+        DB::beginTransaction();
+        try {
+            $statusBaru = $request->status;
+            $catatan = $statusBaru === 'rejected' ? trim($request->catatan_revisi) : null;
+
+            foreach ($items as $item) {
+                $item->update([
+                    'status' => $statusBaru,
+                    'catatan_revisi' => $catatan,
+                ]);
+            }
+
+            // Kirim 1 notifikasi ringkasan per Satker (anti spam)
+            $groupedBySatker = $items->groupBy('satker_id');
+            foreach ($groupedBySatker as $satkerItems) {
+                $satker = $satkerItems->first()->satker;
+                if (!$satker) continue;
+
+                $userSatker = User::where('kode_satker', $satker->kode_satker)->get();
+                if ($userSatker->isEmpty()) continue;
+
+                $bulanList = $satkerItems->pluck('bulan')->sort()->implode(', ');
+                $jumlah = $satkerItems->count();
+
+                $title = $statusBaru === 'approved'
+                    ? "Verifikasi Massal: {$jumlah} RPD Disetujui ✅"
+                    : "Verifikasi Massal: {$jumlah} RPD Ditolak ❌";
+                $tipeNotif = $statusBaru === 'approved' ? 'success' : 'danger';
+                $pesan = $statusBaru === 'approved'
+                    ? "Sebanyak {$jumlah} pengajuan RPD (Bulan: {$bulanList}) telah disetujui sekaligus oleh Pusat."
+                    : "Sebanyak {$jumlah} pengajuan RPD (Bulan: {$bulanList}) ditolak oleh Pusat. Catatan: {$catatan}";
+
+                Notification::send($userSatker, new TransaksiNotification($title, $pesan, $tipeNotif));
+            }
+
+            $aksiLog = $statusBaru === 'approved' ? 'MENGESAHKAN MASSAL' : 'MENOLAK MASSAL';
+            $jumlahTotal = $items->count();
+            $namaSatkers = $items->pluck('satker.nama_satker')->filter()->unique()->implode(', ');
+
+            ActivityLog::record(
+                'UPDATE',
+                'VERIFIKASI MASSAL RPD',
+                "Otoritas Pusat {$aksiLog} {$jumlahTotal} data RPD milik: {$namaSatkers}."
+            );
+
+            DB::commit();
+            return response()->json([
+                'status' => 'success',
+                'message' => $statusBaru === 'approved'
+                    ? "{$jumlahTotal} data RPD berhasil disetujui secara massal!"
+                    : "{$jumlahTotal} data RPD berhasil ditolak secara massal.",
+                'processed_count' => $jumlahTotal,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => 'Verifikasi massal RPD gagal: ' . $e->getMessage()], 500);
+        }
+    }
+
     // =====================================================================
     // 🧾 BAGIAN REALISASI PENGELUARAN (INTEGRASI RO FISIK)
     // =====================================================================
@@ -610,6 +696,91 @@ class TransaksiController extends Controller
         }
     }
 
+    // 🔥 VERIFIKASI MASSAL REALISASI (BULK APPROVAL / REJECTION)
+    public function bulkApproveRealisasi(Request $request)
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        $validator = Validator::make($request->all(), [
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'required|integer',
+            'status' => 'required|in:approved,rejected',
+            'catatan_revisi' => 'required_if:status,rejected|nullable|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
+        }
+
+        $items = Realisasi::with('satker')->whereIn('id', $request->ids)->get();
+        if ($items->isEmpty()) {
+            return response()->json(['status' => 'error', 'message' => 'Tidak ada data Realisasi valid yang ditemukan.'], 404);
+        }
+
+        foreach ($items as $item) {
+            $tanggalTransaksi = sprintf('%04d-%02d-01', $item->tahun, $item->bulan);
+            $this->validateCutOff($tanggalTransaksi, $user->isAdmin());
+        }
+
+        DB::beginTransaction();
+        try {
+            $statusBaru = $request->status;
+            $catatan = $statusBaru === 'rejected' ? trim($request->catatan_revisi) : null;
+
+            foreach ($items as $item) {
+                $item->update([
+                    'status' => $statusBaru,
+                    'catatan_revisi' => $catatan,
+                ]);
+            }
+
+            $groupedBySatker = $items->groupBy('satker_id');
+            foreach ($groupedBySatker as $satkerItems) {
+                $satker = $satkerItems->first()->satker;
+                if (!$satker) continue;
+
+                $userSatker = User::where('kode_satker', $satker->kode_satker)->get();
+                if ($userSatker->isEmpty()) continue;
+
+                $bulanList = $satkerItems->pluck('bulan')->sort()->implode(', ');
+                $jumlah = $satkerItems->count();
+
+                $title = $statusBaru === 'approved'
+                    ? "Verifikasi Massal: {$jumlah} Realisasi Disetujui ✅"
+                    : "Verifikasi Massal: {$jumlah} Realisasi Ditolak ❌";
+                $tipeNotif = $statusBaru === 'approved' ? 'success' : 'danger';
+                $pesan = $statusBaru === 'approved'
+                    ? "Sebanyak {$jumlah} laporan Realisasi (Bulan: {$bulanList}) telah disetujui sekaligus oleh Pusat."
+                    : "Sebanyak {$jumlah} laporan Realisasi (Bulan: {$bulanList}) ditolak oleh Pusat. Catatan: {$catatan}";
+
+                Notification::send($userSatker, new TransaksiNotification($title, $pesan, $tipeNotif));
+            }
+
+            $aksiLog = $statusBaru === 'approved' ? 'MENGESAHKAN MASSAL' : 'MENOLAK MASSAL';
+            $jumlahTotal = $items->count();
+            $namaSatkers = $items->pluck('satker.nama_satker')->filter()->unique()->implode(', ');
+
+            ActivityLog::record(
+                'UPDATE',
+                'VERIFIKASI MASSAL REALISASI',
+                "Otoritas Pusat {$aksiLog} {$jumlahTotal} data Realisasi milik: {$namaSatkers}."
+            );
+
+            DB::commit();
+            return response()->json([
+                'status' => 'success',
+                'message' => $statusBaru === 'approved'
+                    ? "{$jumlahTotal} data Realisasi berhasil disetujui secara massal!"
+                    : "{$jumlahTotal} data Realisasi berhasil ditolak secara massal.",
+                'processed_count' => $jumlahTotal,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => 'Verifikasi massal Realisasi gagal: ' . $e->getMessage()], 500);
+        }
+    }
+
     // =====================================================================
     // 📥 SMART EXCEL IMPORTER (FASE 3 — RPD & REALISASI MASSAL)
     // =====================================================================
@@ -643,7 +814,6 @@ class TransaksiController extends Controller
         $mode = $request->input('mode', 'skip');
         $isSetjen = $this->isSetjen($satkerId);
 
-        // Validasi Cut-Off dan aturan Setjen sebelum membuka transaksi DB
         foreach ($request->rows as $row) {
             $bulan = (int) $row['bulan'];
             $tanggalTransaksi = sprintf('%04d-%02d-01', $tahun, $bulan);
@@ -765,10 +935,8 @@ class TransaksiController extends Controller
         $mode = $request->input('mode', 'skip');
         $isSetjen = $this->isSetjen($satkerId);
 
-        // Kelompokkan baris Excel berdasarkan bulan
         $groupedByMonth = collect($request->rows)->groupBy(fn($r) => (int) $r['bulan']);
 
-        // Validasi Cut-Off dan aturan Setjen sebelum membuka transaksi DB
         foreach ($groupedByMonth as $bulan => $items) {
             $tanggalTransaksi = sprintf('%04d-%02d-01', $tahun, $bulan);
             $this->validateCutOff($tanggalTransaksi, $user->isAdmin());
@@ -783,7 +951,6 @@ class TransaksiController extends Controller
             }
         }
 
-        // Peta Kode RO -> ID RO untuk auto-linking keterlacakan fisik
         $roMap = RincianOutput::where('satker_id', $satkerId)
             ->where('tahun', $tahun)
             ->get()

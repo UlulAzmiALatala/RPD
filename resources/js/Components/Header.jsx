@@ -28,6 +28,7 @@ const ROUTE_TITLES = {
     "/dashboard/laporan-bulanan": "Leaderboard Nasional",
     "/dashboard/manajemen-user": "Manajemen Pengguna",
     "/dashboard/tutup-buku": "Periode & Cut-Off",
+    "/dashboard/pengaturan-pdf": "Kop & TTD PDF",
     "/dashboard/log-aktivitas": "Audit Trail (CCTV)",
     "/dashboard/profil": "Pengaturan Profil",
 };
@@ -237,12 +238,9 @@ export default function Header({
                 .dropdown-pop { animation: dropdownPop 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
             `}</style>
 
-            {/* PENTING: overflow-visible agar Dropdown Notifikasi & Profil TIDAK terpotong */}
             <header className="sticky top-0 z-40 flex justify-between items-center py-3 px-4 sm:px-8 bg-white/80 backdrop-blur-2xl border-b border-slate-200/75 shadow-[0_12px_35px_-12px_rgba(15,23,42,0.08)] h-24 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] overflow-visible">
-                {/* Garis Cahaya Bawah Header */}
                 <div className="absolute bottom-0 left-0 w-full h-[1.5px] bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent pointer-events-none"></div>
 
-                {/* Background Komet Halus (Terisolasi dengan overflow-hidden sendiri) */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
                     <div className="absolute top-1/2 -translate-y-1/2 w-full animate-[lintas-elegan_32s_linear_infinite] will-change-transform">
                         <div className="relative flex items-center w-full max-w-[500px] opacity-55">
@@ -262,9 +260,7 @@ export default function Header({
                     </div>
                 </div>
 
-                {/* =========================================================================
-                    KIRI: TOMBOL TOGGLE SIDEBAR & CONTEXTUAL BRANDING
-                ========================================================================= */}
+                {/* KIRI */}
                 <div className="flex items-center gap-x-3.5 sm:gap-x-5 relative z-20 min-w-0">
                     <button
                         type="button"
@@ -304,11 +300,8 @@ export default function Header({
                     </div>
                 </div>
 
-                {/* =========================================================================
-                    KANAN: BADGE TA, LONCENG NOTIFIKASI, & PROFIL EKSEKUTIF
-                ========================================================================= */}
+                {/* KANAN */}
                 <div className="flex items-center gap-x-2.5 sm:gap-x-3.5 relative z-20 shrink-0">
-                    {/* TAHUN ANGGARAN BADGE */}
                     <div className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-[#0B1120] to-indigo-950 text-white px-4 py-2.5 rounded-2xl border border-indigo-500/30 shadow-[0_8px_20px_-6px_rgba(15,23,42,0.45)]">
                         <Calendar size={14} className="text-amber-400" />
                         <span className="text-[11px] font-black tracking-[0.14em] uppercase">
@@ -357,10 +350,8 @@ export default function Header({
                             )}
                         </button>
 
-                        {/* PANEL NOTIFIKASI DROPDOWN */}
                         {isNotifOpen && (
                             <div className="dropdown-pop absolute right-0 top-full mt-3 w-[320px] sm:w-[420px] bg-white rounded-[2rem] shadow-[0_25px_70px_-15px_rgba(15,23,42,0.28)] border border-slate-200/80 overflow-hidden z-[60]">
-                                {/* Header Panel Notif */}
                                 <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-br from-[#0B1120] via-slate-900 to-indigo-950 text-white relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-36 h-36 bg-indigo-500/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
                                     <div className="flex justify-between items-center relative z-10">
@@ -397,7 +388,6 @@ export default function Header({
                                         )}
                                     </div>
 
-                                    {/* Filter Mini */}
                                     <div className="flex gap-2 mt-4 relative z-10">
                                         <button
                                             type="button"
@@ -428,7 +418,6 @@ export default function Header({
                                     </div>
                                 </div>
 
-                                {/* List Notifikasi */}
                                 <div className="max-h-[380px] overflow-y-auto custom-scrollbar bg-white">
                                     {filteredNotifications.length === 0 ? (
                                         <div className="py-14 flex flex-col items-center justify-center text-center px-8">
@@ -519,7 +508,7 @@ export default function Header({
                         )}
                     </div>
 
-                    {/* PROFIL DROPDOWN EKSEKUTIF */}
+                    {/* PROFIL DROPDOWN */}
                     <div className="relative" ref={dropdownRef}>
                         <button
                             type="button"
@@ -570,10 +559,8 @@ export default function Header({
                             />
                         </button>
 
-                        {/* PANEL PROFIL DROPDOWN */}
                         {profileOpen && (
                             <div className="dropdown-pop absolute right-0 top-full mt-3 w-72 sm:w-80 bg-white rounded-[2rem] shadow-[0_25px_70px_-15px_rgba(15,23,42,0.28)] overflow-hidden z-[60] border border-slate-200/80">
-                                {/* Obsidian Header Card */}
                                 <div className="px-6 py-6 bg-gradient-to-br from-[#0B1120] via-slate-900 to-indigo-950 text-white relative overflow-hidden">
                                     <div className="absolute -top-10 -right-10 w-36 h-36 bg-amber-400/15 rounded-full blur-2xl pointer-events-none"></div>
                                     <div className="flex items-center gap-3.5 relative z-10">
@@ -617,7 +604,6 @@ export default function Header({
                                     </div>
                                 </div>
 
-                                {/* Actions */}
                                 <div className="p-3 space-y-1 bg-white">
                                     <Link
                                         to="/dashboard/profil"
@@ -630,7 +616,7 @@ export default function Header({
                                         <div className="flex flex-col">
                                             <span>Profil Saya</span>
                                             <span className="text-[10px] font-semibold normal-case tracking-normal text-slate-400">
-                                                Ubah akun, password & avatar
+                                                Ubah akun, password &amp; avatar
                                             </span>
                                         </div>
                                     </Link>

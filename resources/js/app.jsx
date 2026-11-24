@@ -16,7 +16,7 @@ import IndexAnggaran from "./Pages/Admin/Anggaran/Index";
 import LaporanRealisasi from "./Pages/Admin/Laporan/LaporanRealisasi";
 import LaporanBulanan from "./Pages/Admin/Laporan/LaporanBulanan";
 
-// 🔥 Import Page Capaian Output (RO) 🔥
+// Import Page Capaian Output (RO)
 import RincianOutputIndex from "./Pages/Admin/RincianOutput/Index";
 
 // Import Page Manajemen User
@@ -31,6 +31,9 @@ import IndexLogAktivitas from "./Pages/Admin/LogAktivitas/Index";
 // Import Page Tutup Buku
 import IndexTutupBuku from "./Pages/Admin/TutupBuku/Index";
 
+// Import Page Pengaturan Kop & TTD PDF Dinamis
+import IndexPengaturanPdf from "./Pages/Admin/PengaturanPdf/Index";
+
 const rootElement = document.getElementById("app");
 if (rootElement) {
     const root = createRoot(rootElement);
@@ -43,7 +46,6 @@ if (rootElement) {
                 <Route path="/register" element={<Register />} />
 
                 {/* --- DASHBOARD ROUTES --- */}
-                {/* Route ini mengarah ke DashboardIndex (Polisi Lalu Lintas) */}
                 <Route path="/dashboard" element={<DashboardIndex />} />
 
                 <Route
@@ -54,8 +56,6 @@ if (rootElement) {
                     path="/dashboard/input-transaksi"
                     element={<IndexTransaksi />}
                 />
-
-                {/* 🔥 Route Halaman Rincian Output (RO) DIUBAH MENJADI input-ro 🔥 */}
                 <Route
                     path="/dashboard/input-ro"
                     element={<RincianOutputIndex />}
@@ -74,30 +74,25 @@ if (rootElement) {
                     path="/dashboard/tutup-buku"
                     element={<IndexTutupBuku />}
                 />
-
-                {/* Route Manajemen User */}
                 <Route
                     path="/dashboard/manajemen-user"
                     element={<IndexUser />}
                 />
-
-                {/* Route Profil Saya */}
+                <Route
+                    path="/dashboard/pengaturan-pdf"
+                    element={<IndexPengaturanPdf />}
+                />
                 <Route path="/dashboard/profil" element={<Profil />} />
-
-                {/* Route Log Aktivitas */}
                 <Route
                     path="/dashboard/log-aktivitas"
                     element={<IndexLogAktivitas />}
                 />
 
                 {/* --- REDIRECTS --- */}
-                {/* Jika buka root domain, arahkan ke dashboard (nanti dicek auth-nya) */}
                 <Route
                     path="/"
                     element={<Navigate to="/dashboard" replace />}
                 />
-
-                {/* Jika URL ngawur, arahkan ke login */}
                 <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
         </BrowserRouter>,

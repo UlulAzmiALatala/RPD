@@ -1,12 +1,13 @@
+@php
+    $pdfSetting = \App\Models\PdfSetting::current();
+    $logoBase64 = $pdfSetting->getLogoBase64();
+@endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <title>Executive Summary - Dashboard SIRA</title>
     <style>
-        /* ==========================================
-           PREMIUM PRINT SETTINGS & TYPOGRAPHY
-           ========================================== */
         @page { size: A4 portrait; margin: 14mm; }
         body { 
             font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif; 
@@ -17,13 +18,17 @@
         }
         
         /* ==========================================
-           KOP SURAT & HEADER
+           KOP SURAT DINAMIS + LOGO (DOMPDF SAFE)
            ========================================== */
-        .header-container { width: 100%; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 16px; display: table; }
-        .header-text { display: table-cell; width: 100%; text-align: center; vertical-align: middle; }
-        .header-text h1 { margin: 0; font-size: 17px; font-weight: 900; text-transform: uppercase; color: #0f172a; letter-spacing: 0.5px; }
-        .header-text h2 { margin: 2px 0 0 0; font-size: 11px; font-weight: bold; color: #475569; letter-spacing: 1px; }
-        .header-text p { margin: 4px 0 0 0; font-size: 8px; color: #64748b; }
+        .header-container { width: 100%; border-bottom: 2.5px solid #0f172a; padding-bottom: 8px; margin-bottom: 14px; text-align: center; }
+table.kop-table { width: auto !important; margin: 0 auto !important; border-collapse: collapse; border: none !important; }
+table.kop-table td { border: none !important; padding: 0 !important; vertical-align: middle; background: transparent !important; }
+.kop-logo-cell { width: auto; padding-right: 12px !important; text-align: right !important; }
+.kop-logo-img { max-width: 40px; max-height: 40px; width: auto; height: auto; display: block; }
+.kop-text-cell { text-align: center !important; padding: 0 !important; }
+.kop-text-cell h2 { margin: 0; font-size: 10.5px; font-weight: bold; color: #475569; letter-spacing: 0.8px; text-transform: uppercase; line-height: 1.25; }
+.kop-text-cell h1 { margin: 2px 0 0 0; font-size: 15px; font-weight: 900; text-transform: uppercase; color: #0f172a; letter-spacing: 0.4px; line-height: 1.2; }
+.kop-alamat { margin: 6px 0 0 0; font-size: 8px; color: #64748b; text-align: center; }
         
         .judul-laporan { text-align: center; margin-bottom: 18px; background-color: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
         .judul-laporan h3 { margin: 0; font-size: 13px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: 1px; }
@@ -73,7 +78,7 @@
         .badge-gagal { background-color: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; }
         .badge-na { background-color: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
 
-        /* Breakdown Perhitungan Poin (Invoice Style) */
+        /* Breakdown Perhitungan Poin */
         .box-poin { width: 100%; background-color: #ffffff; padding: 4px; font-size: 8.5px; box-sizing: border-box; }
         .box-poin table { width: 100%; border-collapse: collapse; margin: 0; }
         .box-poin th, .box-poin td { padding: 2.5px 5px; text-align: left; border: none; }
@@ -82,7 +87,6 @@
         .box-poin .poin-multiplier { padding-left: 10px; font-style: italic; color: #64748b; font-size: 7.5px; }
         .box-poin .poin-total { border-top: 2px solid #0f172a; font-weight: 900; font-size: 10px; color: #0f172a; padding-top: 6px; margin-top: 3px; }
 
-        /* Tata Kelola Table */
         .tk-table th { background-color: #0f766e; color: #ffffff; border-color: #0f766e; }
 
         /* ==========================================
@@ -112,23 +116,32 @@
            FOOTER & TTD
            ========================================== */
         .ttd-container { width: 100%; margin-top: 28px; page-break-inside: avoid; }
-        .ttd-box { width: 36%; float: right; text-align: center; font-size: 9.5px; color: #0f172a; }
+        .ttd-box { width: 38%; float: right; text-align: center; font-size: 9.5px; color: #0f172a; }
         .ttd-box p { margin: 0 0 3px 0; }
-        .ttd-nama { font-weight: 900; text-decoration: underline; margin-top: 60px; font-size: 10.5px; }
+        .ttd-nama { font-weight: 900; text-decoration: underline; margin-top: 58px; font-size: 10.5px; }
         .clear { clear: both; }
         
         .footer-note { margin-top: 25px; font-size: 7.5px; color: #94a3b8; text-align: left; font-style: italic; border-top: 1px dashed #cbd5e1; padding-top: 6px; }
     </style>
 </head>
 <body>
-    <!-- KOP SURAT -->
+    <!-- KOP SURAT DINAMIS + LOGO -->
     <div class="header-container">
-        <div class="header-text">
-            <h2>KEMENTERIAN HUKUM REPUBLIK INDONESIA</h2>
-            <h1>KANTOR WILAYAH SULAWESI TENGAH</h1>
-            <p>Jalan Dewi Sartika No. 74, Palu Selatan, Kota Palu, Sulawesi Tengah 94114 | Laman: silakum.kemenkumsulteng.cloud</p>
-        </div>
-    </div>
+    <table class="kop-table">
+        <tr>
+            @if($logoBase64)
+                <td class="kop-logo-cell">
+                    <img src="{{ $logoBase64 }}" alt="Logo Instansi" class="kop-logo-img">
+                </td>
+            @endif
+            <td class="kop-text-cell">
+                <h2>{{ $pdfSetting->instansi_baris_1 }}</h2>
+                <h1>{{ $pdfSetting->instansi_baris_2 }}</h1>
+            </td>
+        </tr>
+    </table>
+    <p class="kop-alamat">{{ $pdfSetting->alamat_kop }}</p>
+</div>
 
     <!-- JUDUL -->
     <div class="judul-laporan">
@@ -311,7 +324,7 @@
         </tbody>
     </table>
 
-    <!-- RINGKASAN INDEKS TATA KELOLA INTERNAL (FASE 2) -->
+    <!-- RINGKASAN INDEKS TATA KELOLA INTERNAL -->
     @if(!empty($tata_kelola))
     <div style="page-break-inside: avoid;">
         <div class="section-title">INDEKS TATA KELOLA INTERNAL KANWIL (OTOMATIS)</div>
@@ -433,20 +446,22 @@
     </div>
     @endif
 
-    <!-- TANDA TANGAN -->
+    <!-- TANDA TANGAN DINAMIS -->
     <div class="ttd-container">
         <div class="ttd-box">
-            <p>Palu, {{ $tanggal_cetak }}</p>
-            <p style="font-weight: bold;">Kepala Kantor Wilayah,</p>
+            <p>{{ $pdfSetting->kota_ttd }}, {{ $tanggal_cetak }}</p>
+            <p style="font-weight: bold;">{{ $pdfSetting->jabatan_ttd }}</p>
             <br><br><br><br>
-            <p class="ttd-nama">Rakhmat Renaldy, S.H., M.H.</p>
-            <p>NIP. 197310101996031001</p>
+            <p class="ttd-nama">{{ $pdfSetting->nama_pejabat }}</p>
+            <p>NIP. {{ $pdfSetting->nip_pejabat }}</p>
         </div>
         <div class="clear"></div>
     </div>
     
+    @if(!empty($pdfSetting->catatan_kaki))
     <div class="footer-note">
-        * Dokumen ini digenerate secara otomatis oleh Sistem Informasi Realisasi Anggaran (SIRA) versi 2.0 (Skala 65 Poin). Dicetak oleh: {{ $dicetak_oleh }}
+        * {{ $pdfSetting->catatan_kaki }} Dicetak oleh: {{ $dicetak_oleh }}
     </div>
+    @endif
 </body>
 </html>

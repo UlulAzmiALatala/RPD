@@ -16,6 +16,7 @@ import {
     Clock,
     ShieldCheck,
     Sparkles,
+    PenTool,
 } from "lucide-react";
 
 export default function Sidebar({
@@ -27,7 +28,6 @@ export default function Sidebar({
     const location = useLocation();
     const isAdmin = authUser?.role === "admin";
 
-    // Jam Digital Real-Time (WITA) untuk Quantum Telemetry Dock
     const [currentTime, setCurrentTime] = useState(new Date());
 
     useEffect(() => {
@@ -47,7 +47,6 @@ export default function Sidebar({
         year: "numeric",
     });
 
-    // Struktur Navigasi Berbasis Siklus Anggaran (Sinkron 65 Poin + Tata Kelola)
     const navGroups = [
         {
             id: "overview",
@@ -147,6 +146,16 @@ export default function Sidebar({
                     show: isAdmin,
                 },
                 {
+                    name: "Kop & TTD PDF",
+                    subtext: "Pejabat & Kop Dokumen",
+                    path: "/dashboard/pengaturan-pdf",
+                    icon: PenTool,
+                    badge: "PDF",
+                    badgeColor:
+                        "bg-rose-500/15 text-rose-300 border-rose-400/30",
+                    show: isAdmin,
+                },
+                {
                     name: "Audit Trail (CCTV)",
                     subtext: "Rekam Jejak Aktivitas",
                     path: "/dashboard/log-aktivitas",
@@ -171,13 +180,9 @@ export default function Sidebar({
             <div className="absolute -top-24 -left-24 w-72 h-72 bg-indigo-600/15 rounded-full blur-[110px] pointer-events-none"></div>
             <div className="absolute top-1/2 -right-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-[100px] pointer-events-none"></div>
             <div className="absolute -bottom-20 -left-16 w-64 h-64 bg-amber-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-
-            {/* GARIS CAHAYA KANAN BERKILAU */}
             <div className="absolute inset-y-0 right-0 w-[1px] bg-gradient-to-b from-amber-400/20 via-indigo-500/40 to-cyan-400/20 pointer-events-none"></div>
 
-            {/* =====================================================================
-                1. HEADER BRANDING (ROYAL GOLD CREST & HOLOGRAPHIC BADGE)
-            ===================================================================== */}
+            {/* 1. HEADER BRANDING */}
             <div className="h-24 px-3 border-b border-slate-800/80 flex items-center justify-center relative shrink-0 z-20 bg-[#040711]/70">
                 <div className="absolute bottom-0 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-amber-400/40 to-transparent"></div>
 
@@ -189,7 +194,6 @@ export default function Sidebar({
                             : "justify-center"
                     }`}
                 >
-                    {/* Metallic Crest Emblem */}
                     <div className="relative flex items-center justify-center shrink-0">
                         <div className="absolute -inset-1 bg-gradient-to-tr from-amber-400 via-orange-500 to-indigo-500 rounded-2xl blur-md opacity-45 group-hover:opacity-80 transition-opacity duration-500"></div>
                         <div className="relative w-11 h-11 p-[1.5px] rounded-2xl bg-gradient-to-br from-amber-200 via-amber-500 to-orange-700 shadow-[0_8px_24px_rgba(245,158,11,0.35)] group-hover:scale-105 transition-transform duration-300">
@@ -202,7 +206,6 @@ export default function Sidebar({
                         </div>
                     </div>
 
-                    {/* Brand Title */}
                     {sidebarOpen && (
                         <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
                             <div className="flex items-center gap-2">
@@ -221,9 +224,7 @@ export default function Sidebar({
                 </Link>
             </div>
 
-            {/* =====================================================================
-                2. NAVIGATION MENU (LUXURY GLASS CARDS & NEON LASER BAR)
-            ===================================================================== */}
+            {/* 2. NAVIGATION MENU */}
             <nav
                 className={`flex-1 py-5 overflow-y-auto custom-scrollbar space-y-6 relative z-10 ${
                     sidebarOpen ? "px-3.5" : "px-2"
@@ -237,7 +238,6 @@ export default function Sidebar({
 
                     return (
                         <div key={group.id} className="space-y-1.5">
-                            {/* Group Header */}
                             {sidebarOpen ? (
                                 <div className="px-3 mb-2.5 flex items-center gap-2">
                                     <span
@@ -252,7 +252,6 @@ export default function Sidebar({
                                 <div className="w-7 h-[1px] bg-gradient-to-r from-transparent via-slate-700 to-transparent mx-auto my-2.5"></div>
                             )}
 
-                            {/* Menu Items */}
                             {visibleItems.map((item) => {
                                 const IconComponent = item.icon;
                                 const isActive =
@@ -277,12 +276,10 @@ export default function Sidebar({
                                                 : "text-slate-400 border border-transparent hover:bg-white/[0.04] hover:text-slate-100 hover:border-slate-700/70"
                                         }`}
                                     >
-                                        {/* Active Top Shimmer */}
                                         {isActive && (
                                             <div className="absolute top-0 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent pointer-events-none"></div>
                                         )}
 
-                                        {/* Left Active Laser Bar */}
                                         {isActive && (
                                             <div
                                                 className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3.5px] bg-gradient-to-b from-amber-300 via-cyan-400 to-indigo-500 rounded-r-full shadow-[0_0_14px_rgba(34,211,238,0.95)] ${
@@ -352,7 +349,6 @@ export default function Sidebar({
                                                 </div>
                                             </>
                                         ) : (
-                                            /* MODE MINIMIZE (80PX) — PRESISI DI TENGAH */
                                             <div className="relative flex items-center justify-center w-full h-full">
                                                 <IconComponent
                                                     size={20}
@@ -378,9 +374,7 @@ export default function Sidebar({
                 })}
             </nav>
 
-            {/* =====================================================================
-                3. FOOTER: SIRA QUANTUM TELEMETRY DOCK
-            ===================================================================== */}
+            {/* 3. FOOTER: SIRA QUANTUM TELEMETRY DOCK */}
             <div className="p-3 border-t border-slate-800/80 bg-[#040711]/95 relative z-20 shrink-0">
                 {sidebarOpen ? (
                     <div className="relative rounded-2xl p-[1px] bg-gradient-to-br from-indigo-500/35 via-slate-800 to-amber-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.45)] overflow-hidden">
@@ -388,7 +382,6 @@ export default function Sidebar({
                             <div className="absolute -top-10 -right-10 w-28 h-28 bg-cyan-500/15 rounded-full blur-2xl pointer-events-none"></div>
                             <div className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-emerald-400 via-cyan-400 to-amber-400 opacity-75"></div>
 
-                            {/* Top Row: Status Core */}
                             <div className="flex items-center justify-between mb-2.5 relative z-10">
                                 <div className="flex items-center gap-2">
                                     <span className="relative flex h-2 w-2">
@@ -407,7 +400,6 @@ export default function Sidebar({
                                 </div>
                             </div>
 
-                            {/* Middle Row: Digital Clock WITA */}
                             <div className="flex items-center justify-between bg-[#030610]/90 px-3 py-2 rounded-xl border border-slate-800/90 mb-2.5 relative z-10 shadow-inner">
                                 <div className="flex items-center gap-2">
                                     <Clock
@@ -426,7 +418,6 @@ export default function Sidebar({
                                 </span>
                             </div>
 
-                            {/* Bottom Row: Engine & Auth Badge */}
                             <div className="flex items-center justify-between text-[9px] font-bold text-slate-400 px-0.5 relative z-10">
                                 <span className="flex items-center gap-1.5 text-cyan-300 truncate">
                                     <Cpu
@@ -446,7 +437,6 @@ export default function Sidebar({
                         </div>
                     </div>
                 ) : (
-                    /* MODE MINIMIZE: ORB TELEMETRY RADAR */
                     <div
                         className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-br from-slate-900 to-[#060B19] border border-indigo-500/30 shadow-[0_0_15px_rgba(79,70,229,0.2)] flex flex-col items-center justify-center gap-0.5 relative group cursor-help"
                         title={`SIRA Core Active • ${timeString} WITA • 65-Pts Engine`}

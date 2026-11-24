@@ -1,3 +1,7 @@
+@php
+    $pdfSetting = \App\Models\PdfSetting::current();
+    $logoBase64 = $pdfSetting->getLogoBase64();
+@endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -13,10 +17,18 @@
             background-color: #ffffff;
         }
         
-        .header-container { width: 100%; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; text-align: center; }
-        .header-container h1 { margin: 0; font-size: 13px; font-weight: 900; text-transform: uppercase; color: #0f172a; }
-        .header-container h2 { margin: 2px 0 0 0; font-size: 9.5px; font-weight: bold; color: #475569; }
-        .header-container p { margin: 3px 0 0 0; font-size: 7.5px; color: #64748b; }
+        /* ==========================================
+           KOP SURAT DINAMIS + LOGO (DOMPDF SAFE)
+           ========================================== */
+        .header-container { width: 100%; border-bottom: 2.5px solid #0f172a; padding-bottom: 8px; margin-bottom: 14px; text-align: center; }
+table.kop-table { width: auto !important; margin: 0 auto !important; border-collapse: collapse; border: none !important; }
+table.kop-table td { border: none !important; padding: 0 !important; vertical-align: middle; background: transparent !important; }
+.kop-logo-cell { width: auto; padding-right: 12px !important; text-align: right !important; }
+.kop-logo-img { max-width: 40px; max-height: 40px; width: auto; height: auto; display: block; }
+.kop-text-cell { text-align: center !important; padding: 0 !important; }
+.kop-text-cell h2 { margin: 0; font-size: 10.5px; font-weight: bold; color: #475569; letter-spacing: 0.8px; text-transform: uppercase; line-height: 1.25; }
+.kop-text-cell h1 { margin: 2px 0 0 0; font-size: 15px; font-weight: 900; text-transform: uppercase; color: #0f172a; letter-spacing: 0.4px; line-height: 1.2; }
+.kop-alamat { margin: 6px 0 0 0; font-size: 8px; color: #64748b; text-align: center; }
         
         .info-panel { 
             width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; 
@@ -32,7 +44,6 @@
         .tabel-data th, .tabel-data td { border: 1px solid #cbd5e1; padding: 5px; text-align: center; vertical-align: middle; }
         .tabel-data th { background-color: #0f172a; color: #ffffff; font-weight: 900; text-transform: uppercase; font-size: 7.5px; }
         
-        /* 🔥 STYLE SUB-TABEL TRANSAKSI DI DALAM PDF */
         .sub-table { width: 100%; border-collapse: collapse; margin-top: 4px; margin-bottom: 4px; background-color: #f8fafc; }
         .sub-table td { border: 1px dotted #94a3b8; padding: 3px 4px; font-size: 7.5px; text-align: left; }
         
@@ -42,7 +53,7 @@
         .font-black { font-weight: 900; }
         
         .ttd-container { width: 100%; margin-top: 20px; page-break-inside: avoid; }
-        .ttd-box { width: 35%; float: right; text-align: center; font-size: 9px; color: #0f172a; }
+        .ttd-box { width: 38%; float: right; text-align: center; font-size: 9px; color: #0f172a; }
         .ttd-box p { margin: 0 0 3px 0; }
         .ttd-nama { font-weight: 900; text-decoration: underline; margin-top: 45px; font-size: 10.5px; }
         .clear { clear: both; }
@@ -51,15 +62,27 @@
     </style>
 </head>
 <body>
+    <!-- KOP SURAT DINAMIS + LOGO -->
     <div class="header-container">
-        <h2>KEMENTERIAN HUKUM REPUBLIK INDONESIA</h2>
-        <h1>KANTOR WILAYAH SULAWESI TENGAH</h1>
-        <p>Jalan Dewi Sartika No. 74, Kota Palu, Sulawesi Tengah 94114 | Laman: silakum.kemenkumsulteng.cloud</p>
-    </div>
+    <table class="kop-table">
+        <tr>
+            @if($logoBase64)
+                <td class="kop-logo-cell">
+                    <img src="{{ $logoBase64 }}" alt="Logo Instansi" class="kop-logo-img">
+                </td>
+            @endif
+            <td class="kop-text-cell">
+                <h2>{{ $pdfSetting->instansi_baris_1 }}</h2>
+                <h1>{{ $pdfSetting->instansi_baris_2 }}</h1>
+            </td>
+        </tr>
+    </table>
+    <p class="kop-alamat">{{ $pdfSetting->alamat_kop }}</p>
+</div>
 
     <div class="info-panel">
         <div class="info-left">
-            <div class="info-title">LAPORAN CAPAIAN KINERJA FISIK & KEUANGAN</div>
+            <div class="info-title">LAPORAN CAPAIAN KINERJA FISIK &amp; KEUANGAN</div>
             <div class="info-subtitle">RINCIAN OUTPUT (RO) - LIVE LEDGER TRACEABILITY</div>
             <div class="satker-name">{{ strtoupper($satker->nama_satker) }} ({{ $satker->kode_satker }})</div>
             <div style="font-size: 8.5px; color: #475569; font-weight: bold; margin-top: 2px;">
@@ -78,7 +101,7 @@
             <tr>
                 <th style="width: 4%;">No</th>
                 <th style="width: 14%;">Kode RO</th>
-                <th style="width: 32%;" class="text-left">Nama Rincian Output & Rincian Transaksi Keuangan</th>
+                <th style="width: 32%;" class="text-left">Nama Rincian Output &amp; Rincian Transaksi Keuangan</th>
                 <th style="width: 11%;">Target Vol</th>
                 <th style="width: 12%;">Pagu (Rp)</th>
                 <th style="width: 13%; background-color: #065f46;">Realisasi Vol</th>
@@ -89,7 +112,6 @@
             @forelse ($data_ro as $index => $ro)
             @php
                 $totVol = $ro->realisasiOutputs->sum('realisasi_volume');
-                // Serapan Anggaran ditarik LIVE dari Ledger Transaksi (Realisasi Detail)
                 $totAng = $ro->realisasiDetails->sum('nominal');
             @endphp
             <tr style="page-break-inside: avoid;">
@@ -98,7 +120,6 @@
                 <td class="text-left" style="vertical-align: top;">
                     <div class="font-black" style="color: #0f172a; font-size: 9px; margin-bottom: 4px;">{{ $ro->nama_ro }}</div>
                     
-                    <!-- 🔥 DAFTAR RINCIAN TRANSAKSI KEUANGAN YANG MEMBIAYAI RO INI -->
                     @if($ro->realisasiDetails && $ro->realisasiDetails->count() > 0)
                         <table class="sub-table">
                             <tr>
@@ -131,19 +152,22 @@
         </tbody>
     </table>
 
+    <!-- TANDA TANGAN DINAMIS -->
     <div class="ttd-container">
         <div class="ttd-box">
-            <p>Palu, {{ $tanggal_cetak }}</p>
-            <p style="font-weight: bold;">Kepala Kantor Wilayah,</p>
+            <p>{{ $pdfSetting->kota_ttd }}, {{ $tanggal_cetak }}</p>
+            <p style="font-weight: bold;">{{ $pdfSetting->jabatan_ttd }}</p>
             <br><br><br><br>
-            <p class="ttd-nama">Rakhmat Renaldy, S.H., M.H.</p>
-            <p>NIP. 197310101996031001</p>
+            <p class="ttd-nama">{{ $pdfSetting->nama_pejabat }}</p>
+            <p>NIP. {{ $pdfSetting->nip_pejabat }}</p>
         </div>
         <div class="clear"></div>
     </div>
 
+    @if(!empty($pdfSetting->catatan_kaki))
     <div class="footer-note">
-        * Dokumen dicetak secara otomatis dari Sistem Informasi Realisasi Anggaran (SIRA) 2.0. Tidak memerlukan cap basah.
+        * {{ $pdfSetting->catatan_kaki }}
     </div>
+    @endif
 </body>
 </html>

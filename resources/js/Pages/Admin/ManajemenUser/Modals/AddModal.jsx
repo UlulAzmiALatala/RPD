@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import {
     X,
+    XCircle,
     Save,
     Loader2,
     UserPlus,
@@ -15,7 +16,7 @@ export default function AddModal({ isOpen, onClose, onSuccess, satkers }) {
         name: "",
         email: "",
         password: "",
-        role: "satker", // Default Satker agar lebih aman
+        role: "satker",
         kode_satker: "",
     });
 
@@ -29,7 +30,6 @@ export default function AddModal({ isOpen, onClose, onSuccess, satkers }) {
         setFormData((prev) => ({
             ...prev,
             [name]: value,
-            // Jika role diubah ke admin, kosongkan kode satker
             ...(name === "role" && value === "admin"
                 ? { kode_satker: "" }
                 : {}),
@@ -90,8 +90,9 @@ export default function AddModal({ isOpen, onClose, onSuccess, satkers }) {
                         </div>
                     </div>
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors relative z-10"
+                        className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors relative z-10 cursor-pointer"
                     >
                         <X size={20} strokeWidth={2.5} />
                     </button>
@@ -121,7 +122,6 @@ export default function AddModal({ isOpen, onClose, onSuccess, satkers }) {
                         onSubmit={handleSubmit}
                         className="space-y-6 relative z-10"
                     >
-                        {/* SECTION: DATA PROFIL */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div className="md:col-span-2">
                                 <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
@@ -135,7 +135,7 @@ export default function AddModal({ isOpen, onClose, onSuccess, satkers }) {
                                     onChange={handleFormChange}
                                     required
                                     placeholder="Masukkan nama lengkap pengguna..."
-                                    className="w-full bg-slate-50 border-slate-200 rounded-2xl py-3.5 px-4 font-semibold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 px-4 font-semibold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
                                 />
                             </div>
 
@@ -150,8 +150,8 @@ export default function AddModal({ isOpen, onClose, onSuccess, satkers }) {
                                     value={formData.email}
                                     onChange={handleFormChange}
                                     required
-                                    placeholder="contoh@kemenkumham.go.id"
-                                    className="w-full bg-slate-50 border-slate-200 rounded-2xl py-3.5 px-4 font-semibold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+                                    placeholder="contoh@kemenkum.go.id"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 px-4 font-semibold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
                                 />
                             </div>
 
@@ -168,18 +168,16 @@ export default function AddModal({ isOpen, onClose, onSuccess, satkers }) {
                                     required
                                     minLength="6"
                                     placeholder="Minimal 6 karakter"
-                                    className="w-full bg-slate-50 border-slate-200 rounded-2xl py-3.5 px-4 font-semibold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 px-4 font-semibold text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
                                 />
                             </div>
 
-                            {/* SECTION: HAK AKSES */}
                             <div className="md:col-span-2 pt-2">
                                 <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-3 ml-1">
                                     Hak Akses (Role){" "}
                                     <span className="text-rose-500">*</span>
                                 </label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* CARD ADMIN */}
                                     <label
                                         className={`relative flex flex-col p-5 border-2 rounded-2xl cursor-pointer transition-all duration-300 ${
                                             formData.role === "admin"
@@ -220,7 +218,6 @@ export default function AddModal({ isOpen, onClose, onSuccess, satkers }) {
                                         </div>
                                     </label>
 
-                                    {/* CARD SATKER */}
                                     <label
                                         className={`relative flex flex-col p-5 border-2 rounded-2xl cursor-pointer transition-all duration-300 ${
                                             formData.role === "satker"
@@ -263,7 +260,6 @@ export default function AddModal({ isOpen, onClose, onSuccess, satkers }) {
                                 </div>
                             </div>
 
-                            {/* SECTION: DROP DOWN SATKER (ANIMATED) */}
                             {formData.role === "satker" && (
                                 <div className="md:col-span-2 p-5 bg-gradient-to-br from-teal-50/80 to-white border border-teal-100 rounded-2xl mt-2 animate-in slide-in-from-top-4 fade-in duration-300 shadow-sm">
                                     <label className="block text-xs font-black text-teal-800 uppercase tracking-widest mb-2 ml-1">
@@ -323,7 +319,7 @@ export default function AddModal({ isOpen, onClose, onSuccess, satkers }) {
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-6 py-3 rounded-2xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-800 transition-all"
+                        className="px-6 py-3 rounded-2xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-800 transition-all cursor-pointer"
                     >
                         Batal
                     </button>
@@ -331,7 +327,7 @@ export default function AddModal({ isOpen, onClose, onSuccess, satkers }) {
                         type="submit"
                         form="addUserForm"
                         disabled={isSubmitting}
-                        className={`flex items-center gap-2 px-8 py-3 rounded-2xl font-bold text-white transition-all duration-300 ${
+                        className={`flex items-center gap-2 px-8 py-3 rounded-2xl font-bold text-white transition-all duration-300 cursor-pointer ${
                             isSubmitting
                                 ? "bg-slate-400 cursor-not-allowed shadow-none"
                                 : "bg-indigo-600 hover:bg-indigo-700 shadow-[0_8px_16px_rgba(99,102,241,0.25)] hover:shadow-[0_8px_20px_rgba(99,102,241,0.4)] hover:-translate-y-0.5"

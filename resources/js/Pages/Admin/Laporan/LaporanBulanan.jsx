@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import MainLayout from "../../../Layouts/MainLayout";
@@ -22,12 +22,17 @@ import {
     FileClock,
     ShieldCheck,
     ClipboardCheck,
+    Calendar,
+    Wallet,
+    Search,
+    Trophy,
 } from "lucide-react";
 
 export default function LaporanBulanan() {
     const [tahun, setTahun] = useState(new Date().getFullYear().toString());
     const [bulan, setBulan] = useState((new Date().getMonth() + 1).toString());
     const [jenisLaporan, setJenisLaporan] = useState("rpd_vs_realisasi");
+    const [searchQuery, setSearchQuery] = useState("");
 
     const [laporanData, setLaporanData] = useState([]);
     const [twAktif, setTwAktif] = useState("");
@@ -53,8 +58,8 @@ export default function LaporanBulanan() {
         axios
             .get(`/api/laporan/bulanan?tahun=${tahun}&bulan=${bulan}`)
             .then((response) => {
-                setLaporanData(response.data.data);
-                setTwAktif(response.data.tw_aktif);
+                setLaporanData(response.data.data || []);
+                setTwAktif(response.data.tw_aktif || "");
             })
             .catch((error) => {
                 setErrorMsg("Terjadi kesalahan saat memuat laporan bulanan.");
@@ -70,11 +75,17 @@ export default function LaporanBulanan() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const formatRp = (angka) => {
-        return new Intl.NumberFormat("id-ID", {
+    const formatRp = (angka) =>
+        new Intl.NumberFormat("id-ID", {
             minimumFractionDigits: 0,
         }).format(angka || 0);
-    };
+
+    const formatCurrencyFull = (angka) =>
+        new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0,
+        }).format(angka || 0);
 
     const formatDecimal = (value) => {
         if (typeof value === "number") {
@@ -101,6 +112,67 @@ export default function LaporanBulanan() {
         "November",
         "Desember",
     ];
+
+    // Ringkasan KPI Agregat Nasional (otomatis dari laporanData)
+    const nationalStats = useMemo(() => {
+        const totalSatker = laporanData.length;
+        const totalPagu = laporanData.reduce(
+            (s, r) => s + Number(r.pagu_efektif || 0),
+            0,
+        );
+        const totalRealisasi = laporanData.reduce(
+            (s, r) => s + Number(r.total_realisasi || 0),
+            0,
+        );
+        const persenSerap =
+            totalPagu > 0 ? (totalRealisasi / totalPagu) * 100 : 0;
+
+        const satkerAktif = laporanData.filter(
+            (r) => Number(r.pagu_efektif) > 0,
+        );
+        const avgPoin =
+            satkerAktif.length > 0
+                ? satkerAktif.reduce(
+                      (s, r) =>
+                          s + Number(r.evaluasi_tw?.poin?.total_poin || 0),
+                      0,
+                  ) / satkerAktif.length
+                : 0;
+        const avgTk =
+            satkerAktif.length > 0
+                ? satkerAktif.reduce(
+                      (s, r) =>
+                          s + Number(r.tata_kelola?.skor_tata_kelola || 0),
+                      0,
+                  ) / satkerAktif.length
+                : 0;
+
+        const topSatker = laporanData[0] || null;
+        return {
+            totalSatker,
+            totalPagu,
+            totalRealisasi,
+            persenSerap,
+            avgPoin,
+            avgTk,
+            topSatker,
+        };
+    }, [laporanData]);
+
+    // Pertahankan nomor peringkat asli saat difilter lewat pencarian
+    const rankedFilteredData = useMemo(() => {
+        const withRank = laporanData.map((row, idx) => ({
+            ...row,
+            _rank: idx,
+        }));
+        if (!searchQuery.trim()) return withRank;
+        const q = searchQuery.toLowerCase();
+        return withRank.filter(
+            (r) =>
+                r.satker?.nama_satker?.toLowerCase().includes(q) ||
+                r.satker?.kode_satker?.toLowerCase().includes(q),
+        );
+    }, [laporanData, searchQuery]);
 
     const handleExportExcel = () => {
         if (laporanData.length === 0) {
@@ -207,7 +279,7 @@ export default function LaporanBulanan() {
         }
 
         const worksheet = XLSX.utils.aoa_to_sheet(aoa);
-        const wscols = [
+        worksheet["!cols"] = [
             { wch: 5 },
             { wch: 15 },
             { wch: 40 },
@@ -226,7 +298,6 @@ export default function LaporanBulanan() {
             { wch: 20 },
             { wch: 22 },
         ];
-        worksheet["!cols"] = wscols;
 
         const range = XLSX.utils.decode_range(worksheet["!ref"]);
         for (let R = 4; R <= range.e.r; ++R) {
@@ -247,7 +318,6 @@ export default function LaporanBulanan() {
             `Rekap_${namaBulan[bulan]}`,
         );
 
-        // SHEET 2 OTOMATIS: RINCIAN KETERLACAKAN RO & SERAPAN LEDGER LINTAS SATKER
         const aoaRo = [
             [
                 "RINCIAN CAPAIAN OUTPUT (RO) & SERAPAN ANGGARAN LEDGER LINTAS SATKER",
@@ -336,7 +406,6 @@ export default function LaporanBulanan() {
         );
     };
 
-    // KOMPONEN LACI KETERLACAKAN RO & RINGKASAN TATA KELOLA PER SATKER
     const renderRoDrawer = (row, colSpanCount) => {
         const tk = row.tata_kelola;
         const rev = row.evaluasi_tw?.revisi_dipa;
@@ -347,8 +416,7 @@ export default function LaporanBulanan() {
                     colSpan={colSpanCount}
                     className="p-6 text-left font-sans whitespace-normal"
                 >
-                    <div className="bg-white rounded-[1.5rem] border border-indigo-100 shadow-inner p-5 animate-in fade-in slide-in-from-top-2 duration-300 max-w-6xl space-y-5">
-                        {/* HEADER DRAWER */}
+                    <div className="bg-white rounded-[1.5rem] border border-indigo-100 shadow-inner p-5 max-w-6xl space-y-5">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3.5">
                             <div className="flex items-center gap-2.5">
                                 <div className="p-2 bg-purple-100 text-purple-600 rounded-xl">
@@ -356,8 +424,8 @@ export default function LaporanBulanan() {
                                 </div>
                                 <div>
                                     <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">
-                                        Keterlacakan Rincian Output (RO) & Tata
-                                        Kelola — {row.satker.nama_satker}
+                                        Keterlacakan Rincian Output (RO) &amp;
+                                        Tata Kelola — {row.satker.nama_satker}
                                     </h4>
                                     <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
                                         Kumulatif s.d. {namaBulan[bulan]}{" "}
@@ -387,51 +455,50 @@ export default function LaporanBulanan() {
                                 </div>
                             </div>
                             <button
+                                type="button"
                                 onClick={() =>
                                     handleDownloadPdfRo(row.satker.id)
                                 }
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-purple-200 transition-all shadow-sm self-start sm:self-auto"
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-purple-200 transition-all shadow-sm self-start sm:self-auto cursor-pointer"
                             >
                                 <FileText size={13} /> Cetak PDF Detail RO
                             </button>
                         </div>
 
-                        {/* STRIP RINGKASAN TATA KELOLA & REVISI DIPA */}
                         {tk && (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="p-2 bg-white text-amber-600 rounded-xl shadow-sm">
+                                <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="p-2 bg-white text-amber-600 rounded-xl shadow-sm shrink-0">
                                             <FileClock size={15} />
                                         </div>
-                                        <div>
+                                        <div className="min-w-0">
                                             <p className="text-[9px] font-black uppercase tracking-widest text-amber-700">
                                                 Revisi DIPA (TW {twAktif})
                                             </p>
-                                            <p className="text-[11px] font-bold text-slate-600">
+                                            <p className="text-[11px] font-bold text-slate-600 truncate">
                                                 {rev?.frekuensi_pagu_tetap || 0}
-                                                x Pagu Tetap •{" "}
-                                                {rev?.status || "N/A"}
+                                                x Tetap • {rev?.status || "N/A"}
                                             </p>
                                         </div>
                                     </div>
-                                    <span className="text-base font-black text-amber-700">
+                                    <span className="text-base font-black text-amber-700 shrink-0 tabular-nums">
                                         {formatDecimal(
                                             rev?.nilai_revisi_dipa || 0,
                                         )}
                                     </span>
                                 </div>
 
-                                <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200/80 flex items-center justify-between">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="p-2 bg-white text-purple-600 rounded-xl shadow-sm">
+                                <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200/80 flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="p-2 bg-white text-purple-600 rounded-xl shadow-sm shrink-0">
                                             <ShieldCheck size={15} />
                                         </div>
-                                        <div>
+                                        <div className="min-w-0">
                                             <p className="text-[9px] font-black uppercase tracking-widest text-purple-700">
                                                 Sinkronisasi RO
                                             </p>
-                                            <p className="text-[11px] font-bold text-slate-600">
+                                            <p className="text-[11px] font-bold text-slate-600 truncate">
                                                 {tk.kesehatan_ro.ro_sehat}/
                                                 {tk.kesehatan_ro.total_ro}{" "}
                                                 Sinkron •{" "}
@@ -440,21 +507,21 @@ export default function LaporanBulanan() {
                                             </p>
                                         </div>
                                     </div>
-                                    <span className="text-base font-black text-purple-700">
+                                    <span className="text-base font-black text-purple-700 shrink-0 tabular-nums">
                                         {formatDecimal(tk.kesehatan_ro.skor)}%
                                     </span>
                                 </div>
 
-                                <div className="p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200/80 flex items-center justify-between">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="p-2 bg-white text-teal-600 rounded-xl shadow-sm">
+                                <div className="p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200/80 flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="p-2 bg-white text-teal-600 rounded-xl shadow-sm shrink-0">
                                             <ClipboardCheck size={15} />
                                         </div>
-                                        <div>
+                                        <div className="min-w-0">
                                             <p className="text-[9px] font-black uppercase tracking-widest text-teal-700">
                                                 Kedisiplinan Lapor
                                             </p>
-                                            <p className="text-[11px] font-bold text-slate-600">
+                                            <p className="text-[11px] font-bold text-slate-600 truncate">
                                                 Lengkap{" "}
                                                 {formatDecimal(
                                                     tk.kedisiplinan
@@ -466,14 +533,13 @@ export default function LaporanBulanan() {
                                             </p>
                                         </div>
                                     </div>
-                                    <span className="text-base font-black text-teal-700">
+                                    <span className="text-base font-black text-teal-700 shrink-0 tabular-nums">
                                         {formatDecimal(tk.kedisiplinan.skor)}
                                     </span>
                                 </div>
                             </div>
                         )}
 
-                        {/* GRID RINCIAN RO */}
                         {row.rincian_ro && row.rincian_ro.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {row.rincian_ro.map((ro) => (
@@ -593,218 +659,415 @@ export default function LaporanBulanan() {
 
     return (
         <MainLayout tahun={tahun}>
-            <div className="space-y-6 font-sans text-slate-700 relative overflow-hidden min-h-screen pb-10">
-                <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none -z-10"></div>
-                <div className="absolute top-20 right-20 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+            <style>{`
+                .glass-card { background: rgba(255, 255, 255, 0.82); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+                .custom-scrollbar::-webkit-scrollbar { height: 10px; width: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid #f8fafc; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+            `}</style>
 
-                {/* HEADER & FILTER SECTION */}
-                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6 bg-white/70 backdrop-blur-2xl p-6 md:p-8 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white">
-                    <div className="flex-1 min-w-[300px] relative z-10">
-                        <div className="flex items-center gap-4 mb-3">
-                            <div className="p-4 bg-gradient-to-br from-indigo-600 to-blue-700 text-white rounded-2xl shadow-[0_10px_20px_rgba(79,70,229,0.3)] border border-indigo-400/30">
-                                <CalendarSearch size={32} strokeWidth={2.5} />
+            <div className="space-y-6 font-sans text-slate-700 relative min-h-screen pb-10">
+                <div className="absolute top-0 left-0 w-full h-80 bg-gradient-to-b from-amber-500/10 to-transparent pointer-events-none -z-10"></div>
+
+                {/* =====================================================================
+                    1. HERO COMMAND BAR (2 BARIS TERSTRUKTUR — ANTI TUMPANG TINDIH)
+                ===================================================================== */}
+                <div className="glass-card p-6 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/80 relative z-10 space-y-5">
+                    {/* BARIS 1: JUDUL + TOMBOL EKSPOR NASIONAL */}
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4 min-w-0">
+                            <div className="p-3.5 bg-gradient-to-br from-amber-500 via-orange-500 to-indigo-600 text-white rounded-2xl shadow-[0_10px_24px_rgba(245,158,11,0.28)] shrink-0">
+                                <CalendarSearch size={26} strokeWidth={2.5} />
                             </div>
-                            <div>
-                                <h2 className="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 tracking-tight leading-tight">
-                                    Leaderboard Nasional
-                                </h2>
-                                <p className="text-sm font-semibold text-slate-500 mt-1 flex items-center gap-2">
+                            <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight truncate">
+                                        Leaderboard Nasional
+                                    </h2>
+                                    <span className="px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-black uppercase tracking-widest">
+                                        Kanwil • 65 Pts
+                                    </span>
+                                </div>
+                                <p className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">
                                     Klasemen Poin SIRA (65 Pts), Revisi DIPA,
-                                    Tata Kelola & Keterlacakan RO Seluruh
-                                    Satker.
+                                    Tata Kelola &amp; Keterlacakan RO seluruh
+                                    Satuan Kerja.
                                 </p>
                             </div>
                         </div>
+
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <button
+                                type="button"
+                                onClick={handleExportPdfNasional}
+                                disabled={laporanData.length === 0 || loading}
+                                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-rose-50 text-rose-700 hover:bg-rose-600 hover:text-white border border-rose-200 rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
+                            >
+                                <FileText size={15} /> PDF Nasional
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleExportExcel}
+                                disabled={laporanData.length === 0 || loading}
+                                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                            >
+                                <FileSpreadsheet size={15} /> Excel (+Sheet RO)
+                            </button>
+                        </div>
                     </div>
 
+                    <div className="h-px w-full bg-slate-200/70"></div>
+
+                    {/* BARIS 2: FORM FILTER GRID 12 KOLOM */}
                     <form
                         onSubmit={fetchLaporan}
-                        className="w-full xl:w-auto flex flex-wrap gap-4 items-end relative z-10"
+                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 items-end"
                     >
-                        <div className="flex-1 min-w-[200px]">
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1 flex items-center gap-1.5">
-                                <Filter size={14} className="text-indigo-400" />{" "}
+                        <div className="lg:col-span-4">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                 Jenis Laporan
                             </label>
-                            <select
-                                value={jenisLaporan}
-                                onChange={(e) =>
-                                    setJenisLaporan(e.target.value)
-                                }
-                                className="w-full bg-white/90 backdrop-blur border border-slate-200/80 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/20 cursor-pointer transition-all outline-none"
-                            >
-                                <option value="rpd_vs_realisasi">
-                                    📊 Poin SIRA 65 (IKPA + RO + Revisi)
-                                </option>
-                                <option value="murni_realisasi">
-                                    💰 Murni Realisasi Saja
-                                </option>
-                            </select>
+                            <div className="relative">
+                                <Filter
+                                    size={14}
+                                    className="text-indigo-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                                />
+                                <select
+                                    value={jenisLaporan}
+                                    onChange={(e) =>
+                                        setJenisLaporan(e.target.value)
+                                    }
+                                    className="w-full pl-9 pr-9 py-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 cursor-pointer outline-none appearance-none truncate"
+                                >
+                                    <option value="rpd_vs_realisasi">
+                                        Poin SIRA 65 (IKPA + RO + Revisi)
+                                    </option>
+                                    <option value="murni_realisasi">
+                                        Murni Realisasi Belanja Saja
+                                    </option>
+                                </select>
+                                <ChevronDown
+                                    size={15}
+                                    className="text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                                />
+                            </div>
                         </div>
 
-                        <div className="w-28">
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">
+                        <div className="lg:col-span-2">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                 Tahun
                             </label>
-                            <input
-                                type="number"
-                                value={tahun}
-                                onChange={(e) => setTahun(e.target.value)}
-                                className="w-full bg-white/90 backdrop-blur border border-slate-200/80 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-800 focus:ring-4 focus:ring-indigo-500/20 transition-all outline-none"
-                            />
+                            <div className="relative">
+                                <Calendar
+                                    size={14}
+                                    className="text-indigo-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                                />
+                                <select
+                                    value={tahun}
+                                    onChange={(e) => setTahun(e.target.value)}
+                                    className="w-full pl-9 pr-8 py-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-black text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 cursor-pointer outline-none appearance-none"
+                                >
+                                    {[...Array(5)].map((_, i) => {
+                                        const yr =
+                                            new Date().getFullYear() - 2 + i;
+                                        return (
+                                            <option key={yr} value={yr}>
+                                                T.A {yr}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                                <ChevronDown
+                                    size={15}
+                                    className="text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                                />
+                            </div>
                         </div>
 
-                        <div className="w-48">
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">
+                        <div className="lg:col-span-3">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                 Kumulatif s.d. Bulan
                             </label>
-                            <select
-                                value={bulan}
-                                onChange={(e) => setBulan(e.target.value)}
-                                className="w-full bg-white/90 backdrop-blur border border-slate-200/80 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-800 focus:ring-4 focus:ring-indigo-500/20 cursor-pointer transition-all outline-none"
-                            >
-                                {[...Array(12)].map((_, i) => (
-                                    <option key={i + 1} value={i + 1}>
-                                        {namaBulan[i + 1]}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <CalendarSearch
+                                    size={14}
+                                    className="text-indigo-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                                />
+                                <select
+                                    value={bulan}
+                                    onChange={(e) => setBulan(e.target.value)}
+                                    className="w-full pl-9 pr-9 py-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-800 shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 cursor-pointer outline-none appearance-none"
+                                >
+                                    {[...Array(12)].map((_, i) => (
+                                        <option key={i + 1} value={i + 1}>
+                                            {namaBulan[i + 1]}
+                                        </option>
+                                    ))}
+                                </select>
+                                <ChevronDown
+                                    size={15}
+                                    className="text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                                />
+                            </div>
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className={`w-full sm:w-auto px-8 py-3.5 rounded-2xl font-black transition-all duration-300 shadow-lg flex items-center justify-center gap-2 ${loading ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none" : "bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:shadow-[0_8px_20px_rgba(79,70,229,0.3)] hover:-translate-y-1 outline-none"}`}
-                        >
-                            {loading ? (
-                                <>
-                                    <Loader2
-                                        size={18}
-                                        className="animate-spin"
-                                    />{" "}
-                                    Mencari...
-                                </>
-                            ) : (
-                                "Tampilkan"
-                            )}
-                        </button>
+                        <div className="lg:col-span-3">
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className={`w-full py-3 px-4 rounded-xl font-black text-xs sm:text-sm transition-all duration-200 shadow-md flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${
+                                    loading
+                                        ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                                        : "bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white hover:shadow-[0_8px_20px_rgba(79,70,229,0.3)] hover:-translate-y-0.5"
+                                }`}
+                            >
+                                {loading ? (
+                                    <>
+                                        <Loader2
+                                            size={16}
+                                            className="animate-spin"
+                                        />{" "}
+                                        Menyusun...
+                                    </>
+                                ) : (
+                                    <>
+                                        <TrendingUp size={16} /> Tampilkan
+                                        Klasemen
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </form>
                 </div>
 
                 {errorMsg && (
-                    <div className="p-5 bg-rose-50/90 backdrop-blur text-rose-700 border border-rose-200 rounded-[1.5rem] text-sm flex items-center gap-4 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300 relative z-10">
-                        <div className="p-2 bg-rose-100 rounded-xl">
+                    <div className="p-4 bg-rose-50 text-rose-700 border border-rose-200 rounded-2xl text-sm flex items-center gap-3 shadow-sm">
+                        <div className="p-2 bg-rose-100 rounded-xl shrink-0">
                             <AlertTriangle className="w-5 h-5 text-rose-600" />
                         </div>
                         <p className="font-bold">{errorMsg}</p>
                     </div>
                 )}
 
-                {/* TABEL LEADERBOARD PREMIUM */}
-                <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700 relative z-10 mt-6">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 p-6 md:p-8 border-b border-slate-100/60 bg-slate-50/50">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-emerald-500/20 text-emerald-600 rounded-2xl">
-                                <TrendingUp size={24} strokeWidth={2.5} />
+                {/* =====================================================================
+                    2. 4 KARTU KPI RINGKASAN NASIONAL (STACKED EXECUTIVE)
+                ===================================================================== */}
+                {!loading && laporanData.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 relative z-10">
+                        <div className="bg-[#0B1120] p-5 rounded-[1.75rem] border border-amber-500/30 shadow-lg flex flex-col justify-between gap-2 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">
+                                    Peringkat #1 Kanwil
+                                </p>
+                                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center justify-center shrink-0">
+                                    <Trophy size={17} />
+                                </div>
+                            </div>
+                            <div className="min-w-0">
+                                <h3
+                                    title={
+                                        nationalStats.topSatker?.satker
+                                            ?.nama_satker
+                                    }
+                                    className="text-base font-black text-white truncate"
+                                >
+                                    {nationalStats.topSatker?.satker
+                                        ?.nama_satker || "-"}
+                                </h3>
+                                <p className="text-[11px] font-black text-amber-400 mt-1 tabular-nums">
+                                    Skor:{" "}
+                                    {formatDecimal(
+                                        nationalStats.topSatker?.evaluasi_tw
+                                            ?.poin?.total_poin || 0,
+                                    )}{" "}
+                                    / 65 Pts
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white/90 backdrop-blur-md p-5 rounded-[1.75rem] border border-white shadow-sm flex flex-col justify-between gap-2 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Total Pagu Efektif
+                                </p>
+                                <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                                    <Wallet size={17} />
+                                </div>
+                            </div>
+                            <div className="min-w-0">
+                                <h3
+                                    title={formatCurrencyFull(
+                                        nationalStats.totalPagu,
+                                    )}
+                                    className="text-lg 2xl:text-xl font-black text-slate-900 tabular-nums truncate"
+                                >
+                                    {formatCurrencyFull(
+                                        nationalStats.totalPagu,
+                                    )}
+                                </h3>
+                                <p className="text-[10px] font-semibold text-slate-400 mt-1">
+                                    Agregat {nationalStats.totalSatker} Satuan
+                                    Kerja
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white/90 backdrop-blur-md p-5 rounded-[1.75rem] border border-white shadow-sm flex flex-col justify-between gap-2 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Total Realisasi Kanwil
+                                </p>
+                                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                    <TrendingUp size={17} />
+                                </div>
+                            </div>
+                            <div className="min-w-0">
+                                <h3
+                                    title={formatCurrencyFull(
+                                        nationalStats.totalRealisasi,
+                                    )}
+                                    className="text-lg 2xl:text-xl font-black text-emerald-700 tabular-nums truncate"
+                                >
+                                    {formatCurrencyFull(
+                                        nationalStats.totalRealisasi,
+                                    )}
+                                </h3>
+                                <p className="text-[10px] font-bold text-emerald-600 mt-1">
+                                    Serapan Nasional:{" "}
+                                    {formatDecimal(nationalStats.persenSerap)}%
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white/90 backdrop-blur-md p-5 rounded-[1.75rem] border border-white shadow-sm flex flex-col justify-between gap-2 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Rata-Rata SIRA &amp; TK
+                                </p>
+                                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                    <ShieldCheck size={17} />
+                                </div>
                             </div>
                             <div>
-                                <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                                <h3 className="text-2xl font-black text-indigo-700 tabular-nums">
+                                    {formatDecimal(nationalStats.avgPoin)}{" "}
+                                    <span className="text-xs font-bold text-slate-400">
+                                        / 65
+                                    </span>
+                                </h3>
+                                <p className="text-[10px] font-bold text-teal-600 mt-1">
+                                    Rata-Rata Tata Kelola:{" "}
+                                    {formatDecimal(nationalStats.avgTk)} / 100
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* =====================================================================
+                    3. TABEL LEADERBOARD NASIONAL
+                ===================================================================== */}
+                <div className="glass-card rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/80 overflow-hidden relative z-10">
+                    <div className="p-5 sm:px-6 border-b border-slate-100 bg-slate-50/70 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                            <div className="p-2.5 bg-emerald-100 text-emerald-600 rounded-xl shrink-0">
+                                <TrendingUp size={20} strokeWidth={2.5} />
+                            </div>
+                            <div className="min-w-0">
+                                <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight truncate">
                                     Rekapitulasi s.d.{" "}
-                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-600">
+                                    <span className="text-indigo-600">
                                         {namaBulan[bulan]} {tahun}
                                     </span>
                                 </h3>
-                                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                <div className="flex flex-wrap items-center gap-2 mt-1">
                                     {twAktif && (
-                                        <span className="px-3 py-1 bg-blue-100/80 text-blue-700 text-[10px] font-black uppercase tracking-widest rounded-lg border border-blue-200">
+                                        <span className="px-2.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest rounded-md border border-blue-200">
                                             Posisi TW {twAktif}
                                         </span>
                                     )}
-                                    <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100 flex items-center gap-1">
-                                        <Layers size={12} /> Klik baris Satker
-                                        untuk membuka Rincian RO & Tata Kelola
+                                    <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-md border border-indigo-100 inline-flex items-center gap-1">
+                                        <Layers size={11} /> Klik baris Satker
+                                        untuk laci RO &amp; Tata Kelola
                                     </span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-3 w-full md:w-auto bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
-                            <button
-                                onClick={handleExportPdfNasional}
-                                disabled={laporanData.length === 0 || loading}
-                                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 outline-none disabled:opacity-50"
-                            >
-                                <FileText size={16} /> PDF Nasional
-                            </button>
-                            <button
-                                onClick={handleExportExcel}
-                                disabled={laporanData.length === 0 || loading}
-                                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 outline-none disabled:opacity-50"
-                            >
-                                <FileSpreadsheet size={16} /> Excel (+Sheet RO)
-                            </button>
+                        <div className="relative w-full lg:w-72 shrink-0">
+                            <Search
+                                size={14}
+                                className="text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                            />
+                            <input
+                                type="text"
+                                placeholder="Cari Satker di klasemen..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 placeholder:font-normal"
+                            />
                         </div>
                     </div>
 
-                    {/* STICKY DATA GRID */}
                     <div className="overflow-x-auto custom-scrollbar max-h-[700px] relative">
                         <table className="min-w-full divide-y divide-slate-200 text-[11px] border-collapse relative">
                             <thead className="bg-[#0A192F] text-slate-300 text-[10px] uppercase font-black tracking-widest text-center shadow-md sticky top-0 z-30">
                                 {jenisLaporan === "murni_realisasi" ? (
                                     <tr>
-                                        <th className="px-5 py-5 text-left border-r border-slate-700 bg-slate-900 sticky left-0 z-40">
-                                            Satuan Kerja & RO
+                                        <th className="px-5 py-4 text-left border-r border-slate-700 bg-slate-900 sticky left-0 z-40">
+                                            Satuan Kerja &amp; RO
                                         </th>
-                                        <th className="px-5 py-5 text-right border-r border-slate-700">
+                                        <th className="px-5 py-4 text-right border-r border-slate-700">
                                             Pagu Efektif
                                         </th>
-                                        <th className="px-5 py-5 text-right border-r border-slate-700 bg-emerald-900/30">
+                                        <th className="px-5 py-4 text-right border-r border-slate-700 bg-emerald-900/30">
                                             Realisasi 51
                                         </th>
-                                        <th className="px-5 py-5 text-right border-r border-slate-700 bg-emerald-900/30">
+                                        <th className="px-5 py-4 text-right border-r border-slate-700 bg-emerald-900/30">
                                             Realisasi 52
                                         </th>
-                                        <th className="px-5 py-5 text-right border-r border-slate-700 bg-emerald-900/30">
+                                        <th className="px-5 py-4 text-right border-r border-slate-700 bg-emerald-900/30">
                                             Realisasi 53
                                         </th>
-                                        <th className="px-5 py-5 text-right bg-emerald-900/60 border-l border-slate-700 text-white">
+                                        <th className="px-5 py-4 text-right bg-emerald-900/60 border-l border-slate-700 text-white">
                                             Total Realisasi
                                         </th>
-                                        <th className="px-5 py-5 bg-emerald-900/60 border-x border-slate-700 text-white">
+                                        <th className="px-5 py-4 bg-emerald-900/60 border-x border-slate-700 text-white">
                                             % Serap
                                         </th>
-                                        <th className="px-5 py-5">
+                                        <th className="px-5 py-4">
                                             Cetak Rapor
                                         </th>
                                     </tr>
                                 ) : (
                                     <tr>
                                         <th
-                                            className="px-5 py-5 text-left align-middle border-r border-slate-700 bg-slate-900 sticky left-0 z-40"
+                                            className="px-5 py-4 text-left align-middle border-r border-slate-700 bg-slate-900 sticky left-0 z-40"
                                             rowSpan="2"
                                         >
-                                            Satuan Kerja & RO
+                                            Satuan Kerja &amp; RO
                                         </th>
                                         <th
-                                            className="px-5 py-5 text-right border-r border-slate-700 align-middle"
+                                            className="px-5 py-4 text-right border-r border-slate-700 align-middle"
                                             rowSpan="2"
                                         >
                                             Pagu Efektif
                                         </th>
                                         <th
-                                            className="px-5 py-5 text-right text-indigo-300 bg-indigo-900/50 align-middle border-r border-slate-700"
+                                            className="px-5 py-4 text-right text-indigo-300 bg-indigo-900/50 align-middle border-r border-slate-700"
                                             rowSpan="2"
                                         >
                                             Total RPD
                                         </th>
                                         <th
-                                            className="px-5 py-5 text-right text-emerald-300 bg-emerald-900/50 align-middle border-r border-slate-700"
+                                            className="px-5 py-4 text-right text-emerald-300 bg-emerald-900/50 align-middle border-r border-slate-700"
                                             rowSpan="2"
                                         >
                                             Total Realisasi
                                         </th>
                                         <th
-                                            className="px-5 py-5 text-right text-rose-300 bg-rose-900/50 border-r border-slate-700 align-middle leading-tight"
+                                            className="px-5 py-4 text-right text-rose-300 bg-rose-900/50 border-r border-slate-700 align-middle leading-tight"
                                             rowSpan="2"
                                         >
                                             Selisih
@@ -812,24 +1075,22 @@ export default function LaporanBulanan() {
                                             Nominal
                                         </th>
                                         <th
-                                            className="px-5 py-5 text-center align-middle border-r border-slate-700 bg-slate-800 leading-tight"
+                                            className="px-5 py-4 text-center align-middle border-r border-slate-700 bg-slate-800 leading-tight"
                                             rowSpan="2"
                                         >
                                             Deviasi
                                             <br />
                                             Tertimbang
                                         </th>
-
                                         <th
-                                            className="px-5 py-3 border-r border-slate-700 bg-blue-900/50"
+                                            className="px-5 py-2.5 border-r border-slate-700 bg-blue-900/50"
                                             colSpan="3"
                                         >
                                             Status Penyerapan Nasional (TW{" "}
                                             {twAktif})
                                         </th>
-
                                         <th
-                                            className="px-4 py-5 bg-slate-800 text-slate-300 border-r border-slate-700 align-middle leading-tight"
+                                            className="px-4 py-4 bg-slate-800 text-slate-300 border-r border-slate-700 align-middle leading-tight"
                                             rowSpan="2"
                                         >
                                             Hal. III DIPA
@@ -838,7 +1099,7 @@ export default function LaporanBulanan() {
                                             </div>
                                         </th>
                                         <th
-                                            className="px-4 py-5 bg-purple-900/50 text-purple-300 border-r border-slate-700 align-middle leading-tight"
+                                            className="px-4 py-4 bg-purple-900/50 text-purple-300 border-r border-slate-700 align-middle leading-tight"
                                             rowSpan="2"
                                         >
                                             Capaian RO
@@ -847,7 +1108,7 @@ export default function LaporanBulanan() {
                                             </div>
                                         </th>
                                         <th
-                                            className="px-4 py-5 bg-amber-900/40 text-amber-300 border-r border-slate-700 align-middle leading-tight"
+                                            className="px-4 py-4 bg-amber-900/40 text-amber-300 border-r border-slate-700 align-middle leading-tight"
                                             rowSpan="2"
                                         >
                                             Revisi DIPA
@@ -856,7 +1117,7 @@ export default function LaporanBulanan() {
                                             </div>
                                         </th>
                                         <th
-                                            className="px-4 py-5 bg-teal-900/40 text-teal-300 border-r border-slate-700 align-middle leading-tight"
+                                            className="px-4 py-4 bg-teal-900/40 text-teal-300 border-r border-slate-700 align-middle leading-tight"
                                             rowSpan="2"
                                         >
                                             Tata Kelola
@@ -865,7 +1126,7 @@ export default function LaporanBulanan() {
                                             </div>
                                         </th>
                                         <th
-                                            className="px-5 py-5 bg-yellow-500/20 text-yellow-400 border-r border-slate-700 align-middle leading-tight"
+                                            className="px-5 py-4 bg-yellow-500/20 text-yellow-400 border-r border-slate-700 align-middle leading-tight"
                                             rowSpan="2"
                                         >
                                             TOTAL POIN
@@ -874,7 +1135,7 @@ export default function LaporanBulanan() {
                                             </div>
                                         </th>
                                         <th
-                                            className="px-5 py-5 align-middle"
+                                            className="px-5 py-4 align-middle"
                                             rowSpan="2"
                                         >
                                             Cetak
@@ -903,20 +1164,21 @@ export default function LaporanBulanan() {
                                     <tr>
                                         <td
                                             colSpan={totalCols}
-                                            className="px-6 py-24 text-center"
+                                            className="px-6 py-20 text-center"
                                         >
-                                            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 mb-4 shadow-md"></div>
-                                            <p className="text-sm font-black text-slate-400 tracking-widest uppercase animate-pulse">
+                                            <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-indigo-200 border-t-indigo-600 mb-3"></div>
+                                            <p className="text-xs font-black text-slate-400 tracking-widest uppercase">
                                                 Menyusun Leaderboard 65 Poin...
                                             </p>
                                         </td>
                                     </tr>
-                                ) : laporanData.length > 0 ? (
-                                    laporanData.map((row, index) => {
+                                ) : rankedFilteredData.length > 0 ? (
+                                    rankedFilteredData.map((row) => {
+                                        const index = row._rank;
                                         let medalStyle =
                                             "bg-slate-100 text-slate-500 border-slate-200";
                                         let iconMedal = (
-                                            <span className="font-mono text-sm">
+                                            <span className="font-mono text-xs">
                                                 {index + 1}
                                             </span>
                                         );
@@ -929,40 +1191,37 @@ export default function LaporanBulanan() {
 
                                         if (index === 0) {
                                             medalStyle =
-                                                "bg-gradient-to-br from-yellow-300 to-amber-500 text-white border-yellow-400 shadow-[0_0_15px_rgba(252,211,77,0.8)]";
+                                                "bg-gradient-to-br from-yellow-300 to-amber-500 text-white border-yellow-400 shadow-[0_0_12px_rgba(252,211,77,0.7)]";
                                             iconMedal = (
                                                 <Crown
-                                                    size={18}
+                                                    size={16}
                                                     strokeWidth={2.5}
                                                 />
                                             );
-                                            pointStyle =
-                                                "text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-orange-500 scale-110 drop-shadow-md";
+                                            pointStyle = "text-amber-600";
                                             rowGlow =
                                                 "bg-gradient-to-r from-yellow-50/50 to-transparent";
                                         } else if (index === 1) {
                                             medalStyle =
-                                                "bg-gradient-to-br from-slate-300 to-slate-400 text-white border-slate-400 shadow-[0_0_10px_rgba(148,163,184,0.6)]";
+                                                "bg-gradient-to-br from-slate-300 to-slate-400 text-white border-slate-400";
                                             iconMedal = (
                                                 <Medal
-                                                    size={18}
+                                                    size={16}
                                                     strokeWidth={2.5}
                                                 />
                                             );
-                                            pointStyle =
-                                                "text-transparent bg-clip-text bg-gradient-to-r from-slate-500 to-slate-700 scale-105";
+                                            pointStyle = "text-slate-700";
                                             rowGlow = "bg-slate-50/50";
                                         } else if (index === 2) {
                                             medalStyle =
-                                                "bg-gradient-to-br from-orange-300 to-amber-600 text-white border-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.5)]";
+                                                "bg-gradient-to-br from-orange-300 to-amber-600 text-white border-orange-400";
                                             iconMedal = (
                                                 <Medal
-                                                    size={18}
+                                                    size={16}
                                                     strokeWidth={2.5}
                                                 />
                                             );
-                                            pointStyle =
-                                                "text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-700 scale-105";
+                                            pointStyle = "text-orange-600";
                                             rowGlow = "bg-orange-50/20";
                                         } else if (totalPoin >= 54) {
                                             pointStyle = "text-emerald-600";
@@ -989,9 +1248,12 @@ export default function LaporanBulanan() {
                                         return (
                                             <React.Fragment key={row.satker.id}>
                                                 <tr
-                                                    className={`hover:bg-indigo-50/60 transition-colors group whitespace-nowrap ${rowGlow} ${isExpanded ? "bg-indigo-50/50" : ""}`}
+                                                    className={`hover:bg-indigo-50/60 transition-colors group whitespace-nowrap ${rowGlow} ${
+                                                        isExpanded
+                                                            ? "bg-indigo-50/50"
+                                                            : ""
+                                                    }`}
                                                 >
-                                                    {/* KOLOM SATKER STICKY + EXPAND */}
                                                     <td
                                                         onClick={() =>
                                                             toggleSatkerRow(
@@ -1001,15 +1263,20 @@ export default function LaporanBulanan() {
                                                         className="px-5 py-4 flex items-center justify-between gap-4 border-r border-slate-100 bg-white sticky left-0 z-20 group-hover:bg-indigo-50/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] cursor-pointer select-none"
                                                         title="Klik untuk membuka Rincian Output (RO) & Tata Kelola Satker ini"
                                                     >
-                                                        <div className="flex items-center gap-3.5">
+                                                        <div className="flex items-center gap-3">
                                                             <div
-                                                                className={`w-10 h-10 flex items-center justify-center rounded-[1rem] font-black border shrink-0 ${medalStyle}`}
+                                                                className={`w-9 h-9 flex items-center justify-center rounded-xl font-black border shrink-0 ${medalStyle}`}
                                                             >
                                                                 {iconMedal}
                                                             </div>
                                                             <div>
                                                                 <div
-                                                                    className={`text-sm ${index <= 2 ? "font-black text-slate-900" : "font-bold text-slate-700"}`}
+                                                                    className={`text-xs sm:text-sm ${
+                                                                        index <=
+                                                                        2
+                                                                            ? "font-black text-slate-900"
+                                                                            : "font-bold text-slate-700"
+                                                                    }`}
                                                                 >
                                                                     {
                                                                         row
@@ -1026,7 +1293,12 @@ export default function LaporanBulanan() {
                                                                         }
                                                                     </span>
                                                                     <span
-                                                                        className={`px-1.5 py-0.5 text-[9px] font-black rounded-md border ${roCount > 0 ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-slate-100 text-slate-400 border-slate-200"}`}
+                                                                        className={`px-1.5 py-0.5 text-[9px] font-black rounded-md border ${
+                                                                            roCount >
+                                                                            0
+                                                                                ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                                                : "bg-slate-100 text-slate-400 border-slate-200"
+                                                                        }`}
                                                                     >
                                                                         {
                                                                             roCount
@@ -1046,7 +1318,11 @@ export default function LaporanBulanan() {
                                                             </div>
                                                         </div>
                                                         <div
-                                                            className={`p-1.5 rounded-lg border transition-colors ${isExpanded ? "bg-indigo-600 text-white border-indigo-600" : "bg-slate-50 text-slate-400 border-slate-200 group-hover:text-indigo-600"}`}
+                                                            className={`p-1.5 rounded-lg border transition-colors ${
+                                                                isExpanded
+                                                                    ? "bg-indigo-600 text-white border-indigo-600"
+                                                                    : "bg-slate-50 text-slate-400 border-slate-200 group-hover:text-indigo-600"
+                                                            }`}
                                                         >
                                                             {isExpanded ? (
                                                                 <ChevronUp
@@ -1065,7 +1341,7 @@ export default function LaporanBulanan() {
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-5 py-4 text-right font-black text-slate-600 border-r border-slate-100 bg-slate-50/30 text-[13px]">
+                                                    <td className="px-5 py-4 text-right font-black text-slate-600 border-r border-slate-100 bg-slate-50/30 text-xs tabular-nums">
                                                         Rp{" "}
                                                         {formatRp(
                                                             row.pagu_efektif,
@@ -1075,29 +1351,34 @@ export default function LaporanBulanan() {
                                                     {jenisLaporan ===
                                                     "murni_realisasi" ? (
                                                         <>
-                                                            <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100">
+                                                            <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100 tabular-nums">
                                                                 {formatRp(
                                                                     row.realisasi_gaji,
                                                                 )}
                                                             </td>
-                                                            <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100">
+                                                            <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100 tabular-nums">
                                                                 {formatRp(
                                                                     row.realisasi_barang,
                                                                 )}
                                                             </td>
-                                                            <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100">
+                                                            <td className="px-5 py-4 text-right font-bold text-slate-500 border-r border-slate-100 tabular-nums">
                                                                 {formatRp(
                                                                     row.realisasi_modal,
                                                                 )}
                                                             </td>
-                                                            <td className="px-5 py-4 text-right font-black text-emerald-700 bg-emerald-50/30 border-r border-slate-100 text-[13px]">
+                                                            <td className="px-5 py-4 text-right font-black text-emerald-700 bg-emerald-50/30 border-r border-slate-100 text-xs tabular-nums">
                                                                 {formatRp(
                                                                     row.total_realisasi,
                                                                 )}
                                                             </td>
                                                             <td className="px-5 py-4 text-center bg-emerald-50/10 border-r border-slate-100">
                                                                 <span
-                                                                    className={`px-3 py-1.5 inline-flex text-[11px] font-black rounded-lg border shadow-sm ${row.persentase_penyerapan >= 50 ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-rose-100 text-rose-700 border-rose-200"}`}
+                                                                    className={`px-2.5 py-1 inline-flex text-[11px] font-black rounded-lg border ${
+                                                                        row.persentase_penyerapan >=
+                                                                        50
+                                                                            ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                                                            : "bg-rose-100 text-rose-700 border-rose-200"
+                                                                    }`}
                                                                 >
                                                                     {formatDecimal(
                                                                         row.persentase_penyerapan,
@@ -1108,22 +1389,22 @@ export default function LaporanBulanan() {
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <td className="px-5 py-4 text-right font-bold text-indigo-700 bg-indigo-50/40 border-r border-slate-100">
+                                                            <td className="px-5 py-4 text-right font-bold text-indigo-700 bg-indigo-50/40 border-r border-slate-100 tabular-nums">
                                                                 {formatRp(
                                                                     row.total_rpd,
                                                                 )}
                                                             </td>
-                                                            <td className="px-5 py-4 text-right font-bold text-emerald-700 bg-emerald-50/40 border-r border-slate-100">
+                                                            <td className="px-5 py-4 text-right font-bold text-emerald-700 bg-emerald-50/40 border-r border-slate-100 tabular-nums">
                                                                 {formatRp(
                                                                     row.total_realisasi,
                                                                 )}
                                                             </td>
-                                                            <td className="px-5 py-4 text-right font-bold text-rose-600 bg-rose-50/40 border-r border-slate-100">
+                                                            <td className="px-5 py-4 text-right font-bold text-rose-600 bg-rose-50/40 border-r border-slate-100 tabular-nums">
                                                                 {formatRp(
                                                                     row.total_deviasi,
                                                                 )}
                                                             </td>
-                                                            <td className="px-5 py-4 text-center font-bold text-slate-700 border-r border-slate-100 bg-slate-50/50">
+                                                            <td className="px-5 py-4 text-center font-bold text-slate-700 border-r border-slate-100 bg-slate-50/50 tabular-nums">
                                                                 {formatDecimal(
                                                                     row.deviasi_tertimbang_kumulatif,
                                                                 )}{" "}
@@ -1156,11 +1437,11 @@ export default function LaporanBulanan() {
                                                                               "Lulus" ||
                                                                           stat ===
                                                                               "Tercapai" ? (
-                                                                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-3 py-1 rounded-md border border-emerald-200">
+                                                                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-2.5 py-1 rounded-md border border-emerald-200">
                                                                                 TERCAPAI
                                                                             </span>
                                                                         ) : (
-                                                                            <span className="text-[10px] font-black text-rose-600 bg-rose-100 px-3 py-1 rounded-md border border-rose-200">
+                                                                            <span className="text-[10px] font-black text-rose-600 bg-rose-100 px-2.5 py-1 rounded-md border border-rose-200">
                                                                                 GAGAL
                                                                             </span>
                                                                         )}
@@ -1168,8 +1449,7 @@ export default function LaporanBulanan() {
                                                                 );
                                                             })}
 
-                                                            {/* HAL III DIPA */}
-                                                            <td className="px-4 py-4 text-center bg-slate-50/80 border-r border-slate-100 font-black text-slate-700 text-sm">
+                                                            <td className="px-4 py-4 text-center bg-slate-50/80 border-r border-slate-100 font-black text-slate-700 text-xs tabular-nums">
                                                                 <div>
                                                                     {formatDecimal(
                                                                         row.nilai_ikpa,
@@ -1188,7 +1468,6 @@ export default function LaporanBulanan() {
                                                                 </div>
                                                             </td>
 
-                                                            {/* CAPAIAN OUTPUT RO */}
                                                             <td
                                                                 onClick={() =>
                                                                     toggleSatkerRow(
@@ -1197,7 +1476,7 @@ export default function LaporanBulanan() {
                                                                             .id,
                                                                     )
                                                                 }
-                                                                className="px-4 py-4 text-center bg-purple-50/30 hover:bg-purple-100/50 border-r border-slate-100 font-black text-purple-700 text-sm cursor-pointer transition-colors"
+                                                                className="px-4 py-4 text-center bg-purple-50/30 hover:bg-purple-100/50 border-r border-slate-100 font-black text-purple-700 text-xs cursor-pointer transition-colors tabular-nums"
                                                                 title="Klik untuk membuka laci rincian RO"
                                                             >
                                                                 <div>
@@ -1222,8 +1501,7 @@ export default function LaporanBulanan() {
                                                                 </div>
                                                             </td>
 
-                                                            {/* REVISI DIPA (10%) */}
-                                                            <td className="px-4 py-4 text-center bg-amber-50/30 border-r border-slate-100 font-black text-amber-700 text-sm">
+                                                            <td className="px-4 py-4 text-center bg-amber-50/30 border-r border-slate-100 font-black text-amber-700 text-xs tabular-nums">
                                                                 <div>
                                                                     {formatDecimal(
                                                                         row
@@ -1252,7 +1530,6 @@ export default function LaporanBulanan() {
                                                                 </div>
                                                             </td>
 
-                                                            {/* TATA KELOLA INTERNAL */}
                                                             <td
                                                                 onClick={() =>
                                                                     toggleSatkerRow(
@@ -1265,7 +1542,7 @@ export default function LaporanBulanan() {
                                                                 title="Klik untuk melihat detail Sinkronisasi RO & Disiplin Pelaporan"
                                                             >
                                                                 <span
-                                                                    className={`px-2.5 py-1 rounded-lg text-xs font-black border ${
+                                                                    className={`px-2.5 py-1 rounded-lg text-xs font-black border tabular-nums ${
                                                                         skorTk >=
                                                                         85
                                                                             ? "bg-emerald-100 text-emerald-700 border-emerald-200"
@@ -1281,10 +1558,9 @@ export default function LaporanBulanan() {
                                                                 </span>
                                                             </td>
 
-                                                            {/* TOTAL POIN SIRA (MAX 65) */}
                                                             <td className="px-5 py-4 text-center bg-amber-50/20 border-r border-slate-100">
                                                                 <span
-                                                                    className={`text-xl font-black ${pointStyle}`}
+                                                                    className={`text-lg font-black tabular-nums ${pointStyle}`}
                                                                 >
                                                                     {formatDecimal(
                                                                         totalPoin,
@@ -1300,6 +1576,7 @@ export default function LaporanBulanan() {
                                                     <td className="px-4 py-4 text-center">
                                                         <div className="flex items-center justify-center gap-1.5">
                                                             <button
+                                                                type="button"
                                                                 onClick={() =>
                                                                     handleDownloadPdf(
                                                                         row
@@ -1307,18 +1584,18 @@ export default function LaporanBulanan() {
                                                                             .id,
                                                                     )
                                                                 }
-                                                                className="inline-flex items-center justify-center p-2 bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white rounded-xl transition-all duration-300 border border-rose-100 hover:border-transparent outline-none group/btn shadow-sm"
+                                                                className="inline-flex items-center justify-center p-2 bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white rounded-xl transition-all border border-rose-100 cursor-pointer shadow-sm"
                                                                 title="Cetak PDF Rapor Eksekutif IKPA Satker"
                                                             >
                                                                 <DownloadCloud
-                                                                    size={16}
-                                                                    className="group-hover/btn:-translate-y-0.5 transition-transform"
+                                                                    size={15}
                                                                     strokeWidth={
                                                                         2.5
                                                                     }
                                                                 />
                                                             </button>
                                                             <button
+                                                                type="button"
                                                                 onClick={() =>
                                                                     handleDownloadPdfRo(
                                                                         row
@@ -1326,11 +1603,11 @@ export default function LaporanBulanan() {
                                                                             .id,
                                                                     )
                                                                 }
-                                                                className="inline-flex items-center justify-center p-2 bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white rounded-xl transition-all duration-300 border border-purple-100 hover:border-transparent outline-none shadow-sm"
+                                                                className="inline-flex items-center justify-center p-2 bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white rounded-xl transition-all border border-purple-100 cursor-pointer shadow-sm"
                                                                 title="Cetak PDF Detail RO Satker"
                                                             >
                                                                 <FileText
-                                                                    size={16}
+                                                                    size={15}
                                                                     strokeWidth={
                                                                         2.5
                                                                     }
@@ -1352,17 +1629,20 @@ export default function LaporanBulanan() {
                                     <tr>
                                         <td
                                             colSpan={totalCols}
-                                            className="px-6 py-24 text-center"
+                                            className="px-6 py-20 text-center"
                                         >
-                                            <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                                                <AlertTriangle size={32} />
+                                            <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                                <AlertTriangle size={28} />
                                             </div>
-                                            <p className="text-base font-black text-slate-500">
-                                                Data Belum Tersedia
+                                            <p className="text-sm font-black text-slate-600">
+                                                {laporanData.length > 0
+                                                    ? "Satker Tidak Ditemukan"
+                                                    : "Data Belum Tersedia"}
                                             </p>
-                                            <p className="text-sm font-medium text-slate-400 mt-1">
-                                                Belum ada aktivitas anggaran di
-                                                bulan ini.
+                                            <p className="text-xs font-medium text-slate-400 mt-1">
+                                                {laporanData.length > 0
+                                                    ? "Coba ubah kata kunci pencarian Satker."
+                                                    : "Belum ada aktivitas anggaran di periode ini."}
                                             </p>
                                         </td>
                                     </tr>
@@ -1372,13 +1652,6 @@ export default function LaporanBulanan() {
                     </div>
                 </div>
             </div>
-            <style>{`
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-                .custom-scrollbar::-webkit-scrollbar { height: 10px; width: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid #f8fafc; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-            `}</style>
         </MainLayout>
     );
 }
