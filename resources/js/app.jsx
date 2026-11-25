@@ -3,35 +3,29 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-// Import Pages Auth
-import Login from "./Pages/Auth/Login";
-import Register from "./Pages/Auth/Register";
+// Auth Guards
+import { GuestRoute, ProtectedRoute } from "./Components/AuthGuard";
 
-// Import Polisi Lalu Lintas (Pengganti Dashboard Lama)
+// Pages Auth
+import Login from "./Pages/Auth/Login";
+import ForgotPassword from "./Pages/Auth/ForgotPassword";
+import ForceChangePassword from "./Pages/Auth/ForceChangePassword";
+
+// Polisi Lalu Lintas Dashboard
 import DashboardIndex from "./Pages/DashboardIndex";
 
-// Import Pages Master, Transaksi & Laporan
+// Pages Master, Transaksi & Laporan
 import IndexTransaksi from "./Pages/Admin/Transaksi/Index";
 import IndexAnggaran from "./Pages/Admin/Anggaran/Index";
 import LaporanRealisasi from "./Pages/Admin/Laporan/LaporanRealisasi";
 import LaporanBulanan from "./Pages/Admin/Laporan/LaporanBulanan";
-
-// Import Page Capaian Output (RO)
 import RincianOutputIndex from "./Pages/Admin/RincianOutput/Index";
 
-// Import Page Manajemen User
+// Pages Tata Kelola & Profil
 import IndexUser from "./Pages/Admin/ManajemenUser/Index";
-
-// Import Page Profil
 import Profil from "./Pages/Profil";
-
-// Import Page Log Aktivitas
 import IndexLogAktivitas from "./Pages/Admin/LogAktivitas/Index";
-
-// Import Page Tutup Buku
 import IndexTutupBuku from "./Pages/Admin/TutupBuku/Index";
-
-// Import Page Pengaturan Kop & TTD PDF Dinamis
 import IndexPengaturanPdf from "./Pages/Admin/PengaturanPdf/Index";
 
 const rootElement = document.getElementById("app");
@@ -42,50 +36,126 @@ if (rootElement) {
         <BrowserRouter>
             <Routes>
                 {/* --- AUTHENTICATION ROUTES --- */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-
-                {/* --- DASHBOARD ROUTES --- */}
-                <Route path="/dashboard" element={<DashboardIndex />} />
-
                 <Route
-                    path="/dashboard/input-anggaran"
-                    element={<IndexAnggaran />}
+                    path="/login"
+                    element={
+                        <GuestRoute>
+                            <Login />
+                        </GuestRoute>
+                    }
+                />
+                <Route
+                    path="/forgot-password"
+                    element={
+                        <GuestRoute>
+                            <ForgotPassword />
+                        </GuestRoute>
+                    }
+                />
+                <Route
+                    path="/ganti-password-wajib"
+                    element={
+                        <ProtectedRoute allowForceChange>
+                            <ForceChangePassword />
+                        </ProtectedRoute>
+                    }
+                />
+                {/* Registrasi publik ditutup total */}
+                <Route
+                    path="/register"
+                    element={<Navigate to="/login" replace />}
+                />
+
+                {/* --- DASHBOARD ROUTES (ADMIN & SATKER) --- */}
+                <Route
+                    path="/dashboard"
+                    element={
+                        <ProtectedRoute>
+                            <DashboardIndex />
+                        </ProtectedRoute>
+                    }
                 />
                 <Route
                     path="/dashboard/input-transaksi"
-                    element={<IndexTransaksi />}
+                    element={
+                        <ProtectedRoute>
+                            <IndexTransaksi />
+                        </ProtectedRoute>
+                    }
                 />
                 <Route
                     path="/dashboard/input-ro"
-                    element={<RincianOutputIndex />}
+                    element={
+                        <ProtectedRoute>
+                            <RincianOutputIndex />
+                        </ProtectedRoute>
+                    }
                 />
-
                 <Route
                     path="/dashboard/laporan-realisasi"
-                    element={<LaporanRealisasi />}
+                    element={
+                        <ProtectedRoute>
+                            <LaporanRealisasi />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/dashboard/profil"
+                    element={
+                        <ProtectedRoute>
+                            <Profil />
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* --- DASHBOARD ROUTES KHUSUS ADMIN KANWIL (ROLE GUARD) --- */}
+                <Route
+                    path="/dashboard/input-anggaran"
+                    element={
+                        <ProtectedRoute requireAdmin>
+                            <IndexAnggaran />
+                        </ProtectedRoute>
+                    }
                 />
                 <Route
                     path="/dashboard/laporan-bulanan"
-                    element={<LaporanBulanan />}
+                    element={
+                        <ProtectedRoute requireAdmin>
+                            <LaporanBulanan />
+                        </ProtectedRoute>
+                    }
                 />
-
                 <Route
                     path="/dashboard/tutup-buku"
-                    element={<IndexTutupBuku />}
+                    element={
+                        <ProtectedRoute requireAdmin>
+                            <IndexTutupBuku />
+                        </ProtectedRoute>
+                    }
                 />
                 <Route
                     path="/dashboard/manajemen-user"
-                    element={<IndexUser />}
+                    element={
+                        <ProtectedRoute requireAdmin>
+                            <IndexUser />
+                        </ProtectedRoute>
+                    }
                 />
                 <Route
                     path="/dashboard/pengaturan-pdf"
-                    element={<IndexPengaturanPdf />}
+                    element={
+                        <ProtectedRoute requireAdmin>
+                            <IndexPengaturanPdf />
+                        </ProtectedRoute>
+                    }
                 />
-                <Route path="/dashboard/profil" element={<Profil />} />
                 <Route
                     path="/dashboard/log-aktivitas"
-                    element={<IndexLogAktivitas />}
+                    element={
+                        <ProtectedRoute requireAdmin>
+                            <IndexLogAktivitas />
+                        </ProtectedRoute>
+                    }
                 />
 
                 {/* --- REDIRECTS --- */}
